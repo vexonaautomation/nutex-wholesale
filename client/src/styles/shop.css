@@ -146,8 +146,8 @@
 .mobile-nav h4 { margin: 18px 0 4px; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-soft); }
 
 /* ============================================================ LAYOUT */
-.page { padding: 24px 0 64px; min-height: 60vh; }
-@media (min-width: 768px) { .page { padding: 36px 0 88px; } }
+.page { padding-top: 24px; padding-bottom: 64px; min-height: 60vh; }
+@media (min-width: 768px) { .page { padding-top: 36px; padding-bottom: 88px; } }
 .page-title { font-family: var(--font-display); font-size: clamp(26px, 4vw, 36px); font-weight: 600; margin: 0 0 6px; }
 .crumbs { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--text-soft); margin-bottom: 14px; }
 .crumbs a:hover { color: var(--brand-700); }
@@ -174,8 +174,8 @@
     linear-gradient(180deg, var(--brand-50), #fff 85%);
   border-bottom: 1px solid var(--ink-150);
 }
-.hero-inner { display: grid; grid-template-columns: 1fr; gap: 36px; padding: 44px 0 52px; align-items: center; }
-@media (min-width: 960px) { .hero-inner { grid-template-columns: 1.15fr 0.85fr; padding: 72px 0 84px; gap: 56px; } }
+.hero-inner { display: grid; grid-template-columns: 1fr; gap: 36px; padding-top: 44px; padding-bottom: 52px; align-items: center; }
+@media (min-width: 960px) { .hero-inner { grid-template-columns: 1.15fr 0.85fr; padding-top: 72px; padding-bottom: 84px; gap: 56px; } }
 .hero h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(32px, 5.4vw, 56px); line-height: 1.06; margin: 14px 0 16px; letter-spacing: -0.02em; }
 .hero h1 em { font-style: italic; color: var(--brand-700); }
 .hero-sub { font-size: clamp(15px, 1.6vw, 18px); color: var(--ink-700); max-width: 560px; }
