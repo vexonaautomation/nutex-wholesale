@@ -119,7 +119,7 @@ export const existingCustomerSchema = z.object({
 });
 
 export const existingCustomerBulkSchema = z.object({
-  text: z.string().max(200000).optional().default(''),
+  text: z.string().max(600000).optional().default(''),
   rows: z.array(existingCustomerSchema).max(3000).optional().default([]),
 });
 

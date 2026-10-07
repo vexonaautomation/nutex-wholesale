@@ -77,6 +77,7 @@ Pick a product: loose pieces show the colour × size matrix (with *reserved* and
 Default view shows *Submitted* payments. For each: open the proof, match the **UTR and amount** with your bank/UPI statement, then **Verify** or **Reject** (reason is shown to the customer, who can re-submit). A WhatsApp message from the customer is **not** a verification.
 
 ## Existing customers (no minimum order, loose pieces)
+- **Excel template:** *Existing Customers → Bulk add → Download the template* — fill it, then copy-paste the table (with header) or upload the CSV. Step-by-step: [EXISTING_CUSTOMERS_IMPORT.md](EXISTING_CUSTOMERS_IMPORT.md).
 - *Admin → Existing Customers* → **Add customer** or **Bulk add** (paste one per line: `mobile, name, business, city` — straight from Excel). Or type rows directly in the `Existing_Customers` Google Sheet (column A = mobile).
 - From *Customers*, open a customer → **Mark as existing customer**.
 - **Automatic:** a new customer becomes an existing customer when you verify their first payment (setting *After the first paid order*).

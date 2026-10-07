@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BadgeCheck, ListPlus, Pencil, Plus } from 'lucide-react';
+import {
+  BadgeCheck, Download, ListPlus, Pencil, Plus, Upload,
+} from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { qs } from '../../services/api.js';
 import { useAsync, useDebounce } from '../../hooks/index.js';
@@ -24,6 +26,19 @@ export default function ExistingCustomers() {
   const [bulkResult, setBulkResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState(null);
+  const fileRef = useRef(null);
+
+  // CSV saved from Excel -> into the text box (checked before anything is added)
+  const readFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 500000) { toast.error('File is too large (max 500 KB, about 3000 customers).'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { setBulkText(String(reader.result || '')); setBulkResult(null); toast.success(`${file.name} loaded - check the lines, then press "Add numbers".`); };
+    reader.onerror = () => toast.error('Could not read the file. Save it as CSV and try again.');
+    reader.readAsText(file);
+  };
 
   const open = (row) => {
     setEditing(row || {});
@@ -158,8 +173,18 @@ export default function ExistingCustomers() {
         footer={<><button type="button" className="btn" onClick={() => setBulkOpen(false)}>Close</button><button type="button" className="btn btn-primary" onClick={bulk} disabled={busy || !bulkText.trim()}>{busy && <Spinner small />} Add numbers</button></>}
       >
         <div className="stack">
-          <p className="muted mb-0">One customer per line: <code>mobile, name, business, city, alternate numbers</code> (only the mobile is required; separate several alternate numbers with <code>/</code>). You can paste columns straight from Excel. Numbers already in the list are skipped - nothing is overwritten.</p>
-          <textarea className="textarea" rows={10} value={bulkText} onChange={(e) => setBulkText(e.target.value)} placeholder={'9876543210, Riya Sharma, Riya Fashion, Pune, 9123456789\n9000011111\n+91 99887 76655, Amit, Amit Hosiery, Surat, 9811111111/9822222222'} />
+          <div className="card card-pad" style={{ background: 'var(--ink-50)' }}>
+            <strong>Import from Excel - 3 steps</strong>
+            <ol className="small mb-0" style={{ paddingLeft: 18, lineHeight: 1.7 }}>
+              <li><a className="link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} href="/templates/existing-customers-template.csv" download="nutex-existing-customers-template.csv"><Download size={14} /> Download the template</a> and open it in Excel.</li>
+              <li>Fill one customer per row (only <strong>mobile</strong> is required) and delete the 2 example rows. Columns: mobile, customer_name, business_name, city, alternate_mobiles (several: <code>/</code>), gstin, minimum_order_value (blank = default), notes.</li>
+              <li>Select the whole table incl. the header row → copy → paste below. Or save as CSV and <button type="button" className="link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => fileRef.current?.click()}><Upload size={14} /> upload the CSV file</button>.</li>
+            </ol>
+            <input ref={fileRef} type="file" accept=".csv,text/csv,.txt,text/plain" className="sr-only" onChange={readFile} />
+          </div>
+          <p className="small muted mb-0">Without a header row each line is read as <code>mobile, name, business, city, alternate numbers</code>. Numbers already in the list are skipped - nothing is overwritten.</p>
+          <textarea className="textarea" rows={10} value={bulkText} onChange={(e) => setBulkText(e.target.value)} placeholder={'mobile\tcustomer_name\tbusiness_name\tcity\n9876543210\tRiya Sharma\tRiya Fashion\tPune\n\n- or -\n9876543210, Riya Sharma, Riya Fashion, Pune, 9123456789'} />
+          {bulkText.trim() && <p className="tiny soft mb-0">{bulkText.trim().split(/\r?\n/).filter((l) => l.trim()).length} line(s) ready</p>}
           {bulkResult && (
             <Alert type={bulkResult.skipped.length ? 'warning' : 'success'}>
               Added {bulkResult.added}. {bulkResult.skipped.length > 0 && `Skipped ${bulkResult.skipped.length}: ${bulkResult.skipped.slice(0, 8).map((s) => `${s.mobile || '?'} (${s.reason})`).join(', ')}${bulkResult.skipped.length > 8 ? '…' : ''}`}

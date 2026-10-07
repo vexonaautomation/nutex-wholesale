@@ -8,6 +8,7 @@ import { normalizeMobile } from '../utils/orderToken.js';
 import { nowIso } from '../utils/dates.js';
 import { AppError, badRequest, notFound } from '../utils/errors.js';
 import { GSTIN_RE } from '../utils/validation.js';
+import { detectDelimiter, parseCsvLine } from '../utils/csv.js';
 
 const SHEET = 'Existing_Customers';
 const MOBILE_RE = /^[6-9]\d{9}$/;
@@ -266,17 +267,52 @@ export async function addExistingCustomers(inputs, { admin, ip }) {
  * Parses pasted text, one customer per line:
  *   mobile, name, business, city, alternate numbers (separated by / or more commas)
  */
+// Column names accepted in a header row (template, Excel copy-paste or CSV file).
+const BULK_COLUMNS = {
+  mobile: ['mobile', 'mobile number', 'mobile no', 'phone', 'phone number', 'whatsapp', 'whatsapp number', 'number', 'contact'],
+  customer_name: ['customer name', 'name', 'owner', 'owner name', 'contact name'],
+  business_name: ['business name', 'business', 'shop', 'shop name', 'firm', 'firm name', 'company'],
+  city: ['city', 'town', 'location'],
+  alternate_mobiles: ['alternate mobiles', 'alternate mobile', 'alternate numbers', 'alternate number', 'alternate', 'other numbers', 'alt mobile'],
+  gstin: ['gstin', 'gst', 'gst number', 'gst no'],
+  minimum_order_value: ['minimum order value', 'minimum order', 'min order', 'minimum'],
+  notes: ['notes', 'note', 'remarks'],
+};
+const normHeader = (h) => String(h || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[_\-.*:]+/g, ' ').replace(/\s+/g, ' ').trim();
+const fieldOfHeader = (h) => Object.entries(BULK_COLUMNS).find(([, names]) => names.includes(normHeader(h)))?.[0] || null;
+export const EXAMPLE_ROW_MARK = 'EXAMPLE ROW';
+
+/**
+ * Reads pasted text / a CSV file of existing customers.
+ *  - With a header row (template, Excel copy-paste, CSV): columns are matched
+ *    by name, in any order: mobile, customer_name, business_name, city,
+ *    alternate_mobiles, gstin, minimum_order_value, notes.
+ *  - Without a header: one customer per line
+ *      mobile, name, business, city, alternate numbers (separated by / or more commas)
+ * Blank lines, # comments and template example rows are ignored.
+ */
 export function parseBulkText(text) {
-  return String(text || '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .slice(0, 3000)
-    .map((line) => {
-      const [mobile, customerName, businessName, city, ...alts] = line.split(/\t|,/).map((s) => s.trim());
-      return { mobile, customer_name: customerName, business_name: businessName, city, alternate_mobiles: alts.join('/') };
-    })
-    .filter((r) => !/^mobile$/i.test(r.mobile || ''));
+  const lines = String(text || '').replace(/^﻿/, '').split(/\r?\n/)
+    .filter((l) => l.trim() && !l.trim().startsWith('#'))
+    .slice(0, 3001);
+  if (!lines.length) return [];
+  const delimiter = detectDelimiter(lines[0]);
+  const first = parseCsvLine(lines[0], delimiter);
+  const headerFields = first.map(fieldOfHeader);
+  const hasHeader = headerFields.includes('mobile') && !first.some((c) => /\d{10}/.test(c.replace(/\D/g, '')));
+
+  if (hasHeader) {
+    return lines.slice(1).map((line) => {
+      const cells = parseCsvLine(line, delimiter);
+      const row = {};
+      headerFields.forEach((field, i) => { if (field && cells[i] !== undefined && row[field] === undefined) row[field] = cells[i]; });
+      return row;
+    }).filter((r) => r.mobile && !String(r.notes || '').toUpperCase().startsWith(EXAMPLE_ROW_MARK));
+  }
+  return lines.slice(0, 3000).map((line) => {
+    const [mobile, customerName, businessName, city, ...alts] = parseCsvLine(line, delimiter);
+    return { mobile, customer_name: customerName, business_name: businessName, city, alternate_mobiles: alts.filter(Boolean).join('/') };
+  }).filter((r) => r.mobile && !/^mobile$/i.test(r.mobile));
 }
 
 export async function updateExistingCustomer(key, input, { admin, ip }) {

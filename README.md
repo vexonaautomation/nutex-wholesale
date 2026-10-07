@@ -37,7 +37,7 @@ lingerie sets, camisoles and men's innerwear at wholesale prices.
 
 **Admin (ERP-style)** — dashboard KPIs & alerts · 10-step product wizard · colour × size inventory matrix · box inventory · categories / colours / sizes (add, edit, reorder, deactivate, archive) · fixed discount or **unlimited slabs** with configurable basis, date windows, overlap validation and test calculator · orders with filters, status flow, dispatch details, **reopen with reason**, cancel · payment verification/rejection with proof viewer · customers · settings (company, pricing, payment QR, legal pages, admin users) · audit log · CSV exports.
 
-**Data safety** — additive-only migrations on every start · atomic multi-sheet writes · rows found by immutable IDs, only changed cells written · code-level block of destructive Sheets requests · historical order snapshots · no demo seeding in production · 79 automated tests including a redeploy simulation.
+**Data safety** — additive-only migrations on every start · atomic multi-sheet writes · rows found by immutable IDs, only changed cells written · code-level block of destructive Sheets requests · historical order snapshots · no demo seeding in production · 84 automated tests including a redeploy simulation.
 
 ## Architecture
 
