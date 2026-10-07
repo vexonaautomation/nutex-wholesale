@@ -43,7 +43,7 @@ export default function Payments() {
                     <td><Link className="cell-main" to={`/admin/orders/${p.order_id}`}>{p.order_number}</Link><div className="cell-sub">{p.order_status}</div></td>
                     <td><div className="cell-main">{p.business_name}</div><div className="cell-sub">{p.customer_name} · {p.mobile}</div></td>
                     <td className="right num"><strong>{formatINR(p.amount)}</strong>{p.remarks && p.status === 'SUBMITTED' && <div className="cell-sub" style={{ color: 'var(--warning-700)' }}>{p.remarks}</div>}</td>
-                    <td className="num">{p.utr}</td>
+                    <td className="num">{p.utr || '—'}</td>
                     <td>{p.proof_view_url ? <button type="button" className="btn btn-sm" onClick={() => setProof(p)}>View</button> : '—'}</td>
                     <td><StatusBadge kind="payment" status={p.status} /></td>
                     <td className="small">{p.verified_by || '—'}</td>

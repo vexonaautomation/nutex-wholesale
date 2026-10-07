@@ -224,7 +224,7 @@ export default function Home() {
             <div className="step"><h3>Reach the minimum</h3><p>Your cart shows the discount and how much is left to reach {settings ? formatINR(settings.minimum_order_value) : 'the minimum'}.</p></div>
             <div className="step"><h3>Checkout</h3><p>Enter business and delivery details. Your order number is created instantly.</p></div>
             <div className="step"><h3>Pay with UPI QR</h3><p>Scan our payment QR and pay the exact order amount from any UPI app.</p></div>
-            <div className="step"><h3>Submit UTR &amp; screenshot</h3><p>Your order is locked and our team verifies the payment.</p></div>
+            <div className="step"><h3>Upload the payment screenshot</h3><p>Your order is locked and our team verifies the payment.</p></div>
             <div className="step"><h3>Packed &amp; dispatched</h3><p>Track status and courier details from the order tracking page.</p></div>
           </div>
         </div>
@@ -236,7 +236,7 @@ export default function Home() {
           <div>
             <span className="eyebrow">Payment process</span>
             <h2 className="display" style={{ fontSize: 30, margin: '8px 0 12px' }}>Simple, verified UPI payments</h2>
-            <p className="muted">After checkout you will see our company UPI QR code and the exact amount for your order. Pay from any UPI app, then submit the UTR / transaction ID and a screenshot. Our team verifies every payment before processing the order.</p>
+            <p className="muted">After checkout you will see our company UPI QR code and the exact amount for your order. Pay from any UPI app, then upload the payment screenshot (the UTR / transaction ID is optional). Our team verifies every payment before processing the order.</p>
             <div className="stack mt-2">
               <div className="info-tile"><QrCode /> Only pay using the QR code and UPI ID shown on your order’s payment page.</div>
               <div className="info-tile"><LockKeyhole /> Submitting payment details locks your order. Need a change? Contact us on WhatsApp.</div>

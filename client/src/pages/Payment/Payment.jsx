@@ -83,7 +83,7 @@ export default function Payment() {
     e.preventDefault();
     setSubmitError(null);
     if (!(Number(form.amount) > 0)) return setSubmitError({ message: 'Enter the amount you paid.' });
-    if (!/^[A-Za-z0-9]{6,30}$/.test(form.utr.trim())) return setSubmitError({ message: 'Enter a valid UTR / Transaction ID (6-30 letters or digits).' });
+    if (form.utr.trim() && !/^[A-Za-z0-9]{6,30}$/.test(form.utr.trim())) return setSubmitError({ message: 'Enter a valid UTR / Transaction ID (6-30 letters or digits), or leave it blank.' });
     if (!file) return setSubmitError({ message: 'Please attach the payment screenshot.' });
     setBusy(true);
     try {
@@ -172,7 +172,7 @@ export default function Payment() {
                 <Field label="Payment amount (₹)" required hint={`Amount due: ${formatINR(order.amount_to_pay)}`}>
                   <input className="input" inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, '') })} />
                 </Field>
-                <Field label="UTR / Transaction ID" required hint="12-digit UPI reference number from your payment app" className="span-2">
+                <Field label="UTR / Transaction ID (optional)" hint="12-digit UPI reference number from your payment app - you can leave it blank" className="span-2">
                   <input className="input" value={form.utr} onChange={(e) => setForm({ ...form, utr: e.target.value.replace(/\s/g, '') })} maxLength={30} style={{ textTransform: 'uppercase' }} />
                 </Field>
                 <div className="span-2">

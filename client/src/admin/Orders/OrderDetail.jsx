@@ -37,7 +37,7 @@ export function PaymentDecision({ payment, onDone }) {
       <ConfirmDialog
         open={mode === 'verify'}
         title="Verify payment?"
-        message={`Confirm that ${formatINR(payment.amount)} with UTR ${payment.utr} has been received in the company account.`}
+        message={`Confirm that ${formatINR(payment.amount)}${payment.utr ? ` with UTR ${payment.utr}` : ' (no UTR given - check the screenshot)'} has been received in the company account.`}
         confirmLabel="Mark as verified"
         reasonLabel="Remarks (optional)"
         onClose={() => setMode(null)}
@@ -175,7 +175,7 @@ export default function OrderDetail() {
                       <tr key={p.payment_id}>
                         <td className="small nowrap">{formatDateTime(p.submitted_at)}</td>
                         <td className="right num"><strong>{formatINR(p.amount)}</strong>{p.expected_amount !== p.amount && <div className="cell-sub">due {formatINR(p.expected_amount)}</div>}</td>
-                        <td className="num">{p.utr}</td>
+                        <td className="num">{p.utr || '—'}</td>
                         <td>{p.proof_view_url ? <button type="button" className="btn btn-sm" onClick={() => setProof(p)}>View</button> : '—'}</td>
                         <td><StatusBadge kind="payment" status={p.status} /></td>
                         <td className="small">{p.verified_at ? <>{formatDateTime(p.verified_at)}<div className="cell-sub">{p.verified_by}</div></> : '—'}</td>

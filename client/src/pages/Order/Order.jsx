@@ -135,7 +135,7 @@ export default function Order() {
               <h3 className="card-title">Payments</h3>
               {order.payments.map((p) => (
                 <div key={p.payment_id} className="summary-row" style={{ alignItems: 'center' }}>
-                  <span>{formatINR(p.amount)} · UTR {p.utr}<br /><span className="tiny soft">{formatDateTime(p.submitted_at)}{p.remarks ? ` · ${p.remarks}` : ''}</span></span>
+                  <span>{formatINR(p.amount)}{p.utr ? ` · UTR ${p.utr}` : ''}<br /><span className="tiny soft">{formatDateTime(p.submitted_at)}{p.remarks ? ` · ${p.remarks}` : ''}</span></span>
                   <span className={`badge badge-${PAYMENT_STATUS[p.status]?.tone || 'outline'}`}>{PAYMENT_STATUS[p.status]?.label || p.status}</span>
                 </div>
               ))}

@@ -131,7 +131,7 @@ export default function Dashboard() {
                   {data.recent_payments.length ? data.recent_payments.map((p) => (
                     <tr key={p.payment_id} className="is-clickable" onClick={() => navigate(`/admin/orders/${p.order_id}`)}>
                       <td className="cell-main">{p.order_number}</td>
-                      <td className="num">{p.utr}</td>
+                      <td className="num">{p.utr || '—'}</td>
                       <td className="right num">{formatINR(p.amount)}</td>
                       <td><StatusBadge kind="payment" status={p.status} /></td>
                       <td className="small">{formatDateTime(p.submitted_at)}</td>
