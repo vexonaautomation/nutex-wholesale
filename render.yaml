@@ -4,6 +4,10 @@ services:
   - type: web
     name: nutex-wholesale
     runtime: node
+    # ALWAYS ON - never change this to "free". The Free plan puts the site to
+    # sleep after ~15 minutes without visitors (first customer then waits
+    # 30-60 s) and stops the background job that auto-cancels unpaid orders.
+    # Starter or any higher paid plan never sleeps.
     plan: starter
     region: singapore
     # Keep ONE instance: critical inventory/order writes are serialised in-process.

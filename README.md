@@ -214,6 +214,8 @@ Before the first push, confirm no secrets are staged (`git status` must not list
 **Blueprint (recommended):** Render Dashboard → *New → Blueprint* → select the repo → Render reads `render.yaml`
 (1 web service, `JWT_SECRET`/`SESSION_SECRET` auto-generated) → fill the `sync: false` variables → *Apply*.
 
+> **Always on — no sleep mode.** Keep the service on the **Starter plan or higher** (set in `render.yaml`). Never choose *Free*: it sleeps after ~15 minutes without visitors (the next customer waits 30–60 s) and pauses the background job that auto-cancels unpaid orders. If Render shows a plan choice, pick **Starter**. Check later in Render → service → *Settings → Instance Type*.
+
 **Manual web service:**
 
 | Setting | Value |
@@ -222,6 +224,7 @@ Before the first push, confirm no secrets are staged (`git status` must not list
 | Build command | `npm ci --include=dev && npm run build` |
 | Start command | `npm start` |
 | Health check path | `/api/health` |
+| Instance type | **Starter or higher — never Free** (Free sleeps when idle) |
 | Instances | **1** (inventory/order writes are serialised in-process) |
 | Auto-deploy | On (every push to `main` deploys) |
 | Disk | **None** — no data is stored on Render |
@@ -231,10 +234,10 @@ Before the first push, confirm no secrets are staged (`git status` must not list
 - `--include=dev` is required because Render sets `NODE_ENV=production`, which would otherwise skip Vite.
 - On each start the server checks the Google Sheet schema (additive only), then serves traffic. `/api/health` returns `ready: true` once done.
 - Custom domain: Render → Settings → Custom domains; then update `FRONTEND_URL`.
-- Free plans sleep when idle; use a paid instance for a business site.
 
 ## Production checklist
 
+- [ ] Render instance type **Starter or higher** (always on, never sleeps)
 - [ ] Production Google Sheet owned by the business account, shared (Editor) with the service account only
 - [ ] Drive folder configured (Shared drive or OAuth with consent screen **In production**)
 - [ ] All env vars set on Render; secrets ≥ 32 chars; `NODE_ENV=production`
