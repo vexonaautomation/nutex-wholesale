@@ -12,6 +12,7 @@ import { MinimumOrderProgress } from '../../components/MinimumOrderProgress/Mini
 import { EmptyState, Img, Messages, PageLoader, Spinner, Alert } from '../../components/common/ui.jsx';
 import { formatINR, pct } from '../../utils/format.js';
 import { ExistingCustomerPrompt } from '../../components/ExistingCustomerLogin/ExistingCustomerLogin.jsx';
+import { ActiveOrders } from '../../components/ActiveOrders/ActiveOrders.jsx';
 
 function VariantPicker({ line, options: all, onChange }) {
   // a box line can switch to another box, a pieces line to another colour/size
@@ -76,6 +77,7 @@ export default function Cart() {
   if (!cart.items.length && !cart.editing) {
     return (
       <div className="container page">
+        <ActiveOrders />
         <EmptyState icon={ShoppingBag} title="Your cart is empty" action={<Link to="/shop" className="btn btn-primary">Browse products</Link>}>
           Add products by colour and size, or choose mix-colour boxes.
         </EmptyState>
@@ -86,6 +88,7 @@ export default function Cart() {
 
   return (
     <div className="container page">
+      {!cart.editing && <ActiveOrders />}
       <h1 className="page-title">{cart.editing ? `Edit order ${cart.editing.order_number}` : 'Your cart'}</h1>
       <p className="muted">Prices, discounts and stock are calculated live by our system.</p>
       {cart.quoteError && <Alert type="error" className="mb-2">{cart.quoteError.message}</Alert>}

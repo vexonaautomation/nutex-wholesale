@@ -95,7 +95,7 @@ export default function Dashboard() {
         <Stat label="Processing" value={c.processing} />
         <Stat label="Packed" value={c.packed} />
         <Stat label="Dispatched" value={c.dispatched} />
-        <Stat label="Completed" value={c.completed} tone="success" />
+        <Stat label="Handed over" value={c.completed} tone="success" />
         <Stat label="Cancelled" value={c.cancelled} />
         <Stat label="Low stock variants" value={c.low_stock_variants} icon={AlertTriangle} tone={c.low_stock_variants ? 'warning' : 'default'} />
         <Stat label="Out-of-stock variants" value={c.out_of_stock_variants} icon={Boxes} tone={c.out_of_stock_variants ? 'danger' : 'default'} />
@@ -131,7 +131,7 @@ export default function Dashboard() {
                   {data.recent_payments.length ? data.recent_payments.map((p) => (
                     <tr key={p.payment_id} className="is-clickable" onClick={() => navigate(`/admin/orders/${p.order_id}`)}>
                       <td className="cell-main">{p.order_number}</td>
-                      <td className="num">{p.utr}</td>
+                      <td className="num">{p.utr || '—'}</td>
                       <td className="right num">{formatINR(p.amount)}</td>
                       <td><StatusBadge kind="payment" status={p.status} /></td>
                       <td className="small">{formatDateTime(p.submitted_at)}</td>

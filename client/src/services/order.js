@@ -33,11 +33,29 @@ export function listSavedOrders() {
     .sort((a, b) => (a.saved_at < b.saved_at ? 1 : -1));
 }
 
+/** Orders handed over or cancelled stop being shown in "Your orders". */
+export function markOrderClosed(orderNumber) {
+  try {
+    const all = readAll();
+    if (!all[orderNumber] || all[orderNumber].closed) return;
+    all[orderNumber].closed = true;
+    localStorage.setItem(KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Open orders saved on this device (newest first, max 10). */
+export function openSavedOrders() {
+  return listSavedOrders().filter((o) => o.token && !o.closed).slice(0, 10);
+}
+
 const tokenHeader = (orderNumber) => ({ 'X-Order-Token': getOrderToken(orderNumber) });
 
 export const orderApi = {
   quote: (items, opts) => api.post('/api/cart/quote', { items }, { ...opts, headers: customerHeader() }),
   createDraft: (payload) => api.post('/api/orders/draft', payload, { headers: customerHeader() }),
+  active: (orders) => api.post('/api/orders/active', { orders: orders.map(({ order_number, token }) => ({ order_number, token })) }),
   track: (order_number, mobile) => api.post('/api/orders/track', { order_number, mobile }),
   get: (n) => api.get(`/api/orders/${encodeURIComponent(n)}`, { headers: tokenHeader(n) }),
   update: (n, items, client_final_payable) => api.put(`/api/orders/${encodeURIComponent(n)}`, { items, client_final_payable }, { headers: tokenHeader(n) }),

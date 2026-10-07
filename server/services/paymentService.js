@@ -66,7 +66,7 @@ export async function submitPayment(orderNumber, token, fields, file, { ip } = {
       if (!canSubmitPayment(order)) refuseSubmission(order);
 
       const utr = fields.utr.toUpperCase();
-      const reused = data.Payments.find((p) => String(p.utr).toUpperCase() === utr && p.status !== PAYMENT_STATUS.REJECTED);
+      const reused = utr && data.Payments.find((p) => String(p.utr).toUpperCase() === utr && p.status !== PAYMENT_STATUS.REJECTED);
       if (reused) {
         throw conflict('UTR_ALREADY_USED', 'This UTR / Transaction ID has already been submitted. Please check the number and try again.');
       }
@@ -117,7 +117,7 @@ export async function submitPayment(orderNumber, token, fields, file, { ip } = {
         { op: 'append', sheet: 'Payments', rows: [payment] },
         { op: 'update', sheet: 'Orders', id: order.order_id, patch: orderPatch },
         ...inventory.ops,
-        historyOp(order, order.order_status, ORDER_STATUS.PAYMENT_SUBMITTED, ACTOR.CUSTOMER, order.customer_id, `Payment details submitted (UTR ${utr})`),
+        historyOp(order, order.order_status, ORDER_STATUS.PAYMENT_SUBMITTED, ACTOR.CUSTOMER, order.customer_id, `Payment details submitted (${utr ? `UTR ${utr}` : 'no UTR given'})`),
         auditOp({
           actorType: ACTOR.CUSTOMER, ip, action: AUDIT_ACTION.PAYMENT_SUBMITTED, entity_type: 'Payment', entity_id: payment.payment_id,
           new_value: { order_number: order.order_number, amount, utr, expected_amount: expected },

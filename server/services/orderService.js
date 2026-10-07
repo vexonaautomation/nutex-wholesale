@@ -337,6 +337,40 @@ export async function getCustomerOrder(orderNumber, token) {
   return customerOrderView(bundle, settings);
 }
 
+/**
+ * Short status cards for the orders saved on a customer's device (cart
+ * "Your orders"). Read-only; every entry needs its own order access token -
+ * entries with a wrong token or unknown number are left out silently.
+ * `closed` = handed over (COMPLETED) or cancelled: the device stops showing it.
+ */
+export async function activeOrderSummaries(entries) {
+  if (!entries.length) return [];
+  const data = await sheetsService.readMany(['Orders', 'Order_Items', 'Payments'], { fresh: false });
+  const out = [];
+  for (const { order_number: n, token } of entries) {
+    const order = data.Orders.find((o) => o.order_number === normalizeOrderNumber(n));
+    if (!order || !verifyOrderAccessToken(order.order_id, token)) continue;
+    const items = activeItems(data.Order_Items, order.order_id);
+    const totals = paymentTotals(order, data.Payments.filter((p) => p.order_id === order.order_id));
+    out.push({
+      order_number: order.order_number,
+      created_at: order.created_at,
+      order_status: order.order_status,
+      status_label: STATE_LABELS[order.order_status] || order.order_status,
+      payment_status: order.payment_status,
+      final_payable: Number(order.final_payable) || 0,
+      amount_to_pay: totals.balance_due,
+      lines: items.length,
+      total_qty: Number(order.total_qty) || 0,
+      // pieces: a box line counts its pieces per box
+      total_pcs: items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.units_per_box_snapshot) || 1), 0),
+      can_submit_payment: canSubmitPayment(order) && totals.balance_due > 0,
+      closed: [ORDER_STATUS.COMPLETED, ORDER_STATUS.CANCELLED].includes(order.order_status),
+    });
+  }
+  return out;
+}
+
 export async function trackOrder({ order_number: orderNumber, mobile }) {
   const generic = notFound('No order found with this order number and mobile number.');
   let bundle;

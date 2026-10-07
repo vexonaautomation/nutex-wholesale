@@ -123,6 +123,11 @@ export const existingCustomerBulkSchema = z.object({
   rows: z.array(existingCustomerSchema).max(3000).optional().default([]),
 });
 
+// orders saved on the customer's device: number + access token each
+export const activeOrdersSchema = z.object({
+  orders: z.array(z.object({ order_number: text(40, 5), token: text(600, 10) })).max(10),
+});
+
 export const trackOrderSchema = z.object({
   order_number: text(40, 5).transform((v) => v.toUpperCase()),
   mobile,
@@ -130,7 +135,9 @@ export const trackOrderSchema = z.object({
 
 export const paymentSubmitSchema = z.object({
   amount: z.coerce.number().positive('Enter the amount paid').max(100000000),
-  utr: z.string().trim().refine((v) => UTR_RE.test(v), { message: 'Enter a valid UTR / Transaction ID (6-30 letters or digits)' }),
+  // optional: the screenshot is the required proof; a UTR, when given, must look valid
+  utr: z.string().trim().optional().default('')
+    .refine((v) => !v || UTR_RE.test(v), { message: 'Enter a valid UTR / Transaction ID (6-30 letters or digits), or leave it blank' }),
   customer_note: optText(500),
   idempotency_key: idempotencyKey,
 });

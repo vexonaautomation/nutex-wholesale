@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Lock, ShieldCheck } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -49,11 +49,13 @@ function validate(f) {
 export default function Checkout() {
   const cart = useCart();
   const toast = useToast();
-  const navigate = useNavigate();
   const [form, setForm] = useState(loadSaved);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
+  // order just placed: go to its payment (QR) page. Checked before the
+  // empty-cart redirect, which would otherwise win once the cart is cleared.
+  const [placed, setPlaced] = useState(null);
   const { quote } = cart;
   const customer = useCustomer();
   const verifiedMobile = customer.auth?.mobile || '';
@@ -78,6 +80,7 @@ export default function Checkout() {
     if (quote && !quote.can_checkout) setServerError(null);
   }, [quote]);
 
+  if (placed) return <Navigate to={`/order/${placed}/payment`} replace />;
   if (cart.editing) return <Navigate to="/cart" replace />;
   if (!cart.items.length) return <Navigate to="/cart" replace />;
   if (!quote) return <PageLoader label="Preparing checkout…" />;
@@ -111,9 +114,9 @@ export default function Checkout() {
         localStorage.setItem(SAVED_KEY, JSON.stringify(remember));
       } catch { /* ignore */ }
       sessionStorage.removeItem(IDEM_KEY);
+      setPlaced(res.order_number);
       cart.clear();
-      toast.success(`Order ${res.order_number} created. Please complete the payment.`);
-      navigate(`/order/${res.order_number}/payment`, { replace: true });
+      toast.success(`Order ${res.order_number} created. Scan the QR code to pay.`);
     } catch (err) {
       setServerError(err);
       if (Array.isArray(err.details)) {

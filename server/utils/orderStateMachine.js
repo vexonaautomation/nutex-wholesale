@@ -26,7 +26,7 @@ export const STATE_LABELS = Object.freeze({
   [S.PROCESSING]: 'Processing',
   [S.PACKED]: 'Packed',
   [S.DISPATCHED]: 'Dispatched',
-  [S.COMPLETED]: 'Completed',
+  [S.COMPLETED]: 'Handed over',
   [S.CANCELLED]: 'Cancelled',
 });
 

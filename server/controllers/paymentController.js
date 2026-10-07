@@ -5,7 +5,7 @@ import { paymentSubmitSchema, formatZodError } from '../utils/validation.js';
 import { badRequest } from '../utils/errors.js';
 import { ctx, noStore } from './helpers.js';
 
-// multipart/form-data: amount, utr, customer_note, idempotency_key + file "screenshot"
+// multipart/form-data: amount, utr (optional), customer_note, idempotency_key + file "screenshot"
 export async function submit(req, res) {
   const parsed = paymentSubmitSchema.safeParse(req.body || {});
   if (!parsed.success) {
