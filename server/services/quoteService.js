@@ -1,5 +1,8 @@
 import { calculatePricing, buildPricingMessages } from './priceCalculator.js';
-import { variantAvailability, lineIssue } from '../utils/stockValidator.js';
+import {
+  variantAvailability, lineIssue, availableOf, ISSUE,
+} from '../utils/stockValidator.js';
+import { INVENTORY_STATUS } from '../config/constants.js';
 import {
   isBoxVariant, variantOffered, pcsAllowedFor, PCS_EXISTING_ONLY_MESSAGE,
 } from '../utils/sellMode.js';
@@ -47,7 +50,7 @@ function variantOptions(catalog, product, heldByOrder, customer) {
   return (catalog.variantsByProduct.get(product.product_id) || [])
     .filter((v) => variantOffered(product, v) && (pcsAllowed || isBoxVariant(v)))
     .map((v) => {
-      const av = variantAvailability(catalog, v, heldByOrder[v.variant_id] || 0);
+      const av = variantAvailability(catalog, v, heldByOrder);
       const d = describeVariant(catalog, product, v);
       return {
         variant_id: v.variant_id,
@@ -73,7 +76,7 @@ function variantOptions(catalog, product, heldByOrder, customer) {
  * @param {object} p
  * @param {Array<{variant_id, qty}>} p.items
  * @param {object} p.catalog             buildCatalog() result (fresh for checkout)
- * @param {object} [p.heldByOrder]       variant_id -> qty already reserved by the order being edited
+ * @param {object} [p.heldByOrder]       inventory variant_id -> pieces already reserved by the order being edited
  * @param {object} [p.customer]          { existing, minimum_order_value } for a verified existing customer
  */
 export function buildQuote({ items, catalog, heldByOrder = {}, today, customer = null }) {
@@ -88,7 +91,7 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
   for (const [variantId, qty] of merged) {
     const variant = catalog.variantsById.get(variantId) || null;
     const product = variant ? catalog.productsById.get(variant.product_id) || null : null;
-    const availability = variantAvailability(catalog, variant, heldByOrder[variantId] || 0);
+    const availability = variantAvailability(catalog, variant, heldByOrder);
     // new customers: full boxes, loose pieces only where the product allows them
     const issue = variant && !isBoxVariant(variant) && !pcsAllowedFor(customer, catalog.settings, product) && availability.purchasable
       ? { code: 'PCS_EXISTING_ONLY', message: PCS_EXISTING_ONLY_MESSAGE, available: 0 }
@@ -105,7 +108,28 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
       unit_mrp: product && variant ? unitMrpForVariant(product, variant) : 0,
       override_percent: product ? productOverridePercent(product) : null,
       units_per_item: isBoxVariant(variant) ? Number(variant?.units_per_box) || 1 : 1,
+      // pieces taken from each inventory row per unit (auto boxes use the colours' loose stock)
+      stock_components: availability.components || { [variantId]: 1 },
     });
+  }
+
+  // Boxes made from loose stock and loose pieces of the same colours share
+  // one stock: check what the whole cart needs per inventory row together.
+  const need = {};
+  for (const l of resolved.filter((x) => !x.issue)) {
+    for (const [v, per] of Object.entries(l.stock_components)) need[v] = (need[v] || 0) + l.qty * per;
+  }
+  const short = new Set(Object.entries(need).filter(([v, n]) => {
+    const inv = catalog.inventoryByVariant.get(v);
+    const supply = (inv && inv.status !== INVENTORY_STATUS.OUT_OF_STOCK ? availableOf(inv) : 0) + (Number(heldByOrder[v]) || 0);
+    return n > supply;
+  }).map(([v]) => v));
+  if (short.size) {
+    for (const l of resolved) {
+      if (!l.issue && Object.keys(l.stock_components).some((v) => short.has(v))) {
+        l.issue = { code: ISSUE.INSUFFICIENT_STOCK, message: 'Not enough stock for these boxes and loose pieces together. Please reduce the quantity.', available: l.available };
+      }
+    }
   }
 
   const valid = resolved.filter((l) => !l.issue);
@@ -124,6 +148,7 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
       variant_id: l.variant_id,
       product_id: l.product_id,
       qty: l.qty,
+      stock_components: l.stock_components,
       ...describeVariant(catalog, l.product, l.variant),
       available: l.available,
       issue: l.issue,

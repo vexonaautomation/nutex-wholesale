@@ -2,6 +2,7 @@ import { sheetsService } from './sheetsService.js';
 import { driveService } from './driveService.js';
 import { auditOp } from './auditService.js';
 import { inventoryDeltaOps } from './inventoryService.js';
+import { piecesByInventory } from '../utils/stockComponents.js';
 import { autoExistingOps } from './existingCustomerService.js';
 import { parseSettings } from './settingsService.js';
 import {
@@ -105,11 +106,8 @@ export async function submitPayment(orderNumber, token, fields, file, { ip } = {
       let inventory = { ops: [], shortfalls: [] };
       if (order.stock_state === STOCK_STATE.RESERVED) {
         const deltas = new Map();
-        for (const i of activeItems(data.Order_Items, order.order_id)) {
-          const prev = deltas.get(i.variant_id) || { stock: 0, reserved: 0 };
-          prev.stock -= Number(i.qty) || 0;
-          prev.reserved -= Number(i.qty) || 0;
-          deltas.set(i.variant_id, prev);
+        for (const [v, n] of Object.entries(piecesByInventory(activeItems(data.Order_Items, order.order_id)))) {
+          deltas.set(v, { stock: -n, reserved: -n });
         }
         inventory = inventoryDeltaOps(data.Inventory, deltas, { by: ACTOR.CUSTOMER, clamp: true });
         orderPatch.stock_state = STOCK_STATE.DEDUCTED;

@@ -137,6 +137,17 @@ export default function ProductWizard() {
   const unitsChanged = !isNew && Boolean(form.loaded_units) && form.units_per_box !== form.loaded_units;
   const boxKey = (sizeId) => (unitsChanged ? `new:${sizeId}` : `size:${sizeId}`);
   const setUnits = (v) => set('units_per_box', v);
+  // box stock left 0 -> boxes are packed from the loose colours (equal pcs of each)
+  const autoBoxes = (sizeId) => {
+    if (!colorsSel.length) return { ok: false, reason: 'No loose colours - enter the box stock.' };
+    if (units % colorsSel.length) return { ok: false, reason: `${units} pcs cannot be split equally into ${colorsSel.length} colours - enter the box stock.` };
+    const per = units / colorsSel.length;
+    const boxes = Math.min(...colorsSel.map((c) => {
+      const st = stockOf(`${c.color_id}|${sizeId}`);
+      return Math.floor(Math.max(0, st.qty - (st.reserved || 0)) / per);
+    }));
+    return { ok: true, per, boxes };
+  };
 
   // ------------------------------------------------------------ images
   const addImages = async (files) => {
@@ -473,6 +484,12 @@ export default function ProductWizard() {
                       <td className="right">
                         <input className="input input-sm" style={{ width: 110, textAlign: 'right' }} type="number" min={0} value={st.qty} onChange={(e) => setStock(key, e.target.value)} aria-label={`Boxes of size ${s.size_name}`} />
                         {st.reserved > 0 && <div className="cell-sub">{st.reserved} reserved</div>}
+                        {!st.qty && !st.reserved && (() => {
+                          const a = autoBoxes(s.size_id);
+                          return a.ok
+                            ? <div className="cell-sub auto-ok">Auto: {a.boxes} box{a.boxes === 1 ? '' : 'es'} from loose stock ({a.per} pc{a.per === 1 ? '' : 's'} of each colour)</div>
+                            : <div className="cell-sub auto-warn">{a.reason}</div>;
+                        })()}
                       </td>
                     </tr>
                   );
@@ -480,6 +497,7 @@ export default function ProductWizard() {
               </tbody>
             </table>
           </div>
+          <p className="muted small mb-0">Leave a size at <b>0</b> to pack boxes from the loose stock: each box takes the same number of pieces of every colour, and the box count follows the colour with the least stock. Enter a number only for boxes you have already packed.</p>
           <div className="row wrap">
             <button type="button" className="btn btn-sm" onClick={() => { const n = window.prompt('Boxes for every size:', '10'); if (n !== null) sizesSel.forEach((s) => setStock(boxKey(s.size_id), n)); }}>Fill all boxes…</button>
           </div>

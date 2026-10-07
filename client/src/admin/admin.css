@@ -268,3 +268,7 @@ a.stat:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
 .catalog-tile .ph .badge { position: absolute; top: 8px; left: 8px; }
 .catalog-tile-body { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; }
 .catalog-tile-body .dot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+
+/* auto box: box stock left 0 -> packed from the loose colour stock */
+.cell-sub.auto-ok { color: var(--success-700); }
+.cell-sub.auto-warn { color: var(--danger-700); }

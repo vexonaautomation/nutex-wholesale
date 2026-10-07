@@ -8,7 +8,8 @@ import { getSettings } from './settingsService.js';
 import { buildCatalog } from './catalogService.js';
 import { CATALOG_SHEETS } from '../config/schema.js';
 import { describeVariant } from './quoteService.js';
-import { sellModeOf, variantOffered } from '../utils/sellMode.js';
+import { sellModeOf, variantOffered, isBoxVariant } from '../utils/sellMode.js';
+import { autoBoxInfo } from '../utils/stockValidator.js';
 
 const SHEET = 'Inventory';
 const n0 = (v) => Math.max(0, Math.floor(Number(v) || 0));
@@ -64,6 +65,8 @@ export async function listInventory({ product_id, filter } = {}) {
     const stock = n0(inv.stock_qty);
     const reserved = n0(inv.reserved_qty);
     const available = Math.max(0, stock - reserved);
+    // box with no box stock: packed from the colours' loose stock
+    const auto = isBoxVariant(variant) ? autoBoxInfo(catalog, product, variant) : null;
     const row = {
       inventory_id: inv.inventory_id,
       variant_id: inv.variant_id,
@@ -89,8 +92,10 @@ export async function listInventory({ product_id, filter } = {}) {
       reserved_qty: reserved,
       available_qty: available,
       status: inv.status || INVENTORY_STATUS.ACTIVE,
-      low_stock: available > 0 && available <= threshold,
-      out_of_stock: available <= 0 || inv.status === INVENTORY_STATUS.OUT_OF_STOCK,
+      auto_box: auto,
+      // an auto box follows its colours, whose own rows carry the low / out signal
+      low_stock: !auto?.ok && available > 0 && available <= threshold,
+      out_of_stock: !auto?.ok && (available <= 0 || inv.status === INVENTORY_STATUS.OUT_OF_STOCK),
       updated_at: inv.updated_at,
     };
     if (filter === 'low' && !row.low_stock) continue;

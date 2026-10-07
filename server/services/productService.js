@@ -12,7 +12,7 @@ import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso } from '../utils/dates.js';
 import { slugify, uniqueSlug } from '../utils/slug.js';
 import { badRequest, notFound, conflict } from '../utils/errors.js';
-import { availableOf } from '../utils/stockValidator.js';
+import { availableOf, autoBoxInfo } from '../utils/stockValidator.js';
 import { calculatePricing } from './priceCalculator.js';
 import {
   allowsBox, allowsPcs, isBoxVariant, primaryInventoryMode, sellModeOf, variantOffered, deriveSellMode,
@@ -49,8 +49,16 @@ function adminSummary(catalog, p) {
   let totalStock = 0;
   let totalAvailable = 0;
   let oos = 0;
+  let autoBoxes = 0;
   for (const v of variants) {
     const inv = catalog.inventoryByVariant.get(v.variant_id);
+    const auto = isBoxVariant(v) ? autoBoxInfo(catalog, p, v) : null;
+    if (auto?.ok) {
+      // packed from the loose pieces already counted above - not extra stock
+      autoBoxes += auto.boxes;
+      if (auto.boxes <= 0) oos += 1;
+      continue;
+    }
     const avail = availableOf(inv);
     totalStock += n0(inv?.stock_qty);
     totalAvailable += avail;
@@ -82,6 +90,7 @@ function adminSummary(catalog, p) {
     oos_variants: oos,
     total_stock: totalStock,
     total_available: totalAvailable,
+    auto_boxes: autoBoxes,
     price_preview: indicativePrice(catalog, p),
     updated_at: p.updated_at,
   };
@@ -110,6 +119,7 @@ export async function getProductAdmin(id, catalogArg) {
     return {
       ...v,
       unit_mrp: unitMrpForVariant(p, v),
+      auto_box: isBoxVariant(v) ? autoBoxInfo(catalog, p, v) : null,
       inventory: inv ? {
         inventory_id: inv.inventory_id,
         stock_qty: n0(inv.stock_qty),

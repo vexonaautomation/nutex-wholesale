@@ -61,4 +61,10 @@ export const MIGRATIONS = [
     version: 6,
     description: 'Loose pieces for new customers per product',
   },
+  {
+    // Additive only: Order_Items.stock_components. Old order lines keep it
+    // blank = they used their own variant's stock, exactly as before.
+    version: 7,
+    description: 'Boxes packed from loose colour stock',
+  },
 ];

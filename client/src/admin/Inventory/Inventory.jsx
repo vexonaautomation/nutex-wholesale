@@ -97,7 +97,17 @@ export default function Inventory() {
               <td>{stockInput(r)}</td>
               <td className="num">{r.reserved_qty}</td>
               <td className="num">
-                <span className={`badge ${r.out_of_stock ? 'badge-danger' : r.low_stock ? 'badge-warning' : 'badge-success'}`}>{Math.max(0, valueOf(r, 'stock_qty') - r.reserved_qty)}</span>
+                {r.auto_box?.ok && valueOf(r, 'stock_qty') === 0 ? (
+                  <>
+                    <span className={`badge ${r.auto_box.boxes > 0 ? 'badge-success' : 'badge-danger'}`}>{r.auto_box.boxes}</span>
+                    <div className="cell-sub auto-ok">auto from loose stock<br />({r.auto_box.per_colour} of each colour)</div>
+                  </>
+                ) : (
+                  <>
+                    <span className={`badge ${r.out_of_stock || (r.auto_box && valueOf(r, 'stock_qty') === 0) ? 'badge-danger' : r.low_stock ? 'badge-warning' : 'badge-success'}`}>{Math.max(0, valueOf(r, 'stock_qty') - r.reserved_qty)}</span>
+                    {r.auto_box && !r.auto_box.ok && valueOf(r, 'stock_qty') === 0 && <div className="cell-sub auto-warn">{r.auto_box.reason} - enter box stock</div>}
+                  </>
+                )}
               </td>
               <td>
                 <select className="select" style={{ minHeight: 32, fontSize: 13, width: 140 }} value={valueOf(r, 'status')} onChange={(e) => edit(r, 'status', e.target.value)}>
@@ -164,7 +174,7 @@ export default function Inventory() {
             </tbody>
           </table>
         </div>
-        {boxItems.length > 0 && <><h4 className="mb-1 mt-3">Boxes (number of boxes per size)</h4>{renderTable(boxItems)}</>}
+        {boxItems.length > 0 && <><h4 className="mb-1 mt-3">Boxes (number of boxes per size)</h4><p className="muted small mb-1">Stock 0 = boxes are packed from the loose colour stock (same pieces of every colour). Enter a number only for boxes already packed.</p>{renderTable(boxItems)}</>}
         </>
       ) : renderTable(items)}
     </>

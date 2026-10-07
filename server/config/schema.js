@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 const n = 'number';
 const b = 'boolean';
@@ -149,6 +149,9 @@ export const SCHEMA = {
       'size_snapshot', 'color_snapshot', 'box_snapshot', 'units_per_box_snapshot', 'qty',
       'mrp_unit_snapshot', 'discount_percent_snapshot', 'wholesale_unit_snapshot',
       'line_mrp_total', 'line_total', 'status', 'created_at',
+      // v7: pieces taken per inventory row for one unit (JSON) - set for
+      // boxes packed from loose colour stock; blank = this variant's own row
+      'stock_components',
     ],
     types: {
       revision: n, units_per_box_snapshot: n, qty: n, mrp_unit_snapshot: n,

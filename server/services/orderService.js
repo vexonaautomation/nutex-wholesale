@@ -27,6 +27,7 @@ import {
   AppError, badRequest, conflict, notFound, unprocessable, MESSAGES,
 } from '../utils/errors.js';
 import { formatINR, round2 } from '../utils/money.js';
+import { piecesByInventory, encodeComponents } from '../utils/stockComponents.js';
 import { logger } from '../utils/logger.js';
 
 export const ORDER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_Status_History'];
@@ -34,11 +35,8 @@ export const ORDER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_Status_
 // ------------------------------------------------------------------ helpers
 export const activeItems = (items, orderId) => items.filter((i) => i.order_id === orderId && i.status === ITEM_STATUS.ACTIVE);
 
-const qtyMap = (items) => {
-  const m = {};
-  for (const i of items) m[i.variant_id] = (m[i.variant_id] || 0) + (Number(i.qty) || 0);
-  return m;
-};
+// pieces per inventory row (an auto box holds pieces of its colours' rows)
+const qtyMap = (items) => piecesByInventory(items);
 
 function historyRow(order, from, to, actorType, actorId, note) {
   return {
@@ -71,6 +69,7 @@ function itemRows(order, revision, quote, now) {
     color_snapshot: l.color_name,
     box_snapshot: l.box_label ? `${l.box_label}${l.mixed_color_description ? ` - ${l.mixed_color_description}` : ''}` : '',
     units_per_box_snapshot: l.units_per_box,
+    stock_components: encodeComponents(l),
     qty: l.qty,
     mrp_unit_snapshot: l.unit_mrp,
     discount_percent_snapshot: l.discount_percent,
@@ -313,7 +312,7 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
       created_at: now,
       updated_at: now,
     };
-    const deltas = new Map(quote.lines.map((l) => [l.variant_id, { reserved: l.qty }]));
+    const deltas = new Map(Object.entries(qtyMap(quote.lines)).map(([v, n]) => [v, { reserved: n }]));
     const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: ACTOR.CUSTOMER });
 
     await sheetsService.commit([
@@ -527,11 +526,8 @@ export async function updateOrderStatusAdmin(id, body, { admin, ip }) {
       Object.assign(patch, { payment_status: PAYMENT_STATUS.VERIFIED, verified_at: now, locked: true, locked_at: order.locked_at || now });
       if (order.stock_state === STOCK_STATE.RESERVED) {
         const deltas = new Map();
-        for (const i of activeItems(data.Order_Items, order.order_id)) {
-          const prev = deltas.get(i.variant_id) || { stock: 0, reserved: 0 };
-          prev.stock -= Number(i.qty) || 0;
-          prev.reserved -= Number(i.qty) || 0;
-          deltas.set(i.variant_id, prev);
+        for (const [v, n] of Object.entries(piecesByInventory(activeItems(data.Order_Items, order.order_id)))) {
+          deltas.set(v, { stock: -n, reserved: -n });
         }
         stockOps.push(...inventoryDeltaOps(data.Inventory, deltas, { by: admin.admin_id, clamp: true }).ops);
         patch.stock_state = STOCK_STATE.DEDUCTED;
@@ -561,11 +557,11 @@ export async function updateOrderStatusAdmin(id, body, { admin, ip }) {
 
 function releaseDeltas(order, items) {
   const deltas = new Map();
-  for (const i of items) {
-    const prev = deltas.get(i.variant_id) || { stock: 0, reserved: 0 };
-    if (order.stock_state === STOCK_STATE.RESERVED) prev.reserved -= Number(i.qty) || 0;
-    if (order.stock_state === STOCK_STATE.DEDUCTED) prev.stock += Number(i.qty) || 0;
-    deltas.set(i.variant_id, prev);
+  for (const [v, n] of Object.entries(qtyMap(items))) {
+    const d = { stock: 0, reserved: 0 };
+    if (order.stock_state === STOCK_STATE.RESERVED) d.reserved -= n;
+    if (order.stock_state === STOCK_STATE.DEDUCTED) d.stock += n;
+    deltas.set(v, d);
   }
   return deltas;
 }
@@ -614,12 +610,7 @@ export async function reopenOrderAdmin(id, { reason }, { admin, ip }) {
     const deltas = new Map();
     if (order.stock_state === STOCK_STATE.DEDUCTED) {
       // committed stock goes back to being a reservation held by this order
-      for (const i of items) {
-        const prev = deltas.get(i.variant_id) || { stock: 0, reserved: 0 };
-        prev.stock += Number(i.qty) || 0;
-        prev.reserved += Number(i.qty) || 0;
-        deltas.set(i.variant_id, prev);
-      }
+      for (const [v, n] of Object.entries(qtyMap(items))) deltas.set(v, { stock: n, reserved: n });
     }
     const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: admin.admin_id, clamp: true });
     const now = nowIso();

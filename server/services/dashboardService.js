@@ -4,8 +4,8 @@ import { CATALOG_SHEETS } from '../config/schema.js';
 import {
   ORDER_STATUS, PAYMENT_STATUS, RECORD_STATUS, INVENTORY_STATUS,
 } from '../config/constants.js';
-import { availableOf } from '../utils/stockValidator.js';
-import { variantOffered } from '../utils/sellMode.js';
+import { availableOf, autoBoxInfo } from '../utils/stockValidator.js';
+import { variantOffered, isBoxVariant } from '../utils/sellMode.js';
 import { describeVariant } from './quoteService.js';
 import { round2 } from '../utils/money.js';
 
@@ -22,6 +22,12 @@ export async function getDashboard() {
     const variants = (catalog.variantsByProduct.get(p.product_id) || []).filter((v) => variantOffered(p, v));
     for (const v of variants) {
       const inv = catalog.inventoryByVariant.get(v.variant_id);
+      const auto = isBoxVariant(v) ? autoBoxInfo(catalog, p, v) : null;
+      if (auto?.ok) {
+        // box packed from loose colours: their rows already show the stock
+        if (auto.boxes > 0) productsWithStock.add(p.product_id);
+        continue;
+      }
       const avail = availableOf(inv);
       const d = describeVariant(catalog, p, v);
       const row = {

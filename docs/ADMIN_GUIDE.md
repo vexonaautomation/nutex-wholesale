@@ -26,6 +26,9 @@ Sign in at **`https://<your-site>/admin`**.
 - **First purchase ⇒ existing customer:** when you verify the first payment of a new customer, their mobile is added to *Existing Customers* automatically (note “Added automatically after first paid order …”). After WhatsApp verification they can then choose box or pieces everywhere, and the minimum order does not apply. Turn off in *Settings → After the first paid order* if you prefer to add existing customers yourself.
 - The server enforces all of this — a new customer cannot order pieces even by editing the cart.
 - **Stock** is kept separately: pieces per colour + size, and **boxes per size** (wizard step 7 or *Inventory*).
+- **Box stock left at 0 = boxes packed from loose stock.** Each box takes the same number of pieces of every active colour of that size (pieces per box ÷ number of colours), and the box count follows the colour with the least stock. Example: box of 3, colours Orange 5 / Pink 8 / Green 15 → 1 of each per box → **5 boxes**. Ordering a box reserves (and on payment deducts) those pieces from each colour, and boxes + loose pieces in one cart are checked together, so nothing is oversold. The admin screens show "Auto: N boxes from loose stock".
+  - Pieces per box must divide equally by the colours (6 with 3 colours = 2 each; 4 with 3 colours does not work). If not, the admin screens show a warning and the box stays out of stock until you enter box stock.
+  - Enter a box number (more than 0) only for boxes you have **already packed**. That size then sells from the box stock, as before.
 - Changing pieces per box (e.g. 6 → 12) creates new boxes with fresh stock; old boxes are kept inactive for order history.
 
 ## Catalogue import (Nutex PDF catalogue)
@@ -50,7 +53,7 @@ Add, edit, reorder (arrows), deactivate/reactivate (categories can also be archi
 4. Sizes – plus optional **size-wise MRP** (e.g. 80-90 ₹62, 95-100 ₹70); blank = product MRP. The shop then shows “From ₹…” and the price next to each size.
 5. Box / pieces – **pieces in one box** (blank = no box; live price example) and **loose pieces for NEW customers**: not allowed / allowed for this article
 6. Colours for loose pieces (from the colour master) and a preview of the boxes per size with calculated box MRP / wholesale price
-7. Inventory – loose pieces: colour × size matrix; boxes: number of boxes per size. 0 = only that combination is out of stock.
+7. Inventory – loose pieces: colour × size matrix; boxes: number of boxes per size. 0 pieces = only that combination is out of stock; 0 boxes = boxes are packed from the loose stock (shown as "Auto: N boxes").
 8. Images – upload (stored in Drive/PRODUCTS), reorder, set main, alt text
 9. Status – Active / Inactive / Archived; “entire product out of stock”
 10. Preview & **Publish** – only this product's rows are written.
