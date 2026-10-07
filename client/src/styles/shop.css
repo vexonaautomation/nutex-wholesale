@@ -458,6 +458,11 @@ body.has-sticky-cart { padding-bottom: 84px; }
   text-align: center;
 }
 .qr-img { width: min(320px, 100%); aspect-ratio: 1; object-fit: contain; background: var(--white); border-radius: var(--radius-lg); padding: 10px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+/* only the QR square of an uploaded standee/poster image */
+.qr-frame { width: min(340px, 100%); background: var(--white); border-radius: var(--radius-lg); padding: 10px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.qr-crop { position: relative; aspect-ratio: 1; overflow: hidden; }
+.qr-crop img { position: absolute; max-width: none; height: auto; display: block; }
+.qr-img.qr-img-full { aspect-ratio: auto; width: auto; height: auto; max-width: min(340px, 100%); max-height: 75vh; }
 .qr-demo-wrap { position: relative; width: min(320px, 100%); }
 .qr-demo-wrap .qr-img { width: 100%; opacity: 0.92; }
 .qr-demo-ribbon {
