@@ -17,6 +17,7 @@ enforces the same additive-only guard as production:
 | `api.test.js` | real HTTP: admin 401/CSRF header/cookie flags, checkout, token required, multipart payment upload, API rejects edits of locked order, fake file types rejected, proofs not public |
 | `catalogImport.test.js` | catalog.json valid (one product + image per catalogue page, unique SKUs, known colours), full import of 150 products/variants/images/category covers/logo/size chart, **re-run creates nothing and keeps admin edits and stock**, size-wise MRP priced per size, wizard size-wise MRP round-trip |
 | `sellMode.test.js` | box per size with calculated price (size-wise MRP), new customers boxes only / existing customers box or pieces (quote + order API), loose pieces opened for new customers per article, no-box articles, PCS ↔ BOX ↔ BOTH switching keeps IDs and stock, pieces-per-box change keeps old boxes inactive, bulk selling options, first verified payment ⇒ existing customer (and setting off), older box products still work |
+| `keepAlive.test.js` | keep-alive on only in production with a public URL; pings `/api/ping`, logs a failure once and recovers; **`/api/ping` makes zero Google Sheets / Drive calls and leaves all data unchanged** (also while the store is starting) |
 | `codeSafety.test.js` | static scan for destructive calls/startup seeding; production refuses memory backend & weak secrets |
 
 Also: `npm run check:data-safety` and `NODE_ENV=production npm run validate:production` (read-only).

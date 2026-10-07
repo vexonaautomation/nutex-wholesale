@@ -7,7 +7,9 @@ services:
     # ALWAYS ON - never change this to "free". The Free plan puts the site to
     # sleep after ~15 minutes without visitors (first customer then waits
     # 30-60 s) and stops the background job that auto-cancels unpaid orders.
-    # Starter or any higher paid plan never sleeps.
+    # Starter or any higher paid plan never sleeps. In addition the server
+    # pings its own /api/ping every 10 min (KEEP_ALIVE, uses RENDER_EXTERNAL_URL);
+    # that endpoint touches no data.
     plan: starter
     region: singapore
     # Keep ONE instance: critical inventory/order writes are serialised in-process.
@@ -19,6 +21,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: KEEP_ALIVE
+        value: auto
       - key: NODE_VERSION
         value: "22"
       - key: DATA_BACKEND

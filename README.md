@@ -37,7 +37,7 @@ lingerie sets, camisoles and men's innerwear at wholesale prices.
 
 **Admin (ERP-style)** — dashboard KPIs & alerts · 10-step product wizard · colour × size inventory matrix · box inventory · categories / colours / sizes (add, edit, reorder, deactivate, archive) · fixed discount or **unlimited slabs** with configurable basis, date windows, overlap validation and test calculator · orders with filters, status flow, dispatch details, **reopen with reason**, cancel · payment verification/rejection with proof viewer · customers · settings (company, pricing, payment QR, legal pages, admin users) · audit log · CSV exports.
 
-**Data safety** — additive-only migrations on every start · atomic multi-sheet writes · rows found by immutable IDs, only changed cells written · code-level block of destructive Sheets requests · historical order snapshots · no demo seeding in production · 76 automated tests including a redeploy simulation.
+**Data safety** — additive-only migrations on every start · atomic multi-sheet writes · rows found by immutable IDs, only changed cells written · code-level block of destructive Sheets requests · historical order snapshots · no demo seeding in production · 79 automated tests including a redeploy simulation.
 
 ## Architecture
 
@@ -215,6 +215,8 @@ Before the first push, confirm no secrets are staged (`git status` must not list
 (1 web service, `JWT_SECRET`/`SESSION_SECRET` auto-generated) → fill the `sync: false` variables → *Apply*.
 
 > **Always on — no sleep mode.** Keep the service on the **Starter plan or higher** (set in `render.yaml`). Never choose *Free*: it sleeps after ~15 minutes without visitors (the next customer waits 30–60 s) and pauses the background job that auto-cancels unpaid orders. If Render shows a plan choice, pick **Starter**. Check later in Render → service → *Settings → Instance Type*.
+>
+> **Keep-alive (built in):** in production the server also pings its own address (`/api/ping`) every 10 minutes, so even an idle period never puts it to sleep. `/api/ping` only answers `{"ok":true}` — it never reads or writes Google Sheets/Drive, so **no data is affected** and no Google quota is used. It uses `RENDER_EXTERNAL_URL` (set by Render automatically); on another host set `KEEP_ALIVE_URL`. Turn off with `KEEP_ALIVE=off`. The log shows *Keep-alive: pinging …* at start-up and a warning if a ping fails.
 
 **Manual web service:**
 

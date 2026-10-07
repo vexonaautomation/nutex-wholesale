@@ -10,6 +10,7 @@ import { runMigrations } from './migrationService.js';
 import { bootstrapAdmin } from './authService.js';
 import { expireUnpaidOrders } from './orderService.js';
 import { logger } from '../utils/logger.js';
+import { keepAliveEnabled, startKeepAlive } from './keepAliveService.js';
 
 export const runtime = {
   ready: false,
@@ -101,6 +102,10 @@ export function startBackgroundJobs() {
   };
   setTimeout(run, 60 * 1000).unref();
   setInterval(run, 10 * 60 * 1000).unref();
+
+  // never let the hosting put the site to sleep (self ping, touches no data)
+  if (keepAliveEnabled(config)) startKeepAlive({ url: config.keepAlive.url, intervalMs: config.keepAlive.intervalMs });
+  else if (config.isProd) logger.warn('Keep-alive is off (no public URL known). Set KEEP_ALIVE_URL to your website address so it never sleeps.');
 }
 
 export function configWarnings() {

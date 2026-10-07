@@ -57,6 +57,12 @@ export const config = Object.freeze({
   port: Number(env.PORT) || 4000,
   appVersion: readAppVersion(),
   frontendUrl: (env.FRONTEND_URL || '').trim().replace(/\/+$/, ''),
+  // Keep-alive self ping so the host never puts the site to sleep (see services/keepAliveService.js)
+  keepAlive: {
+    mode: (env.KEEP_ALIVE || 'auto').trim().toLowerCase(),
+    url: (env.KEEP_ALIVE_URL || env.RENDER_EXTERNAL_URL || env.FRONTEND_URL || '').trim().replace(/\/+$/, ''),
+    intervalMs: Math.min(14, Math.max(1, Number(env.KEEP_ALIVE_INTERVAL_MINUTES) || 10)) * 60 * 1000,
+  },
   dataBackend: (env.DATA_BACKEND || 'google').trim().toLowerCase(),
   trustProxy: env.TRUST_PROXY === undefined ? 1 : Number(env.TRUST_PROXY) || 0,
   cacheTtlMs: Math.max(5, Number(env.CATALOG_CACHE_TTL_SECONDS) || 60) * 1000,

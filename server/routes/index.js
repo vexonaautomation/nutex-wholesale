@@ -21,6 +21,13 @@ api.get('/health', (_req, res) => {
   res.json({ status: 'ok', ready: runtime.ready, version: config.appVersion, time: new Date().toISOString() });
 });
 
+// Keep-alive target: tiny answer, never reads or writes any data
+// (no Google Sheets / Drive access), works even while the store is starting.
+api.get('/ping', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true });
+});
+
 api.use(requireReady);
 api.use('/admin', adminRoutes);
 api.use(settings);
