@@ -18,6 +18,7 @@ export const loginLimiter = make(15 * 60 * 1000, 10, 'Too many login attempts. P
 export const orderCreateLimiter = make(60 * 60 * 1000, 30, 'Too many orders from this network. Please try again later.');
 export const orderAccessLimiter = make(15 * 60 * 1000, 40, 'Too many lookups. Please try again in a few minutes.');
 export const paymentLimiter = make(15 * 60 * 1000, 15, 'Too many payment submissions. Please try again later.');
+export const activeOrdersLimiter = make(15 * 60 * 1000, 150, 'Too many requests. Please try again in a few minutes.');
 export const quoteLimiter = make(60 * 1000, 120, 'Too many cart updates. Please slow down.');
 // WhatsApp OTP costs money per message - keep requests per network low.
 export const otpSendLimiter = make(60 * 60 * 1000, 10, 'Too many verification requests. Please try again later.');

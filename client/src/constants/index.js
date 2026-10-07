@@ -8,7 +8,7 @@ export const ORDER_STATUS = {
   PROCESSING: { label: 'Processing', tone: 'brand' },
   PACKED: { label: 'Packed', tone: 'brand' },
   DISPATCHED: { label: 'Dispatched', tone: 'gold' },
-  COMPLETED: { label: 'Completed', tone: 'success' },
+  COMPLETED: { label: 'Handed over', tone: 'success' },
   CANCELLED: { label: 'Cancelled', tone: 'dark' },
 };
 

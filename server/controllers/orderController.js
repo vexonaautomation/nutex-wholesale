@@ -2,7 +2,7 @@ import { getCatalog } from '../services/catalogService.js';
 import { buildQuote } from '../services/quoteService.js';
 import { customerFromToken } from '../services/existingCustomerService.js';
 import {
-  createDraftOrder, getCustomerOrder, trackOrder, updateOrderItems, recalculateOrder, lockOrder,
+  createDraftOrder, getCustomerOrder, trackOrder, activeOrderSummaries, updateOrderItems, recalculateOrder, lockOrder,
   listOrdersAdmin, getOrderAdmin, updateOrderStatusAdmin, reopenOrderAdmin, cancelOrderAdmin,
 } from '../services/orderService.js';
 import { ctx, noStore } from './helpers.js';
@@ -26,6 +26,11 @@ export async function createDraft(req, res) {
 export async function track(req, res) {
   noStore(res);
   res.json(await trackOrder(req.body));
+}
+
+export async function activeOrders(req, res) {
+  noStore(res);
+  res.json({ orders: await activeOrderSummaries(req.body.orders) });
 }
 
 export async function getOrder(req, res) {

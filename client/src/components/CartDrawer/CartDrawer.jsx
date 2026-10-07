@@ -9,6 +9,7 @@ import { DiscountProgress } from '../DiscountProgress/DiscountProgress.jsx';
 import { formatINR } from '../../utils/format.js';
 import { ExistingCustomerPrompt } from '../ExistingCustomerLogin/ExistingCustomerLogin.jsx';
 import { useCustomer } from '../../context/CustomerContext.jsx';
+import { ActiveOrders } from '../ActiveOrders/ActiveOrders.jsx';
 
 export function CartDrawer() {
   const cart = useCart();
@@ -42,6 +43,7 @@ export function CartDrawer() {
         </div>
       )}
     >
+      {cart.drawerOpen && !cart.editing && <ActiveOrders onNavigate={cart.closeDrawer} />}
       {!cart.items.length ? (
         <EmptyState icon={ShoppingBag} title="Your cart is empty" action={<button type="button" className="btn btn-primary" onClick={() => go('/shop')}>Browse products</button>}>
           Add colours, sizes or mix-colour boxes to start a wholesale order.

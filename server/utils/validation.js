@@ -123,6 +123,11 @@ export const existingCustomerBulkSchema = z.object({
   rows: z.array(existingCustomerSchema).max(3000).optional().default([]),
 });
 
+// orders saved on the customer's device: number + access token each
+export const activeOrdersSchema = z.object({
+  orders: z.array(z.object({ order_number: text(40, 5), token: text(600, 10) })).max(10),
+});
+
 export const trackOrderSchema = z.object({
   order_number: text(40, 5).transform((v) => v.toUpperCase()),
   mobile,
