@@ -1,0 +1,31 @@
+{
+  "name": "nutex-wholesale",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Nutex Apparel Limited - B2B wholesale ordering platform (React + Express + Google Sheets + Google Drive)",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "demo": "node scripts/devMemory.js",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "start": "node server/server.js",
+    "test": "npm test -w server",
+    "setup:sheets": "node scripts/setupSheets.js",
+    "validate:production": "node scripts/validateProduction.js",
+    "admin:create": "node scripts/createAdmin.js",
+    "drive:token": "node scripts/getDriveRefreshToken.js",
+    "seed:demo": "node scripts/seedDemo.js",
+    "check:data-safety": "node scripts/dataSafetyCheck.js",
+    "gs:generate": "node scripts/generateAppsScript.js",
+    "import:catalog": "node scripts/importCatalog.js"
+  }
+}

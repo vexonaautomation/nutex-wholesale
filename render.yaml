@@ -1,0 +1,61 @@
+# Render Blueprint - single web service (Express API + built React frontend)
+# Business data lives in Google Sheets / Google Drive. NO Render disk is used.
+services:
+  - type: web
+    name: nutex-wholesale
+    runtime: node
+    plan: starter
+    region: singapore
+    # Keep ONE instance: critical inventory/order writes are serialised in-process.
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_BACKEND
+        value: google
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ADMIN_SESSION_TIMEOUT
+        value: 8h
+      - key: CATALOG_CACHE_TTL_SECONDS
+        value: "60"
+      - key: FRONTEND_URL
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_EMAIL
+        sync: false
+      - key: GOOGLE_PRIVATE_KEY
+        sync: false
+      - key: GOOGLE_DRIVE_FOLDER_ID
+        sync: false
+      - key: GOOGLE_DRIVE_AUTH
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REFRESH_TOKEN
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: WHATSAPP_PROVIDER
+        value: cloudwhatsapp
+      - key: WHATSAPP_API_URL
+        value: https://web.cloudwhatsapp.com/wapp/api/send
+      - key: WHATSAPP_API_KEY
+        sync: false
+      - key: WHATSAPP_MOBILE_PREFIX
+        value: "91"
+      - key: ADMIN_BOOTSTRAP_EMAIL
+        sync: false
+      - key: ADMIN_BOOTSTRAP_PASSWORD
+        sync: false

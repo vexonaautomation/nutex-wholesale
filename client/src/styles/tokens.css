@@ -1,0 +1,83 @@
+:root {
+  /* Brand */
+  --brand-950: #2a0718;
+  --brand-900: #3e0c24;
+  --brand-800: #5b1638;
+  --brand-700: #74204a;
+  --brand-600: #8e2b5c;
+  --brand-500: #a83a70;
+  --brand-300: #dc9cbb;
+  --brand-200: #efc9da;
+  --brand-100: #f8e6ee;
+  --brand-50: #fcf4f7;
+
+  --gold-700: #8a6227;
+  --gold-500: #b98a4b;
+  --gold-100: #f6ecdc;
+
+  /* Neutrals (warm) */
+  --ink-950: #141016;
+  --ink-900: #1d181f;
+  --ink-800: #2e2830;
+  --ink-700: #48404b;
+  --ink-600: #615865;
+  --ink-500: #7b737f;
+  --ink-400: #a19aa5;
+  --ink-300: #cdc7d0;
+  --ink-200: #e6e1e8;
+  --ink-150: #eeeaef;
+  --ink-100: #f4f1f5;
+  --ink-50: #faf8fa;
+  --white: #ffffff;
+
+  /* Semantic */
+  --success-700: #146b41;
+  --success-500: #1f8a55;
+  --success-100: #e3f4ea;
+  --warning-700: #8a5200;
+  --warning-500: #c27a06;
+  --warning-100: #fff3d9;
+  --danger-700: #a1231b;
+  --danger-500: #cf3a2f;
+  --danger-100: #fde9e7;
+  --info-700: #1a5394;
+  --info-500: #2f6fc0;
+  --info-100: #e7f0fb;
+
+  --bg: var(--white);
+  --surface: var(--white);
+  --surface-muted: var(--ink-50);
+  --text: var(--ink-900);
+  --text-muted: var(--ink-600);
+  --text-soft: var(--ink-500);
+  --border: var(--ink-200);
+  --border-strong: var(--ink-300);
+  --focus: 0 0 0 3px rgba(168, 58, 112, 0.28);
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(29, 24, 31, 0.06);
+  --shadow-sm: 0 1px 3px rgba(29, 24, 31, 0.08), 0 1px 2px rgba(29, 24, 31, 0.04);
+  --shadow: 0 4px 14px rgba(29, 24, 31, 0.08), 0 1px 3px rgba(29, 24, 31, 0.05);
+  --shadow-lg: 0 18px 40px rgba(29, 24, 31, 0.14), 0 4px 10px rgba(29, 24, 31, 0.06);
+
+  --container: 1240px;
+  --gutter: 16px;
+  --header-h: 68px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 24px;
+    --header-h: 76px;
+  }
+}

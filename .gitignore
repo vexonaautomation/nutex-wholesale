@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Builds
+client/dist/
+dist/
+coverage/
+
+# Environment & secrets - NEVER commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*service-account*.json
+*serviceaccount*.json
+credentials*.json
+client_secret*.json
+google-credentials*.json
+gcp-*.json
+token*.json
+
+# Logs / temp
+logs/
+*.log
+npm-debug.log*
+tmp/
+.tmp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Local tool settings
+.claude/

@@ -1,0 +1,6 @@
+# Keep LF line endings everywhere (Windows dev + Linux Render)
+* text=auto eol=lf
+*.jpg binary
+*.png binary
+*.woff binary
+*.woff2 binary
