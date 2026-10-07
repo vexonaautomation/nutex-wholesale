@@ -26,6 +26,7 @@
     "seed:demo": "node scripts/seedDemo.js",
     "check:data-safety": "node scripts/dataSafetyCheck.js",
     "gs:generate": "node scripts/generateAppsScript.js",
-    "import:catalog": "node scripts/importCatalog.js"
+    "import:catalog": "node scripts/importCatalog.js",
+    "env:check": "node scripts/checkRenderEnv.js"
   }
 }

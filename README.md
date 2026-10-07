@@ -130,6 +130,8 @@ Step-by-step (sections **Q, R, S**): **[google-sheets/setup.md](google-sheets/se
 
 ## Environment variables
 
+**All Render variables in one file:** fill `deploy/render.env` (git-ignored copy of [deploy/render.env.example](deploy/render.env.example)), run `npm run env:check`, then Render → *Environment* → **Add from .env** → paste. Step-by-step (Hindi/English): [docs/RENDER_ENV.md](docs/RENDER_ENV.md).
+
 | Variable | Required | Description |
 |---|---|---|
 | `NODE_ENV` | ✓ | `production` on Render |

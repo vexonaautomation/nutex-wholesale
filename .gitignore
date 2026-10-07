@@ -36,3 +36,7 @@ Thumbs.db
 
 # Local tool settings
 .claude/
+
+# Filled-in environment files for hosting (contain secrets)
+*.env
+deploy/*.env
