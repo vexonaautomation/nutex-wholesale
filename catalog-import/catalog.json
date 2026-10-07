@@ -91,7 +91,7 @@
     {"name": "Maroon-Grey", "code": "MRGY", "hex": "#6D1B2E"}
   ],
   "categories": [
-    {"slug": "lingerie-set", "name": "1 Set / Lingerie Set", "parent": "WOMEN", "sort_order": 10, "description": "Matching bra and panty sets.", "image": "categories/lingerie-set.jpg", "cover_page": 5},
+    {"slug": "lingerie-set", "name": "Set / Lingerie Set", "parent": "WOMEN", "sort_order": 10, "description": "Matching bra and panty sets.", "image": "categories/lingerie-set.jpg", "cover_page": 5},
     {"slug": "padded-bra", "name": "Padded Bra", "parent": "WOMEN", "sort_order": 20, "description": "Foam and padded bras.", "image": "categories/padded-bra.jpg", "cover_page": 17},
     {"slug": "sports-bra", "name": "Sports Bra", "parent": "WOMEN", "sort_order": 30, "description": "Sports, active and tube bras.", "image": "categories/sports-bra.jpg", "cover_page": 34},
     {"slug": "t-shirt-bra", "name": "T-Shirt Bra", "parent": "WOMEN", "sort_order": 35, "description": "Smooth everyday T-shirt bras.", "image": "categories/t-shirt-bra.jpg", "cover_page": 56},
@@ -113,7 +113,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Olive Green", "Orange", "Lavender"],
       "subcategory": "",
-      "description": "Sahin Set by Nutex - 1 Set / Lingerie Set, style no. 2042. Available in 3 colours: Olive Green, Orange, Lavender. Mix any sizes and colours in one wholesale order.",
+      "description": "Sahin Set by Nutex - Set / Lingerie Set, style no. 2042. Available in 3 colours: Olive Green, Orange, Lavender. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p006.jpg"
     },
@@ -127,7 +127,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Red", "Rani Pink", "Maroon"],
       "subcategory": "",
-      "description": "First Night by Nutex - 1 Set / Lingerie Set, style no. 2057. Available in 3 colours: Red, Rani Pink, Maroon. Mix any sizes and colours in one wholesale order.",
+      "description": "First Night by Nutex - Set / Lingerie Set, style no. 2057. Available in 3 colours: Red, Rani Pink, Maroon. Mix any sizes and colours in one wholesale order.",
       "featured": true,
       "image": "products/p007.jpg"
     },
@@ -141,7 +141,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Grey", "Green", "Pink"],
       "subcategory": "",
-      "description": "Frooti Set by Nutex - 1 Set / Lingerie Set, style no. 2027. Floral print. Available in 3 colours: Grey, Green, Pink. Mix any sizes and colours in one wholesale order.",
+      "description": "Frooti Set by Nutex - Set / Lingerie Set, style no. 2027. Floral print. Available in 3 colours: Grey, Green, Pink. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p008.jpg"
     },
@@ -155,7 +155,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Baby Pink", "Black", "Skin"],
       "subcategory": "",
-      "description": "KC Set by Nutex - 1 Set / Lingerie Set, style no. 7705. Available in 3 colours: Baby Pink, Black, Skin. Mix any sizes and colours in one wholesale order.",
+      "description": "KC Set by Nutex - Set / Lingerie Set, style no. 7705. Available in 3 colours: Baby Pink, Black, Skin. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p009.jpg"
     },
@@ -169,7 +169,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Black", "Skin", "Lavender"],
       "subcategory": "",
-      "description": "Lilly Set by Nutex - 1 Set / Lingerie Set, style no. 6013. Available in 3 colours: Black, Skin, Lavender. Mix any sizes and colours in one wholesale order.",
+      "description": "Lilly Set by Nutex - Set / Lingerie Set, style no. 6013. Available in 3 colours: Black, Skin, Lavender. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p010.jpg"
     },
@@ -183,7 +183,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Lime Green", "Coral", "Maroon"],
       "subcategory": "",
-      "description": "Aakriti Set by Nutex - 1 Set / Lingerie Set, style no. 1010. Available in 3 colours: Lime Green, Coral, Maroon. Mix any sizes and colours in one wholesale order.",
+      "description": "Aakriti Set by Nutex - Set / Lingerie Set, style no. 1010. Available in 3 colours: Lime Green, Coral, Maroon. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p011.jpg"
     },
@@ -197,7 +197,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Lime Green", "Coral", "Maroon"],
       "subcategory": "",
-      "description": "Yashika Set by Nutex - 1 Set / Lingerie Set, style no. 1010. Available in 3 colours: Lime Green, Coral, Maroon. Mix any sizes and colours in one wholesale order.",
+      "description": "Yashika Set by Nutex - Set / Lingerie Set, style no. 1010. Available in 3 colours: Lime Green, Coral, Maroon. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p012.jpg"
     },
@@ -211,7 +211,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Black", "Maroon", "White", "Beige", "Red", "Navy Blue"],
       "subcategory": "",
-      "description": "Sanjana Set by Nutex - 1 Set / Lingerie Set, style no. 1007. Available in 6 colours: Black, Maroon, White, Beige, Red, Navy Blue. Mix any sizes and colours in one wholesale order.",
+      "description": "Sanjana Set by Nutex - Set / Lingerie Set, style no. 1007. Available in 6 colours: Black, Maroon, White, Beige, Red, Navy Blue. Mix any sizes and colours in one wholesale order.",
       "featured": true,
       "image": "products/p013.jpg"
     },
@@ -225,7 +225,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Coral", "Lavender", "Yellow"],
       "subcategory": "",
-      "description": "Gulab Set by Nutex - 1 Set / Lingerie Set, style no. 1015. Available in 3 colours: Coral, Lavender, Yellow. Mix any sizes and colours in one wholesale order.",
+      "description": "Gulab Set by Nutex - Set / Lingerie Set, style no. 1015. Available in 3 colours: Coral, Lavender, Yellow. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p014.jpg"
     },
@@ -239,7 +239,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Navy Blue", "Red", "Black"],
       "subcategory": "",
-      "description": "Nikita Set by Nutex - 1 Set / Lingerie Set, style no. 7708. Star print on white base. Available in 3 colours: Navy Blue, Red, Black. Mix any sizes and colours in one wholesale order.",
+      "description": "Nikita Set by Nutex - Set / Lingerie Set, style no. 7708. Star print on white base. Available in 3 colours: Navy Blue, Red, Black. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p015.jpg"
     },
@@ -253,7 +253,7 @@
       "sizes": ["30", "32", "34", "36", "38", "40"],
       "colors": ["Orange", "Yellow", "Lavender"],
       "subcategory": "",
-      "description": "Dil Se Set by Nutex - 1 Set / Lingerie Set, style no. 2061. Heart print. Available in 3 colours: Orange, Yellow, Lavender. Mix any sizes and colours in one wholesale order.",
+      "description": "Dil Se Set by Nutex - Set / Lingerie Set, style no. 2061. Heart print. Available in 3 colours: Orange, Yellow, Lavender. Mix any sizes and colours in one wholesale order.",
       "featured": false,
       "image": "products/p016.jpg"
     },

@@ -68,7 +68,7 @@ export const SETTINGS_BY_KEY = Object.fromEntries(DEFAULT_SETTINGS.map((s) => [s
 
 export const INITIAL_MASTER_DATA = {
   categories: [
-    { category_name: '1 Set / Lingerie Set', parent_category: 'WOMEN', slug: 'lingerie-set' },
+    { category_name: 'Set / Lingerie Set', parent_category: 'WOMEN', slug: 'lingerie-set' },
     { category_name: 'Padded Bra', parent_category: 'WOMEN', slug: 'padded-bra' },
     { category_name: 'Sports Bra', parent_category: 'WOMEN', slug: 'sports-bra' },
     { category_name: 'T-Shirt Bra', parent_category: 'WOMEN', slug: 't-shirt-bra' },
