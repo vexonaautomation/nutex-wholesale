@@ -4,7 +4,7 @@ import { adminApi } from '../../services/auth.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { Alert, Spinner } from '../../components/common/ui.jsx';
 import { Modal } from '../../components/common/Modal.jsx';
-import { SIZE_PRESETS, presetSizeIds } from './sizePresets.js';
+import { SIZE_PRESETS, presetSizeIds, missingPresetSizes } from './sizePresets.js';
 
 const MODES = [
   { key: 'replace', label: 'Set exactly these sizes', hint: 'Sizes not ticked are switched off for these products.' },
@@ -44,6 +44,22 @@ export function BulkSizesDialog({ open, products, onClose, onDone }) {
       if (created) setPicked((cur) => new Set([...cur, created.size_id]));
       setNewSize('');
       toast.success(`Size ${name} added.`);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // a preset size missing from the size list (e.g. 28): add it, then tick the preset
+  const addPreset = async (key) => {
+    setBusy(true);
+    try {
+      const names = missingPresetSizes(sizes, key);
+      for (const n of names) await adminApi.post('/sizes', { size_name: n });
+      const list = await loadSizes();
+      setPicked(new Set(presetSizeIds(list, key)));
+      toast.success(`Size ${names.join(', ')} added.`);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -103,6 +119,10 @@ export function BulkSizesDialog({ open, products, onClose, onDone }) {
               <button key={p.key} type="button" className="btn btn-sm" onClick={() => setPicked(new Set(presetSizeIds(sizes, p.key)))}>{p.label}: {p.from}–{p.to}</button>
             ))}
             <button type="button" className="btn btn-sm btn-ghost" onClick={() => setPicked(new Set())}>Clear</button>
+            {SIZE_PRESETS.map((p) => {
+              const miss = sizes.length ? missingPresetSizes(sizes, p.key) : [];
+              return miss.length ? <button key={`add-${p.key}`} type="button" className="btn btn-sm btn-ghost" disabled={busy} onClick={() => addPreset(p.key)}><Plus /> Add size {miss.join(', ')}</button> : null;
+            })}
           </div>
           <div className="pick-grid">
             {sizes.map((s) => (
