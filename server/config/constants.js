@@ -39,6 +39,10 @@ export const PRICE_DISPLAY_MODE = Object.freeze({
   SHOW_BOTH: 'SHOW_BOTH',
 });
 
+// How an order is paid: ONLINE = UPI QR step after checkout; OFFLINE = online
+// payment was switched off, the team confirms the order (blank = ONLINE).
+export const PAYMENT_MODE = Object.freeze({ ONLINE: 'ONLINE', OFFLINE: 'OFFLINE' });
+
 export const ORDER_STATUS = Object.freeze({
   DRAFT: 'DRAFT',
   PAYMENT_PENDING: 'PAYMENT_PENDING',

@@ -70,7 +70,7 @@ export default function OrderList() {
                     <td className="small">{o.mobile}</td>
                     <td className="small">{o.city}</td>
                     <td className="right num"><strong>{formatINR(o.final_payable)}</strong></td>
-                    <td><StatusBadge kind="payment" status={o.payment_status} /></td>
+                    <td>{o.payment_mode_snapshot === 'OFFLINE' ? <span className="badge badge-gold">No online payment</span> : <StatusBadge kind="payment" status={o.payment_status} />}</td>
                     <td><StatusBadge status={o.order_status} /></td>
                     <td>{o.locked ? <Lock size={16} color="var(--ink-700)" aria-label="Locked" /> : <span className="soft small">Open</span>}</td>
                     <td className="small nowrap">{formatDateTime(o.updated_at)}</td>

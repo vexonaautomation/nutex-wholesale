@@ -234,6 +234,12 @@ export default function Settings() {
       {area('otp_message_template', 'WhatsApp OTP message', '{{otp}} = the code, {{company_name}} = your company name', 3)}
     </div>,
     <div className="form-grid" key="pay">
+      <Field label="Online payment (UPI QR) after checkout" className="span-2" hint="OFF = customers see a thank-you page after checkout and your team confirms each order (Orders > Confirm order). Payment is collected outside the website. Orders already placed keep their own mode.">
+        <select className="select" value={String(draft.online_payment_enabled !== false)} onChange={(e) => setDraft((d) => ({ ...d, online_payment_enabled: e.target.value === 'true' }))}>
+          <option value="true">ON - customers pay by the UPI QR after checkout</option>
+          <option value="false">OFF - thank-you page, the team confirms the order</option>
+        </select>
+      </Field>
       <div className="span-2 card card-pad"><h4 className="mb-1">Company payment QR</h4><p className="small muted">Upload or replace the QR here - it goes live immediately (no need to press Save).</p><PaymentQrManager onSaved={reload} /></div>
       {text('upi_id', 'UPI ID', 'e.g. nutex@okaxis')}
       {text('payment_name', 'Payee / account name')}

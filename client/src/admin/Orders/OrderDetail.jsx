@@ -113,6 +113,7 @@ export default function OrderDetail() {
         <StatusBadge kind="payment" status={order.payment_status} />
         {order.locked ? <span className="badge badge-dark"><Lock /> Locked {order.locked_at && `· ${formatDateTime(order.locked_at)}`}</span> : <span className="badge badge-outline"><LockOpen /> Editable by customer</span>}
         <span className="badge badge-outline">Stock: {order.stock_state}</span>
+        {order.payment_mode_snapshot === 'OFFLINE' && <span className="badge badge-gold">No online payment - confirm with the customer</span>}
         {order.customer_type_snapshot === 'EXISTING' ? <span className="badge badge-success">Existing customer · minimum {order.minimum_order_value_snapshot ? formatINR(order.minimum_order_value_snapshot) : 'not applicable'}</span> : <span className="badge badge-outline">New customer</span>}
       </div>
 
@@ -121,7 +122,7 @@ export default function OrderDetail() {
         <div className="row wrap">
           {data.actions.allowed_statuses.map((s) => (
             <button key={s} type="button" className="btn btn-sm btn-dark" onClick={() => setStatusForm({ status: s, note: '', courier_name: order.courier_name || '', tracking_number: order.tracking_number || '', dispatch_note: '' })}>
-              {s === 'DISPATCHED' && <Truck />} Mark {ORDER_STATUS[s].label}
+              {s === 'DISPATCHED' && <Truck />} {order.payment_mode_snapshot === 'OFFLINE' && order.order_status === 'PAYMENT_PENDING' && s === 'CONFIRMED' ? 'Confirm order' : `Mark ${ORDER_STATUS[s].label}`}
             </button>
           ))}
           {data.actions.can_reopen && <button type="button" className="btn btn-sm" onClick={() => setDialog('reopen')}><LockOpen /> Reopen order</button>}

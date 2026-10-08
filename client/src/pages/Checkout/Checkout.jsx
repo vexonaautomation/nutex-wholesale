@@ -11,6 +11,7 @@ import { Alert, Field, Messages, PageLoader, Spinner } from '../../components/co
 import { formatINR, pct } from '../../utils/format.js';
 import { INDIAN_STATES } from '../../constants/index.js';
 import { useCustomer } from '../../context/CustomerContext.jsx';
+import { useStore } from '../../context/StoreContext.jsx';
 
 const SAVED_KEY = 'nutex_customer_v1';
 const IDEM_KEY = 'nutex_checkout_key';
@@ -57,6 +58,8 @@ export default function Checkout() {
   // empty-cart redirect, which would otherwise win once the cart is cleared.
   const [placed, setPlaced] = useState(null);
   const { quote } = cart;
+  const { settings } = useStore();
+  const onlinePay = settings?.online_payment_enabled !== false;
   const customer = useCustomer();
   const verifiedMobile = customer.auth?.mobile || '';
   useSeo({ title: 'Checkout | Nutex Wholesale', noindex: true });
@@ -80,7 +83,7 @@ export default function Checkout() {
     if (quote && !quote.can_checkout) setServerError(null);
   }, [quote]);
 
-  if (placed) return <Navigate to={`/order/${placed}/payment`} replace />;
+  if (placed) return <Navigate to={`/order/${placed.number}/${placed.offline ? 'thank-you' : 'payment'}`} replace />;
   if (cart.editing) return <Navigate to="/cart" replace />;
   if (!cart.items.length) return <Navigate to="/cart" replace />;
   if (!quote) return <PageLoader label="Preparing checkout…" />;
@@ -114,9 +117,10 @@ export default function Checkout() {
         localStorage.setItem(SAVED_KEY, JSON.stringify(remember));
       } catch { /* ignore */ }
       sessionStorage.removeItem(IDEM_KEY);
-      setPlaced(res.order_number);
+      const offline = res.order?.payment_mode === 'OFFLINE';
+      setPlaced({ number: res.order_number, offline });
       cart.clear();
-      toast.success(`Order ${res.order_number} created. Scan the QR code to pay.`);
+      toast.success(offline ? `Order ${res.order_number} placed. Thank you!` : `Order ${res.order_number} created. Scan the QR code to pay.`);
     } catch (err) {
       setServerError(err);
       if (Array.isArray(err.details)) {
@@ -138,7 +142,7 @@ export default function Checkout() {
       <div className="step-list">
         <span className="step-pill done"><i>1</i> Cart</span><span className="step-sep" />
         <span className="step-pill on"><i>2</i> Details</span><span className="step-sep" />
-        <span className="step-pill"><i>3</i> Payment</span>
+        <span className="step-pill"><i>3</i> {onlinePay ? 'Payment' : 'Confirmation'}</span>
       </div>
       <h1 className="page-title">Checkout</h1>
       <form className="two-col mt-2" onSubmit={submit} noValidate>
@@ -234,7 +238,9 @@ export default function Checkout() {
           <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={!quote.can_checkout || submitting || cart.quoting}>
             {submitting ? <Spinner small /> : <Lock />} Place order · {formatINR(quote.final_payable)}
           </button>
-          <div className="info-tile"><ShieldCheck /> Your order number is created now. You can still edit the order until you submit payment confirmation.</div>
+          <div className="info-tile"><ShieldCheck /> {onlinePay
+            ? 'Your order number is created now. You can still edit the order until you submit payment confirmation.'
+            : 'Your order number is created now. Our team will contact you to confirm the order and payment - nothing is paid on the website.'}</div>
         </aside>
       </form>
     </div>

@@ -592,3 +592,15 @@ body.has-sticky-cart { padding-bottom: 84px; }
 .order-card.is-due { border-left-color: var(--warning-500); background: var(--warning-100); }
 .order-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .order-card-no { font-size: 15px; letter-spacing: .02em; }
+
+/* thank-you page (online payment switched off: the team confirms the order) */
+.thank-hero { text-align: center; padding: 36px 20px 30px; border-radius: var(--radius-xl); background: linear-gradient(180deg, var(--brand-50), var(--white)); border: 1px solid var(--brand-100); display: grid; justify-items: center; gap: 10px; }
+.thank-hero .icon { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--success-500); color: var(--white); box-shadow: 0 10px 24px rgba(31, 138, 76, .25); }
+.thank-hero h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); }
+.thank-hero .lead { max-width: 620px; margin: 0; color: var(--text-muted); font-size: 16px; line-height: 1.6; }
+.next-steps { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 14px; counter-reset: next; }
+.next-steps li { position: relative; padding: 2px 0 2px 46px; display: grid; gap: 3px; counter-increment: next; }
+.next-steps li::before { content: counter(next); position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--surface-muted); color: var(--text-muted); border: 1px solid var(--border); }
+.next-steps li.current::before { background: var(--brand-600); color: var(--white); border-color: var(--brand-600); }
+.next-steps li.done::before { content: '✓'; background: var(--success-500); color: var(--white); border-color: var(--success-500); }
+.next-steps li span { color: var(--text-muted); font-size: 14px; line-height: 1.5; }

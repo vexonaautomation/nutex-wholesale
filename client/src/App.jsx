@@ -18,6 +18,7 @@ import Product from './pages/Product/Product.jsx';
 import Cart from './pages/Cart/Cart.jsx';
 import Checkout from './pages/Checkout/Checkout.jsx';
 import Payment from './pages/Payment/Payment.jsx';
+import ThankYou from './pages/ThankYou/ThankYou.jsx';
 import Order from './pages/Order/Order.jsx';
 import TrackOrder from './pages/TrackOrder/TrackOrder.jsx';
 import Contact from './pages/Contact/Contact.jsx';
@@ -83,6 +84,7 @@ export default function App() {
           <Route path="checkout" element={<Checkout />} />
           <Route path="order/:orderNumber" element={<Order />} />
           <Route path="order/:orderNumber/payment" element={<Payment />} />
+          <Route path="order/:orderNumber/thank-you" element={<ThankYou />} />
           <Route path="track-order" element={<TrackOrder />} />
           <Route path="contact" element={<Contact />} />
           <Route path="policies/:slug" element={<Legal />} />

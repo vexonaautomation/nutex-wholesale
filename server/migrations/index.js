@@ -67,4 +67,10 @@ export const MIGRATIONS = [
     version: 7,
     description: 'Boxes packed from loose colour stock',
   },
+  {
+    // Additive only: Orders.payment_mode_snapshot + online_payment_enabled
+    // setting (default ON). Older orders keep it blank = ONLINE, unchanged.
+    version: 8,
+    description: 'Online payment on/off (thank-you page, team confirms orders)',
+  },
 ];

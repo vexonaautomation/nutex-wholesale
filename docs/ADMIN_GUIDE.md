@@ -97,6 +97,12 @@ Default view shows *Submitted* payments. For each: open the proof, match the **U
   - A verified customer can add another number themselves: *Existing customer → Add another WhatsApp number* → OTP goes to the new number → linked.
   - A number can belong to only one customer; clashes are refused.
 
+## Online payment ON / OFF
+*Settings → Payment → "Online payment (UPI QR) after checkout"*.
+- **ON** (default): after checkout the customer sees the UPI QR, pays and uploads the screenshot.
+- **OFF**: checkout ends on a **Thank-you page** ("Awaiting order confirmation") - nothing is paid on the website. In *Orders* these orders show **No online payment**; after talking to the customer click **Confirm order** (this locks the order and takes the stock), then Processing → Packed → Dispatched → Handed over as usual. They are never auto-cancelled for non-payment, and the customer can download the bill once the order is confirmed.
+- Every order keeps the mode it was placed in, so switching the setting later does not change older orders.
+
 ## Payment QR
 - *Payments → Update payment QR*, *Dashboard*, or *Settings → Payment*: **Upload payment QR** → check the preview (scan it with your own UPI app) → **Make this QR live**. It is live immediately — no separate Save.
 - The file is stored exactly as uploaded (no compression) in Drive/PAYMENT. Old QR files stay in Drive; each change is in the audit log.

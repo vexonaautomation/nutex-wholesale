@@ -1,4 +1,4 @@
-import { ORDER_STATUS as S, PAYMENT_STATUS } from '../config/constants.js';
+import { ORDER_STATUS as S, PAYMENT_STATUS, PAYMENT_MODE } from '../config/constants.js';
 
 // Explicit order state machine.
 //
@@ -71,6 +71,17 @@ export function canAdminTransition(order, to, { balanceDue = null } = {}) {
     return { ok: false, reason: 'Payment states are changed through payment verification or reopen.' };
   }
   if (!FULFILLMENT_FLOW.includes(to)) return { ok: false, reason: 'Unknown target status.' };
+
+  // Order placed while online payment was off: the team confirms it directly
+  // (payment is collected outside the website), no payment verification step.
+  if (order.payment_mode_snapshot === PAYMENT_MODE.OFFLINE) {
+    if (to === S.PAYMENT_VERIFIED) return { ok: false, reason: 'This order has no online payment - confirm the order instead.' };
+    const flow = [S.PAYMENT_PENDING, ...FULFILLMENT_FLOW.slice(1)];
+    const fromIdx = flow.indexOf(from);
+    if (fromIdx < 0) return { ok: false, reason: `Cannot move a ${STATE_LABELS[from] || from} order to ${STATE_LABELS[to]}.` };
+    if (flow.indexOf(to) <= fromIdx) return { ok: false, reason: 'Orders can only move forward in the fulfilment flow.' };
+    return { ok: true };
+  }
 
   // Balance already covered by previously verified payments (e.g. a reopened
   // order that was reduced) - admin may mark it verified directly.

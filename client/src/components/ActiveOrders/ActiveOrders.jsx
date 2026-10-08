@@ -49,8 +49,14 @@ export function ActiveOrders({ onNavigate, className = '' }) {
             </div>
             <strong className="num">{formatINR(o.final_payable)}</strong>
           </div>
-          <div className="row wrap" style={{ gap: 6 }}><StatusBadge status={o.order_status} /></div>
-          <p className="small muted mb-0">{NEXT_STEP[o.order_status] || o.status_label}</p>
+          <div className="row wrap" style={{ gap: 6 }}>
+            {o.payment_mode === 'OFFLINE' && o.order_status === 'PAYMENT_PENDING'
+              ? <span className="badge badge-warning">Awaiting confirmation</span>
+              : <StatusBadge status={o.order_status} />}
+          </div>
+          <p className="small muted mb-0">{o.payment_mode === 'OFFLINE' && o.order_status === 'PAYMENT_PENDING'
+            ? 'Order received - our team will contact you to confirm it.'
+            : NEXT_STEP[o.order_status] || o.status_label}</p>
           {o.can_submit_payment ? (
             <Link to={`/order/${o.order_number}/payment`} className="btn btn-primary btn-sm btn-block" onClick={onNavigate}>
               <QrCode /> Pay {formatINR(o.amount_to_pay)} now

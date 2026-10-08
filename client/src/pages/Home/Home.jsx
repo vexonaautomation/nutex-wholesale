@@ -42,6 +42,8 @@ function GroupSection({ group }) {
 
 export default function Home() {
   const { settings, categories, groups, slabs } = useStore();
+  // Settings > online payment OFF: no QR step, the team confirms each order
+  const onlinePay = settings?.online_payment_enabled !== false;
   const featured = useAsync(() => api.get('/api/products?featured=true&limit=8'), []);
   const customer = useCustomer();
   const company = settings?.company_name || 'Nutex Apparel Limited';
@@ -73,7 +75,9 @@ export default function Home() {
                   ? <span className="fact" style={{ borderColor: '#c4e7d3', color: 'var(--success-700)' }}><BadgeCheck /> Existing customer · no minimum</span>
                   : <span className="fact"><Target /> Minimum order {formatINR(settings.minimum_order_value)}</span>}
                 <span className="fact"><BadgePercent /> {discountHeadline(settings, slabs)}</span>
-                <span className="fact"><QrCode /> Pay by UPI QR</span>
+                {onlinePay
+                  ? <span className="fact"><QrCode /> Pay by UPI QR</span>
+                  : <span className="fact"><BadgeCheck /> Orders confirmed by our team</span>}
               </div>
             )}
             {settings && !customer.isExisting && (
@@ -223,14 +227,24 @@ export default function Home() {
             <div className="step"><h3>Browse &amp; select</h3><p>Choose products, colours and sizes - or mix-colour boxes.</p></div>
             <div className="step"><h3>Reach the minimum</h3><p>Your cart shows the discount and how much is left to reach {settings ? formatINR(settings.minimum_order_value) : 'the minimum'}.</p></div>
             <div className="step"><h3>Checkout</h3><p>Enter business and delivery details. Your order number is created instantly.</p></div>
-            <div className="step"><h3>Pay with UPI QR</h3><p>Scan our payment QR and pay the exact order amount from any UPI app.</p></div>
-            <div className="step"><h3>Upload the payment screenshot</h3><p>Your order is locked and our team verifies the payment.</p></div>
+            {onlinePay ? (
+              <>
+                <div className="step"><h3>Pay with UPI QR</h3><p>Scan our payment QR and pay the exact order amount from any UPI app.</p></div>
+                <div className="step"><h3>Upload the payment screenshot</h3><p>Your order is locked and our team verifies the payment.</p></div>
+              </>
+            ) : (
+              <>
+                <div className="step"><h3>Order received</h3><p>You see a confirmation with your order number - nothing is paid on the website.</p></div>
+                <div className="step"><h3>We confirm with you</h3><p>Our team contacts you on WhatsApp or phone to confirm the order and payment.</p></div>
+              </>
+            )}
             <div className="step"><h3>Packed &amp; dispatched</h3><p>Track status and courier details from the order tracking page.</p></div>
           </div>
         </div>
       </section>
 
-      {/* PAYMENT PROCESS */}
+      {/* PAYMENT PROCESS (only when the online UPI QR payment is switched on) */}
+      {onlinePay && (
       <section className="section">
         <div className="container two-col" style={{ alignItems: 'center' }}>
           <div>
@@ -254,6 +268,7 @@ export default function Home() {
           )}
         </div>
       </section>
+      )}
     </>
   );
 }

@@ -7,13 +7,13 @@ import { customerUpsertOps } from './customerService.js';
 import { getSettings, parseSettings } from './settingsService.js';
 import { CATALOG_SHEETS } from '../config/schema.js';
 import {
-  ACTOR, AUDIT_ACTION, CUSTOMER_TYPE, ITEM_STATUS, ORDER_STATUS, PAYMENT_STATUS, STOCK_STATE,
+  ACTOR, AUDIT_ACTION, CUSTOMER_TYPE, ITEM_STATUS, ORDER_STATUS, PAYMENT_STATUS, STOCK_STATE, PAYMENT_MODE,
 } from '../config/constants.js';
 import {
   customerFromToken, resolveExistingCustomer, maskMobile, autoExistingOps,
 } from './existingCustomerService.js';
 import {
-  withLock, COMMERCE_LOCK, assertOrderEditable, isOrderEditable, canSubmitPayment,
+  withLock, COMMERCE_LOCK, assertOrderEditable, isOrderEditable, canSubmitPayment, isOfflineOrder,
 } from '../utils/lockManager.js';
 import {
   STATE_LABELS, canAdminTransition, canCancel, canReopen, allowedAdminTargets,
@@ -127,9 +127,16 @@ export function assertQuoteOrderable(quote, clientFinal) {
 
 /** The customer may download the bill once the payment is submitted (never for cancelled orders). */
 export function billAvailable(order) {
-  return order.order_status !== ORDER_STATUS.CANCELLED
-    && [PAYMENT_STATUS.SUBMITTED, PAYMENT_STATUS.VERIFIED].includes(order.payment_status);
+  if (order.order_status === ORDER_STATUS.CANCELLED) return false;
+  if (isOfflineOrder(order)) return ![ORDER_STATUS.DRAFT, ORDER_STATUS.PAYMENT_PENDING].includes(order.order_status);
+  return [PAYMENT_STATUS.SUBMITTED, PAYMENT_STATUS.VERIFIED].includes(order.payment_status);
 }
+
+// what the customer sees for an order waiting for the team (no online payment)
+const AWAITING_CONFIRMATION = 'Awaiting confirmation';
+const customerStatusLabel = (order) => (isOfflineOrder(order) && order.order_status === ORDER_STATUS.PAYMENT_PENDING
+  ? AWAITING_CONFIRMATION
+  : STATE_LABELS[order.order_status] || order.order_status);
 
 export function authorizeOrder(order, token) {
   if (!verifyOrderAccessToken(order.order_id, token)) {
@@ -213,8 +220,9 @@ export function customerOrderView({ order, items, payments, history }, settings 
     created_at: order.created_at,
     updated_at: order.updated_at,
     order_status: order.order_status,
-    status_label: STATE_LABELS[order.order_status] || order.order_status,
+    status_label: customerStatusLabel(order),
     payment_status: order.payment_status,
+    payment_mode: isOfflineOrder(order) ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
     locked: order.locked === true,
     locked_at: order.locked_at,
     payment_submitted_at: order.payment_submitted_at,
@@ -264,7 +272,7 @@ export function customerOrderView({ order, items, payments, history }, settings 
       can_submit_payment: canSubmitPayment(order) && totals.balance_due > 0,
       can_download_bill: billAvailable(order),
     },
-    payment_window_hours: editable && expiryHours > 0 ? expiryHours : null,
+    payment_window_hours: editable && expiryHours > 0 && !isOfflineOrder(order) ? expiryHours : null,
     notices,
   };
 }
@@ -316,6 +324,8 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
       stock_state: STOCK_STATE.RESERVED,
       revision: 1,
       idempotency_key: input.idempotency_key,
+      // online payment switched off in Settings -> thank-you page, the team confirms the order
+      payment_mode_snapshot: catalog.settings.online_payment_enabled === false ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
       created_at: now,
       updated_at: now,
     };
@@ -363,8 +373,9 @@ export async function activeOrderSummaries(entries) {
       order_number: order.order_number,
       created_at: order.created_at,
       order_status: order.order_status,
-      status_label: STATE_LABELS[order.order_status] || order.order_status,
+      status_label: customerStatusLabel(order),
       payment_status: order.payment_status,
+      payment_mode: isOfflineOrder(order) ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
       final_payable: Number(order.final_payable) || 0,
       amount_to_pay: totals.balance_due,
       lines: items.length,
@@ -485,6 +496,7 @@ const orderSummary = (o) => ({
   total_qty: o.total_qty,
   order_status: o.order_status,
   payment_status: o.payment_status,
+  payment_mode_snapshot: isOfflineOrder(o) ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
   locked: o.locked === true,
   customer_type: o.customer_type_snapshot || CUSTOMER_TYPE.NEW,
 });
@@ -575,6 +587,19 @@ export async function updateOrderStatusAdmin(id, body, { admin, ip }) {
         patch.stock_state = STOCK_STATE.DEDUCTED;
       }
       // first paid order: the customer becomes an existing customer
+      stockOps.push(...autoExistingOps({ order, existingRows: data.Existing_Customers, settings: parseSettings(data.Settings), admin, ip, now }));
+    }
+    if (isOfflineOrder(order) && order.order_status === ORDER_STATUS.PAYMENT_PENDING) {
+      // order without online payment confirmed by the team: lock it and commit the stock
+      Object.assign(patch, { locked: true, locked_at: order.locked_at || now });
+      if (order.stock_state === STOCK_STATE.RESERVED) {
+        const deltas = new Map();
+        for (const [v, n] of Object.entries(piecesByInventory(activeItems(data.Order_Items, order.order_id)))) {
+          deltas.set(v, { stock: -n, reserved: -n });
+        }
+        stockOps.push(...inventoryDeltaOps(data.Inventory, deltas, { by: admin.admin_id, clamp: true }).ops);
+        patch.stock_state = STOCK_STATE.DEDUCTED;
+      }
       stockOps.push(...autoExistingOps({ order, existingRows: data.Existing_Customers, settings: parseSettings(data.Settings), admin, ip, now }));
     }
     if (body.status === ORDER_STATUS.DISPATCHED) {
@@ -687,7 +712,7 @@ export async function expireUnpaidOrders() {
     const data = await sheetsService.readMany(['Orders', 'Order_Items', 'Inventory', 'Payments'], { fresh: true });
     const withPayments = new Set(data.Payments.map((p) => p.order_id));
     const candidates = data.Orders.filter((o) => o.order_status === ORDER_STATUS.PAYMENT_PENDING
-      && !o.locked && o.stock_state === STOCK_STATE.RESERVED && !withPayments.has(o.order_id)
+      && !isOfflineOrder(o) && !o.locked && o.stock_state === STOCK_STATE.RESERVED && !withPayments.has(o.order_id)
       && hoursSince(o.updated_at || o.created_at) >= hours).slice(0, 25);
     if (!candidates.length) return { expired: 0 };
     const deltas = new Map();

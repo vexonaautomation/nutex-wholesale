@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 const n = 'number';
 const b = 'boolean';
@@ -134,6 +134,9 @@ export const SCHEMA = {
       'customer_type_snapshot',
       // v3
       'alternate_mobile_snapshot',
+      // v8: ONLINE (UPI QR step) or OFFLINE (online payment was switched off:
+      // the team confirms the order). Blank = ONLINE (older orders).
+      'payment_mode_snapshot',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,
