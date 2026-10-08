@@ -12,7 +12,6 @@ export async function start(req, res) {
   const job = await startCatalogImport({
     ...ctx(req),
     stockPerVariant: req.body.stock_per_variant,
-    boxStock: req.body.box_stock,
     selling: req.body.selling,
     activate: req.body.activate,
   });

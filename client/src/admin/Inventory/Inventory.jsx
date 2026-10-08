@@ -96,21 +96,29 @@ export default function Inventory() {
                   : <span className="row"><i className="swatch-dot swatch-dot-sm" style={{ background: r.hex_code || '#ddd' }} />{r.color_name} · {r.size_name}</span>}
               </td>
               <td style={{ textAlign: 'left' }} className="small">{r.sku}</td>
-              <td>{stockInput(r)}</td>
-              <td className="num">{r.reserved_qty}</td>
-              <td className="num">
-                {r.auto_box?.ok && valueOf(r, 'stock_qty') === 0 ? (
-                  <>
-                    <span className={`badge ${r.auto_box.boxes > 0 ? 'badge-success' : 'badge-danger'}`}>{r.auto_box.boxes}</span>
-                    <div className="cell-sub auto-ok">auto from loose stock<br />({r.auto_box.per_colour} of each colour)</div>
-                  </>
-                ) : (
-                  <>
-                    <span className={`badge ${r.out_of_stock || (r.auto_box && valueOf(r, 'stock_qty') === 0) ? 'badge-danger' : r.low_stock ? 'badge-warning' : 'badge-success'}`}>{Math.max(0, valueOf(r, 'stock_qty') - r.reserved_qty)}</span>
-                    {r.auto_box && !r.auto_box.ok && valueOf(r, 'stock_qty') === 0 && <div className="cell-sub auto-warn">{r.auto_box.reason} - enter box stock</div>}
-                  </>
-                )}
-              </td>
+              {r.auto_box ? (
+                // stock is entered in pieces only: a box shows how many can be packed now
+                <>
+                  <td className="small muted">from pieces</td>
+                  <td className="num">—</td>
+                  <td className="num">
+                    {r.auto_box.ok ? (
+                      <>
+                        <span className={`badge ${r.auto_box.boxes > 0 && valueOf(r, 'status') !== 'OUT_OF_STOCK' ? 'badge-success' : 'badge-danger'}`}>{r.auto_box.boxes}</span>
+                        <div className="cell-sub auto-ok">{r.auto_box.per_colour} of each colour</div>
+                      </>
+                    ) : <div className="cell-sub auto-warn">{r.auto_box.reason} - change pieces per box</div>}
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td>{stockInput(r)}</td>
+                  <td className="num">{r.reserved_qty}</td>
+                  <td className="num">
+                    <span className={`badge ${r.out_of_stock ? 'badge-danger' : r.low_stock ? 'badge-warning' : 'badge-success'}`}>{Math.max(0, valueOf(r, 'stock_qty') - r.reserved_qty)}</span>
+                  </td>
+                </>
+              )}
               <td>
                 <select className="select" style={{ minHeight: 32, fontSize: 13, width: 140 }} value={valueOf(r, 'status')} onChange={(e) => edit(r, 'status', e.target.value)}>
                   <option value="ACTIVE">In stock</option><option value="OUT_OF_STOCK">Out of stock</option>
@@ -177,7 +185,7 @@ export default function Inventory() {
             </tbody>
           </table>
         </div>
-        {boxItems.length > 0 && <><h4 className="mb-1 mt-3">Boxes (number of boxes per size)</h4><p className="muted small mb-1">Stock 0 = boxes are packed from the loose colour stock (same pieces of every colour). Enter a number only for boxes already packed.</p>{renderTable(boxItems)}</>}
+        {boxItems.length > 0 && <><h4 className="mb-1 mt-3">Boxes (packed from the loose pieces)</h4><p className="muted small mb-1">Stock is entered in pieces only. Each box takes the same pieces of every colour of that size. Set a box size to "Out of stock" to stop selling that box.</p>{renderTable(boxItems)}</>}
         </>
       ) : renderTable(items)}
       <BulkStockDialog open={bulkOpen} onClose={() => setBulkOpen(false)} onApplied={() => { setEdits({}); reload(); }} />

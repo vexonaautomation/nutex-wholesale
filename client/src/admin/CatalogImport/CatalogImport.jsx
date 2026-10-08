@@ -24,7 +24,6 @@ export default function CatalogImport() {
   const { data, loading, error, reload } = useAsync(() => adminApi.get('/catalog-import'), []);
   const toast = useToast();
   const [stock, setStock] = useState('0');
-  const [boxStock, setBoxStock] = useState('0');
   // per category: how the products are sold and pieces per box (Nutex decides)
   const [selling, setSelling] = useState({});
   const [activate, setActivate] = useState(true);
@@ -72,7 +71,7 @@ export default function CatalogImport() {
     try {
       const payload = Object.fromEntries(Object.entries(selling).map(([slug, r]) => [slug, { units_per_box: Number(r.units_per_box) >= 1 ? Number(r.units_per_box) : null, pcs_for_new_customers: Boolean(r.pcs_for_new_customers) }]));
       const res = await adminApi.post('/catalog-import', {
-        stock_per_variant: Number(stock) || 0, box_stock: Number(boxStock) || 0, selling: payload, activate,
+        stock_per_variant: Number(stock) || 0, selling: payload, activate,
       });
       setJob(res.job);
       toast.success('Import started - you can keep this page open to watch progress.');
@@ -146,11 +145,8 @@ export default function CatalogImport() {
           </div>
           <p className="tiny soft mb-0">One box per size, assorted colours; box price = pieces × piece MRP; blank = no box. Existing customers can always buy a box or loose pieces. New customers buy boxes only - tick "Allow" to let them buy loose pieces too. Change later in Products → select → Box / pieces.</p>
           <div className="form-grid">
-            <Field label="Starting stock: pieces per colour + size" hint="0 = enter real stock later in Inventory; e.g. 50 to test ordering.">
+            <Field label="Starting stock: pieces per colour + size" hint="0 = enter real stock later in Inventory; e.g. 50 to test ordering. Boxes are packed from these pieces.">
               <input className="input" type="number" min={0} max={100000} value={stock} onChange={(e) => setStock(e.target.value)} disabled={running} />
-            </Field>
-            <Field label="Starting stock: boxes per size" hint="Number of boxes available for each size.">
-              <input className="input" type="number" min={0} max={100000} value={boxStock} onChange={(e) => setBoxStock(e.target.value)} disabled={running} />
             </Field>
           </div>
           <label className="check"><input type="checkbox" checked={activate} onChange={(e) => setActivate(e.target.checked)} disabled={running} /> Publish products immediately (Active). Untick to import as Inactive and publish later.</label>

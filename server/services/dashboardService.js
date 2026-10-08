@@ -28,7 +28,8 @@ export async function getDashboard() {
         if (auto.boxes > 0) productsWithStock.add(p.product_id);
         continue;
       }
-      const avail = availableOf(inv);
+      // a box that cannot be packed (e.g. pieces per box not divisible by the colours) is out of stock
+      const avail = auto ? 0 : availableOf(inv);
       const d = describeVariant(catalog, p, v);
       const row = {
         product_id: p.product_id, product_name: p.product_name, sku: v.sku, color: d.color_name, size: d.size_name,

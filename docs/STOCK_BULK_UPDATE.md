@@ -7,15 +7,16 @@ Har product ka stock ek-ek karke daalna mumkin nahi hai, isliye poora stock ek E
 ## 3 steps
 
 ### 1. Stock sheet download karo
-**Download stock sheet** dabao. Ek file aayegi (`nutex-stock-YYYY-MM-DD.csv`), jisme har product ka har colour + size (aur har size ka box) ek row mein hai, aaj ke stock ke saath.
+**Download stock sheet** dabao. Ek file aayegi (`nutex-stock-YYYY-MM-DD.csv`), jisme har product ka har colour + size ek row mein hai, aaj ke stock ke saath.
+
+> **Stock sirf pcs mein daala jaata hai, box mein nahi.** Box apne aap loose pcs se bante hain (har colour ke barabar pcs), isliye sheet mein box ki rows hoti hi nahi.
 
 | Column | Matlab |
 |---|---|
 | `inventory_id` | Website ka apna number – **mat badlo** |
 | `category`, `product_sku`, `product_name` | Product |
-| `type` | `PCS` = loose pieces, `BOX` = box |
-| `colour`, `size` | Colour aur size (box = `Mix`) |
-| `pcs_per_box` | Box mein kitne pcs |
+| `type` | `PCS` (loose pieces) |
+| `colour`, `size` | Colour aur size |
 | `current_stock` | Download ke waqt ka stock – **mat badlo** |
 | `reserved` | Unpaid orders ne rok rakha hai |
 | `new_stock` | **Aap bharo:** gina hua stock (purana stock iss number se badal jayega) |
@@ -26,7 +27,7 @@ Har product ka stock ek-ek karke daalna mumkin nahi hai, isliye poora stock ek E
 - Sirf un rows mein number daalo jinka stock badalna hai. Baaki khaali chhod do – woh nahi badlengi.
 - Ek row mein **ya** `new_stock` **ya** `add_stock` – dono nahi.
 - Excel ke filter (Data → Filter) se category / product / size chhaant kar bharna aasaan hai. Ek jaisa number ho to pehli cell bhar kar neeche drag kar do.
-- **Box (`BOX`) rows:** 0 chhodo to box loose colour stock se apne aap banenge. Number sirf pehle se pack kiye boxes ke liye daalo.
+- **Box ka stock kahin nahi daalna.** Box loose pcs se apne aap bante hain. Kisi size ka box band karna ho to Inventory page par us box ko "Out of stock" kar do.
 - Save: **File → Save As → "CSV UTF-8 (Comma delimited)"**. (Google Sheets: File → Download → CSV.)
 
 ### 3. Upload karo

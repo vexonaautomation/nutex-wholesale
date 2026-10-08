@@ -71,7 +71,7 @@ function stepErrors(f) {
   if (!(Number(f.mrp) > 0)) e.mrp = [2, 'Enter MRP greater than 0'];
   if (f.discount_mode === 'CUSTOM' && !(Number(f.fixed_discount_percent) >= 0 && Number(f.fixed_discount_percent) < 100 && f.fixed_discount_percent !== '')) e.fixed_discount_percent = [2, 'Enter a discount between 0 and 99.99'];
   if (!f.size_ids.length && !(f.legacy_boxes && !f.color_ids.length)) e.size_ids = [3, 'Select at least one size'];
-  if (!hasBox(f) && !f.color_ids.length) e.color_ids = [5, 'Select colours for loose pieces, or set pieces per box (step 5)'];
+  if (!f.legacy_boxes && !f.color_ids.length) e.color_ids = [5, 'Select colours - stock is entered in pieces, and boxes are packed from these colours'];
   if (f.legacy_boxes) {
     if (!f.boxes.length) e.boxes = [5, 'Add at least one box configuration'];
     if (f.boxes.some((b) => !(Number(b.units_per_box) >= 1))) e.boxes = [5, 'Units per box must be at least 1'];
@@ -135,12 +135,11 @@ export default function ProductWizard() {
   const pieceMrpOf = (sizeId) => (Number(form.size_mrps[sizeId]) > 0 ? Number(form.size_mrps[sizeId]) : Number(form.mrp) || 0);
   // changing pieces per box creates NEW boxes: their stock is entered fresh
   const unitsChanged = !isNew && Boolean(form.loaded_units) && form.units_per_box !== form.loaded_units;
-  const boxKey = (sizeId) => (unitsChanged ? `new:${sizeId}` : `size:${sizeId}`);
   const setUnits = (v) => set('units_per_box', v);
   // box stock left 0 -> boxes are packed from the loose colours (equal pcs of each)
   const autoBoxes = (sizeId) => {
-    if (!colorsSel.length) return { ok: false, reason: 'No loose colours - enter the box stock.' };
-    if (units % colorsSel.length) return { ok: false, reason: `${units} pcs cannot be split equally into ${colorsSel.length} colours - enter the box stock.` };
+    if (!colorsSel.length) return { ok: false, reason: 'Select colours (step 6) - boxes are packed from their pieces.' };
+    if (units % colorsSel.length) return { ok: false, reason: `${units} pcs cannot be split equally into ${colorsSel.length} colours - change pieces per box (step 5) so boxes can be packed.` };
     const per = units / colorsSel.length;
     const boxes = Math.min(...colorsSel.map((c) => {
       const st = stockOf(`${c.color_id}|${sizeId}`);
@@ -197,10 +196,7 @@ export default function ProductWizard() {
         const st = stockOf(b.box_id || b.key);
         return { box_key: b.box_id || b.key, stock_qty: st.qty, expected_stock_qty: st.expected };
       })
-      : sizesSel.map((s) => {
-        const st = stockOf(boxKey(s.size_id));
-        return { box_key: `size:${s.size_id}`, stock_qty: st.qty, expected_stock_qty: unitsChanged ? null : st.expected };
-      });
+      : []; // stock is entered in pieces only: boxes are packed from the loose pieces
     const stock = [...pcsStock, ...boxStock];
     const payload = {
       sku: form.sku.trim().toUpperCase(),
@@ -348,7 +344,7 @@ export default function ProductWizard() {
           )}
         </div>
       )}
-      {unitsChanged && <Alert type="warning">Pieces per box changed from {form.loaded_units} to {form.units_per_box || 'no box'}: new boxes are created (old boxes are kept inactive for order history). Enter the box stock again in step 7.</Alert>}
+      {unitsChanged && <Alert type="warning">Pieces per box changed from {form.loaded_units} to {form.units_per_box || 'no box'}: new boxes are created (old boxes are kept inactive for order history). Boxes are packed from the loose pieces, so there is no box stock to enter.</Alert>}
       {form.legacy_boxes && (
         <Alert type="info">This product has older custom box configurations (step 6). <button type="button" className="link" onClick={() => setForm((f) => ({ ...f, legacy_boxes: false }))}>Switch to one box per size</button></Alert>
       )}
@@ -470,26 +466,20 @@ export default function ProductWizard() {
       )}
       {hasBox(form) && !form.legacy_boxes && sizesSel.length > 0 && units > 0 && (
         <>
-          <h4 className="mb-0">Box stock (number of boxes per size)</h4>
+          <h4 className="mb-0">Boxes (packed from the loose pieces above)</h4>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Box</th><th className="right">Available boxes</th></tr></thead>
+              <thead><tr><th>Box</th><th className="right">Boxes available</th></tr></thead>
               <tbody>
                 {sizesSel.map((s) => {
-                  const key = boxKey(s.size_id);
-                  const st = stockOf(key);
+                  const a = autoBoxes(s.size_id);
                   return (
-                    <tr key={key}>
+                    <tr key={s.size_id}>
                       <td className="cell-main">Size {s.size_name} · box of {units} pcs</td>
                       <td className="right">
-                        <input className="input input-sm" style={{ width: 110, textAlign: 'right' }} type="number" min={0} value={st.qty} onChange={(e) => setStock(key, e.target.value)} aria-label={`Boxes of size ${s.size_name}`} />
-                        {st.reserved > 0 && <div className="cell-sub">{st.reserved} reserved</div>}
-                        {!st.qty && !st.reserved && (() => {
-                          const a = autoBoxes(s.size_id);
-                          return a.ok
-                            ? <div className="cell-sub auto-ok">Auto: {a.boxes} box{a.boxes === 1 ? '' : 'es'} from loose stock ({a.per} pc{a.per === 1 ? '' : 's'} of each colour)</div>
-                            : <div className="cell-sub auto-warn">{a.reason}</div>;
-                        })()}
+                        {a.ok
+                          ? <><strong className="num">{a.boxes}</strong><div className="cell-sub auto-ok">{a.per} pc{a.per === 1 ? '' : 's'} of each colour</div></>
+                          : <div className="cell-sub auto-warn">{a.reason}</div>}
                       </td>
                     </tr>
                   );
@@ -497,10 +487,7 @@ export default function ProductWizard() {
               </tbody>
             </table>
           </div>
-          <p className="muted small mb-0">Leave a size at <b>0</b> to pack boxes from the loose stock: each box takes the same number of pieces of every colour, and the box count follows the colour with the least stock. Enter a number only for boxes you have already packed.</p>
-          <div className="row wrap">
-            <button type="button" className="btn btn-sm" onClick={() => { const n = window.prompt('Boxes for every size:', '10'); if (n !== null) sizesSel.forEach((s) => setStock(boxKey(s.size_id), n)); }}>Fill all boxes…</button>
-          </div>
+          <p className="muted small mb-0">Stock is entered in pieces only. Each box takes the same number of pieces of every colour of that size; the box count follows the colour with the least stock.</p>
         </>
       )}
       {hasBox(form) && form.legacy_boxes && (

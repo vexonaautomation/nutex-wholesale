@@ -1,7 +1,7 @@
 // Bulk stock update with Excel (Admin > Inventory > "Bulk update (Excel)").
 //
-//  1. Download the stock sheet: one row per item (pieces per colour + size,
-//     boxes per size) with its current stock.
+//  1. Download the stock sheet: one row per colour + size (stock is entered in
+//     pieces only - boxes are packed from these pieces automatically).
 //  2. In Excel fill   new_stock  = the counted stock (replaces it), or
 //                     add_stock  = pieces/boxes received (added to it).
 //     Leave both blank for rows that do not change.
@@ -37,6 +37,9 @@ const itemKey = (sku, type, colour, size) => {
   return [norm(sku), t, t === 'box' ? '' : norm(colour), norm(size)].join('|');
 };
 
+// rows that take a stock number: loose pieces (+ old-style boxes with own stock)
+const takesStock = (r) => !r.auto_box;
+
 async function stockRows() {
   const { items } = await listInventory();
   return items
@@ -50,7 +53,7 @@ async function stockRows() {
 
 /** The sheet the admin downloads, fills in Excel and uploads again. */
 export async function stockSheetCsv() {
-  const rows = (await stockRows()).map((r) => ({
+  const rows = (await stockRows()).filter(takesStock).map((r) => ({
     inventory_id: r.inventory_id,
     category: r.category_name,
     product_sku: r.product_sku,
@@ -63,7 +66,7 @@ export async function stockSheetCsv() {
     reserved: r.reserved_qty,
     new_stock: '',
     add_stock: '',
-    note: typeOf(r) === 'BOX' ? 'Boxes. Leave 0 = boxes are packed from the loose colour stock' : '',
+    note: typeOf(r) === 'BOX' ? 'Old-style box (own box stock)' : '',
   }));
   return { csv: toCsv(STOCK_SHEET_COLUMNS, rows), filename: `nutex-stock-${istDate()}.csv`, rows: rows.length };
 }
@@ -147,6 +150,7 @@ function planImport(parsed, invRows, catalogRows) {
     if (Number.isNaN(setQty) || Number.isNaN(addQty)) { err('Enter whole numbers only (0, 1, 2 ...).'); continue; }
     if (setQty !== null && addQty !== null) { err('Fill either new_stock or add_stock, not both.'); continue; }
 
+    if (!takesStock(info.get(id) || {})) { err('Box stock is not entered - boxes are packed from the loose pieces. Enter pieces (colour + size) only.'); continue; }
     const inv = byId.get(id);
     const live = n0(inv.stock_qty);
     const reserved = n0(inv.reserved_qty);

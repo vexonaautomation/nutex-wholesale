@@ -30,7 +30,6 @@ function BulkSellingDialog({ open, products, onClose, onDone }) {
   const [withBox, setWithBox] = useState(true);
   const [units, setUnits] = useState('');
   const [pcsNew, setPcsNew] = useState('keep');
-  const [boxStock, setBoxStock] = useState('0');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const apply = async () => {
@@ -41,7 +40,6 @@ function BulkSellingDialog({ open, products, onClose, onDone }) {
         product_ids: products.map((p) => p.product_id),
         units_per_box: withBox ? Number(units) : null,
         ...(pcsNew === 'keep' ? {} : { pcs_for_new_customers: pcsNew === 'yes' }),
-        box_stock: Number(boxStock) || 0,
       });
       setResult(res);
       toast.success(`Box / pieces saved for ${res.updated.length} product(s).`);
@@ -79,11 +77,8 @@ function BulkSellingDialog({ open, products, onClose, onDone }) {
           </div>
           {withBox && (
             <div className="form-grid">
-              <Field label="Pieces in one box" required hint="Box price = pieces × piece MRP of that size.">
+              <Field label="Pieces in one box" required hint="Box price = pieces × piece MRP of that size. Boxes are packed from the loose pieces - no box stock to enter.">
                 <input className="input" type="number" min={1} value={units} onChange={(e) => setUnits(e.target.value.replace(/[^\d]/g, ''))} />
-              </Field>
-              <Field label="Starting stock for NEW boxes" hint="Boxes per size. Existing box stock is not changed.">
-                <input className="input" type="number" min={0} value={boxStock} onChange={(e) => setBoxStock(e.target.value)} />
               </Field>
             </div>
           )}

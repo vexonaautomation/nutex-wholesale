@@ -9,7 +9,6 @@
 //   npm run import:catalog -- --box-all=6        -> every category: boxes of 6 pcs (one per size)
 //   npm run import:catalog -- --box=everyday-panty:12,men-collection:5
 //   npm run import:catalog -- --pcs-new=camisole-collection -> new customers may also buy pieces there
-//   npm run import:catalog -- --box-stock=10     -> starting boxes per size (NEW boxes only)
 // Existing customers can always buy boxes or loose pieces. New customers buy
 // boxes only (unless --pcs-new), so give categories a box size; it can also be
 // set later in Admin > Products > Box / pieces.
@@ -31,7 +30,6 @@ const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.spli
 const dryRun = process.argv.includes('--dry-run');
 const activate = !process.argv.includes('--inactive');
 const stock = Math.max(0, Math.floor(Number(arg('stock') || 0)));
-const boxStock = Math.max(0, Math.floor(Number(arg('box-stock') || 0)));
 const pcsNew = new Set(String(arg('pcs-new') || '').split(',').filter(Boolean));
 function sellingFor(catalog) {
   const all = Math.floor(Number(arg('box-all') || 0));
@@ -88,7 +86,7 @@ try {
 
   let last = 0;
   const job = await startCatalogImport({
-    admin, ip: 'cli', stockPerVariant: stock, boxStock, selling, activate, wait: true,
+    admin, ip: 'cli', stockPerVariant: stock, selling, activate, wait: true,
     onProgress: (st) => {
       if (st.done !== last) {
         last = st.done;

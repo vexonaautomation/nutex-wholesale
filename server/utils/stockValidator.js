@@ -49,9 +49,16 @@ export function variantAvailability(catalog, variant, held = 0) {
     ? Math.max(0, Number(held[vid]) || 0)
     : (vid === variant.variant_id ? Math.max(0, Number(held) || 0) : 0));
 
-  // Box without its own box stock -> made from the loose stock of the colours
+  // Boxes (one per size) are always packed from the loose stock of the colours;
+  // marking the box row "out of stock" stops selling that box.
   if (isBox) {
     const plan = autoBoxPlan(catalog, product, variant);
+    const stopped = catalog.inventoryByVariant.get(variant.variant_id)?.status === INVENTORY_STATUS.OUT_OF_STOCK;
+    if (plan && (!plan.ok || stopped)) {
+      return {
+        purchasable: false, available: 0, code: ISSUE.OUT_OF_STOCK, message: oosMessage, components: null, auto: true,
+      };
+    }
     if (plan?.ok) {
       let boxes = Infinity;
       for (const part of plan.parts) {
@@ -90,17 +97,17 @@ export function variantAvailability(catalog, variant, held = 0) {
 }
 
 /**
- * Auto box: when NO box stock is entered (box row stock 0, nothing reserved)
- * a box is packed from the loose stock - an equal number of pieces of every
- * active colour of that size (box of 6 with 3 colours = 2 of each). Boxes
- * available = the colour with the least pieces / pieces per colour.
- * Needs pieces-per-box divisible by the number of colours.
- * Returns null when the box has its own stock (pre-packed boxes).
+ * Stock is entered in pieces only. A box (one per size) is packed from the
+ * loose stock - an equal number of pieces of every active colour of that size
+ * (box of 6 with 3 colours = 2 of each). Boxes available = the colour with the
+ * least pieces / pieces per colour. Needs pieces-per-box divisible by the
+ * number of colours, otherwise the box cannot be sold ({ ok: false }).
+ * Returns null only for old-style box configs (product without "pieces per
+ * box", or a box without a size): those keep their own box stock.
  */
 export function autoBoxPlan(catalog, product, variant) {
   if (!isBoxVariant(variant) || !variant.size_id || !product) return null;
-  const own = catalog.inventoryByVariant.get(variant.variant_id);
-  if ((Number(own?.stock_qty) || 0) > 0 || (Number(own?.reserved_qty) || 0) > 0) return null;
+  if (!(Number(product.units_per_box) >= 1)) return null;
   const units = Number(variant.units_per_box) || 0;
   const parts = (catalog.variantsByProduct.get(product.product_id) || []).filter((v) => !isBoxVariant(v)
     && v.status === RECORD_STATUS.ACTIVE && v.size_id === variant.size_id
@@ -125,8 +132,8 @@ export function lineIssue(availability, qty) {
 }
 
 /**
- * Admin view of an auto box: null when the box has its own stock, else
- * { ok, per_colour, colours, boxes, reason } - boxes that can be packed now.
+ * Admin view of a box: { ok, per_colour, colours, boxes, reason } - boxes that
+ * can be packed from the loose stock now (null for old-style boxes).
  */
 export function autoBoxInfo(catalog, product, variant) {
   const plan = autoBoxPlan(catalog, product, variant);

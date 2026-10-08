@@ -94,7 +94,7 @@ export function BulkStockDialog({ open, onClose, onApplied }) {
       <div className="stack" style={{ gap: 14 }}>
         <ol className="bulk-steps">
           <li>
-            <strong>Download the stock sheet</strong> - every product, colour and size with its current stock.
+            <strong>Download the stock sheet</strong> - every product, colour and size with its current stock (pieces only).
             <div className="mt-1"><a className="btn btn-sm" href="/api/admin/inventory/stock-sheet" download><Download /> Download stock sheet</a></div>
           </li>
           <li>
@@ -102,7 +102,7 @@ export function BulkStockDialog({ open, onClose, onApplied }) {
             <ul className="small">
               <li><code>new_stock</code> = the stock you counted (replaces the current stock)</li>
               <li><code>add_stock</code> = new pieces / boxes received (added to the current stock)</li>
-              <li>Boxes: leave at 0 and boxes are packed from the loose colour stock automatically.</li>
+              <li>Stock is entered in <b>pieces only</b> - boxes are packed from the pieces automatically.</li>
               <li>Do not change the other columns. Save as <b>CSV UTF-8 (Comma delimited)</b>.</li>
             </ul>
           </li>

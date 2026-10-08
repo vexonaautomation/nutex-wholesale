@@ -53,7 +53,7 @@ function adminSummary(catalog, p) {
   for (const v of variants) {
     const inv = catalog.inventoryByVariant.get(v.variant_id);
     const auto = isBoxVariant(v) ? autoBoxInfo(catalog, p, v) : null;
-    if (auto?.ok) {
+    if (auto) {
       // packed from the loose pieces already counted above - not extra stock
       autoBoxes += auto.boxes;
       if (auto.boxes <= 0) oos += 1;
@@ -184,6 +184,7 @@ export async function saveProduct(input, { admin, ip, productId = null, extraAud
     if (allowsBox(input) && !legacyBoxes) {
       if (!(unitsPerBox >= 1)) throw badRequest('Enter how many pieces are in one box.');
       if (!sizeIds.length) throw badRequest('Select at least one size - one box is made for each size.');
+      if (!colorIds.length) throw badRequest('Select the colours too - boxes are packed from the loose pieces of these colours (stock is entered in pieces only).');
     }
     if (allowsPcs(input) && (!sizeIds.length || !colorIds.length)) throw badRequest('Select sizes and colours for selling in pieces.');
 
@@ -383,12 +384,15 @@ export function planVariants({
           sort_order: 1000 + i,
           variant_mrp: sizeMrp.get(size.size_id) ?? null,
         },
-        stock: stock.find((s) => s.box_key && ((match && s.box_key === match.box_id) || s.box_key === `size:${size.size_id}`)),
+        // stock is entered in pieces only: a box keeps just its "out of stock" flag
+        stock: statusOnly(stock.find((s) => s.box_key && ((match && s.box_key === match.box_id) || s.box_key === `size:${size.size_id}`))),
       });
     });
   }
   return desired;
 }
+
+const statusOnly = (entry) => (entry?.status ? { status: entry.status } : undefined);
 
 export function checkVariantSkus(catalog, pid, desired) {
   const skus = desired.map((d) => d.fields.sku);
@@ -402,10 +406,10 @@ export function checkVariantSkus(catalog, pid, desired) {
  * Turns a variant plan into Sheets operations: updates matched variants,
  * appends new ones (+ inventory rows), sets variants no longer wanted to
  * INACTIVE (never deleted - old orders keep resolving).
- * New variants without a stock entry start at 0 (boxes at `newBoxStock`).
+ * New variants without a stock entry start at 0.
  */
 export function applyVariantPlan({
-  catalog, pid, existingVariants, desired, now, by, newBoxStock = 0,
+  catalog, pid, existingVariants, desired, now, by,
 }) {
   const ops = [];
   const newVariants = [];
@@ -413,7 +417,7 @@ export function applyVariantPlan({
   const stockConflicts = [];
   const stockChanges = [];
   const keptIds = new Set();
-  const startQty = (d) => (d.stock ? n0(d.stock.stock_qty) : isBoxVariant(d.fields) ? n0(newBoxStock) : 0);
+  const startQty = (d) => n0(d.stock?.stock_qty);
   for (const d of desired) {
     const stockEntry = d.stock;
     if (d.match) {
@@ -428,7 +432,7 @@ export function applyVariantPlan({
       } else if (stockEntry) {
         const patch = {};
         const current = n0(inv.stock_qty);
-        if (stockEntry.stock_qty !== current) {
+        if (stockEntry.stock_qty !== undefined && stockEntry.stock_qty !== current) {
           if (stockEntry.expected_stock_qty !== null && stockEntry.expected_stock_qty !== undefined && stockEntry.expected_stock_qty !== current) {
             stockConflicts.push({ variant_id: inv.variant_id, expected: stockEntry.expected_stock_qty, actual: current });
             continue;
@@ -493,10 +497,11 @@ export function hasLegacyBoxes(product, variants = []) {
  * customers may also buy loose pieces. Existing customers can always buy
  * loose pieces of products that have colours.
  * Only these rows are written; prices, stock of existing variants, images and
- * everything else stay untouched. New boxes start at `box_stock`.
+ * everything else stay untouched. Boxes are packed from the loose pieces, so a
+ * product needs colours to get a box (stock is entered in pieces only).
  */
 export async function bulkSetSelling({
-  product_ids: productIds, units_per_box: units = null, pcs_for_new_customers: pcsNew, box_stock: boxStock = 0, sell_mode: requested,
+  product_ids: productIds, units_per_box: units = null, pcs_for_new_customers: pcsNew, sell_mode: requested,
 }, { admin, ip }) {
   const ids = [...new Set(productIds)];
   const result = { updated: [], unchanged: [], skipped: [] };
@@ -518,6 +523,7 @@ export async function bulkSetSelling({
           continue;
         }
         if (allowsBox({ sell_mode: sellMode }) && !sizeIds.length) { result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: add sizes first (one box per size)` }); continue; }
+        if (allowsBox({ sell_mode: sellMode }) && !colorIds.length) { result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: add colours first - boxes are packed from the loose pieces` }); continue; }
         const existingVariants = catalog.variantsByProduct.get(id) || [];
         const sizeMrp = new Map(Object.entries(sizeMrpsOf(existingVariants)).filter(([, m]) => m !== Number(p.mrp)));
         const unitsPerBox = allowsBox({ sell_mode: sellMode }) ? units : null;
@@ -531,7 +537,7 @@ export async function bulkSetSelling({
           continue;
         }
         const applied = applyVariantPlan({
-          catalog, pid: id, existingVariants, desired, now, by: admin.admin_id, newBoxStock: boxStock,
+          catalog, pid: id, existingVariants, desired, now, by: admin.admin_id,
         });
         const fields = { sell_mode: sellMode, units_per_box: unitsPerBox, inventory_mode: primaryInventoryMode(sellMode) };
         if (typeof pcsNew === 'boolean') fields.pcs_for_new_customers = pcsNew;
@@ -543,7 +549,7 @@ export async function bulkSetSelling({
           admin, ip, action: AUDIT_ACTION.PRODUCT_UPDATED, entity_type: 'Product', entity_id: id,
           old_value: { units_per_box: unitsPerBoxOf(p, existingVariants), pcs_for_new_customers: p.pcs_for_new_customers === true },
           new_value: {
-            units_per_box: unitsPerBox, pcs_for_new_customers: fields.pcs_for_new_customers ?? (p.pcs_for_new_customers === true), new_boxes: applied.newVariants.filter(isBoxVariant).length, box_stock: boxStock, via: 'bulk box / pieces',
+            units_per_box: unitsPerBox, pcs_for_new_customers: fields.pcs_for_new_customers ?? (p.pcs_for_new_customers === true), new_boxes: applied.newVariants.filter(isBoxVariant).length, via: 'bulk box / pieces',
           },
         }));
         result.updated.push(p.sku);

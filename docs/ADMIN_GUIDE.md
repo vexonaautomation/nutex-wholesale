@@ -25,16 +25,17 @@ Sign in at **`https://<your-site>/admin`**.
 - Global switch: *Settings → Pricing & orders → Loose pieces for new customers* → “Allowed on every article” opens pieces for everybody.
 - **First purchase ⇒ existing customer:** when you verify the first payment of a new customer, their mobile is added to *Existing Customers* automatically (note “Added automatically after first paid order …”). After WhatsApp verification they can then choose box or pieces everywhere, and the minimum order does not apply. Turn off in *Settings → After the first paid order* if you prefer to add existing customers yourself.
 - The server enforces all of this — a new customer cannot order pieces even by editing the cart.
-- **Stock** is kept separately: pieces per colour + size, and **boxes per size** (wizard step 7 or *Inventory*).
-- **Box stock left at 0 = boxes packed from loose stock.** Each box takes the same number of pieces of every active colour of that size (pieces per box ÷ number of colours), and the box count follows the colour with the least stock. Example: box of 3, colours Orange 5 / Pink 8 / Green 15 → 1 of each per box → **5 boxes**. Ordering a box reserves (and on payment deducts) those pieces from each colour, and boxes + loose pieces in one cart are checked together, so nothing is oversold. The admin screens show "Auto: N boxes from loose stock".
-  - Pieces per box must divide equally by the colours (6 with 3 colours = 2 each; 4 with 3 colours does not work). If not, the admin screens show a warning and the box stays out of stock until you enter box stock.
-  - Enter a box number (more than 0) only for boxes you have **already packed**. That size then sells from the box stock, as before.
+- **Stock is entered in pieces only** (per colour + size), never in boxes: wizard step 7, *Inventory*, or *Bulk update (Excel)*.
+- **Boxes are always packed from the loose stock.** Each box takes the same number of pieces of every active colour of that size (pieces per box ÷ number of colours), and the box count follows the colour with the least stock. Example: box of 3, colours Orange 5 / Pink 8 / Green 15 → 1 of each per box → **5 boxes**. Ordering a box reserves (and on payment deducts) those pieces from each colour, and boxes + loose pieces in one cart are checked together, so nothing is oversold. The admin screens show "Auto: N boxes from loose stock".
+  - Pieces per box must divide equally by the colours (6 with 3 colours = 2 each; 4 with 3 colours does not work). If not, the admin screens show a warning and that box cannot be sold until pieces per box is changed.
+  - A product with a box needs colours (the box is packed from them).
+  - To stop selling one box size, set that box to *Out of stock* on the Inventory page; loose pieces keep selling.
 - Changing pieces per box (e.g. 6 → 12) creates new boxes with fresh stock; old boxes are kept inactive for order history.
 
 ## Catalogue import (Nutex PDF catalogue)
 *Admin → Catalogue Import* shows every catalogue product (one per catalogue page) with its image, SKU, MRP, colours and sizes, and what the import will create.
 - **Pcs per box** per category (blank = no box) and **Pcs for new customers** (*Allow* = new customers may also buy loose pieces). Existing customers always get box or pieces. Change later with *Products → Box / pieces*.
-- **Starting stock** – pieces per colour + size, and boxes per size: 0 (enter real stock later in *Inventory*) or e.g. 50 to test ordering. Applies to NEW variants only.
+- **Starting stock** – pieces per colour + size (boxes are packed from them): 0 (enter real stock later in *Inventory*) or e.g. 50 to test ordering. Applies to NEW variants only.
 - **Publish immediately** – untick to import as Inactive and publish category by category later.
 - Click **Import** and keep the page open to watch progress (~2–4 minutes on Google Sheets; images go to Drive/PRODUCTS).
 - **Additive and repeatable**: products whose SKU already exists are skipped and never changed (your prices, stock and status are kept). If the import is interrupted, just run it again – it continues with the missing products.
@@ -53,17 +54,17 @@ Add, edit, reorder (arrows), deactivate/reactivate (categories can also be archi
 4. Sizes – plus optional **size-wise MRP** (e.g. 80-90 ₹62, 95-100 ₹70); blank = product MRP. The shop then shows “From ₹…” and the price next to each size.
 5. Box / pieces – **pieces in one box** (blank = no box; live price example) and **loose pieces for NEW customers**: not allowed / allowed for this article
 6. Colours for loose pieces (from the colour master) and a preview of the boxes per size with calculated box MRP / wholesale price
-7. Inventory – loose pieces: colour × size matrix; boxes: number of boxes per size. 0 pieces = only that combination is out of stock; 0 boxes = boxes are packed from the loose stock (shown as "Auto: N boxes").
+7. Inventory – loose pieces: colour × size matrix (0 = only that combination is out of stock). Boxes are shown, not entered: how many can be packed from these pieces now.
 8. Images – upload (stored in Drive/PRODUCTS), reorder, set main, alt text
 9. Status – Active / Inactive / Archived; “entire product out of stock”
 10. Preview & **Publish** – only this product's rows are written.
 
-Product list actions: edit, duplicate (copy saved inactive, zero stock), mark out of stock / restore, deactivate / reactivate, archive; tick several products → **Box / pieces** (pieces per box, loose pieces for new customers, starting box stock). The *Selling* column shows e.g. “Box of 6 pcs · Pcs: existing only”.
+Product list actions: edit, duplicate (copy saved inactive, zero stock), mark out of stock / restore, deactivate / reactivate, archive; tick several products → **Box / pieces** (pieces per box, loose pieces for new customers). The *Selling* column shows e.g. “Box of 6 pcs · Pcs: existing only”.
 
 ## Inventory
 **Many items at once:** *Bulk update (Excel)* → download the stock sheet → fill `new_stock` (counted stock) or `add_stock` (received) → upload the CSV → check the preview → Apply. Step-by-step: `docs/STOCK_BULK_UPDATE.md`.
 
-Pick a product: loose pieces show the colour × size matrix (with *reserved* and *available*) and boxes show a table of boxes per size. Edit and **Save changes** – only edited rows are written. If an order changed stock while you were editing you'll be asked to reload (nothing is overwritten). You cannot set stock below units reserved by unpaid orders.
+Pick a product: loose pieces show the colour × size matrix (with *reserved* and *available*) and boxes show how many can be packed from those pieces (read-only, with an In stock / Out of stock switch per box size). Edit and **Save changes** – only edited rows are written. If an order changed stock while you were editing you'll be asked to reload (nothing is overwritten). You cannot set stock below units reserved by unpaid orders.
 
 ## Discount slabs
 - Switch **Fixed ↔ Slab**, change the fixed %, choose the slab basis.

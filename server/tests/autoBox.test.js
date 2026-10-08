@@ -11,6 +11,7 @@ import {
   createDraftOrder, updateOrderItems, cancelOrderAdmin, reopenOrderAdmin, recalculateOrder,
 } from '../services/orderService.js';
 import { submitPayment } from '../services/paymentService.js';
+import { applyStockUpdates } from '../services/inventoryService.js';
 import { updateSettings } from '../services/settingsService.js';
 import { getDashboard } from '../services/dashboardService.js';
 import { sheetsService } from '../services/sheetsService.js';
@@ -135,17 +136,30 @@ test('editing an order moves only the difference of the colour pieces', async ()
   assert.deepEqual(await reservedOf(p.pcs), [1, 1, 5]);
 });
 
-test('box stock entered = pre-packed boxes: uses the box row, colours untouched', async () => {
+test('stock is entered in pieces only: box stock is never taken, a box size can be stopped', async () => {
   const { adminCtx } = await freshStore();
   const p = await autoBoxProduct(adminCtx, { boxStock: 2 });
-  const catalog = await getCatalog({ fresh: true });
-  assert.equal(buildQuote({ items: [{ variant_id: p.box, qty: 3 }], catalog }).lines[0].issue.code, 'INSUFFICIENT_STOCK');
-  await order([{ variant_id: p.box, qty: 2 }]);
-  assert.deepEqual(await inventoryOf(p.box), { stock: 2, reserved: 2, available: 0 });
-  assert.deepEqual(await reservedOf(p.pcs), [0, 0, 0]);
-  const items = await sheetsService.read('Order_Items', { fresh: true });
-  assert.equal(items[0].stock_components, '', 'normal lines keep the column blank');
-  assert.equal((await getProductAdmin(p.pid)).variants.find((v) => v.variant_id === p.box).auto_box, null);
+  assert.equal((await inventoryOf(p.box)).stock, 0, 'box stock from the product form is ignored');
+  let catalog = await getCatalog({ fresh: true });
+  assert.equal(buildQuote({ items: [{ variant_id: p.box, qty: 5 }], catalog }).has_issues, false, 'still 5 boxes from the pieces');
+
+  // Inventory page / API: no box stock number, only the out-of-stock flag
+  const inv = (await sheetsService.read('Inventory', { fresh: true })).find((r) => r.variant_id === p.box);
+  await assert.rejects(applyStockUpdates([{ inventory_id: inv.inventory_id, stock_qty: 9 }], adminCtx), /packed from the loose pieces/);
+  await applyStockUpdates([{ inventory_id: inv.inventory_id, status: 'OUT_OF_STOCK' }], adminCtx);
+  catalog = await getCatalog({ fresh: true });
+  assert.equal(buildQuote({ items: [{ variant_id: p.box, qty: 1 }], catalog }).lines[0].issue.code, 'OUT_OF_STOCK', 'box size stopped');
+  const pcsQuote = buildQuote({ items: [{ variant_id: p.pcs[0], qty: 1 }], catalog, customer: { existing: true, minimum_order_value: 0 } });
+  assert.equal(pcsQuote.has_issues, false, 'loose pieces still sell');
+  await applyStockUpdates([{ inventory_id: inv.inventory_id, status: 'ACTIVE' }], adminCtx);
+  assert.equal(buildQuote({ items: [{ variant_id: p.box, qty: 1 }], catalog: await getCatalog({ fresh: true }) }).has_issues, false);
+
+  // a product with a box needs colours (boxes are packed from them)
+  const m = await masters();
+  await assert.rejects(saveProduct(productSchema.parse({
+    sku: 'NOCOL', product_name: 'No Colour Box', category_id: m.cat('everyday-bra').category_id, mrp: 100,
+    units_per_box: 6, size_ids: [m.size('32').size_id], color_ids: [], status: 'ACTIVE',
+  }), adminCtx), /Select the colours too/);
 });
 
 test('pieces per box not divisible by the colours: no auto box, admin sees why', async () => {
