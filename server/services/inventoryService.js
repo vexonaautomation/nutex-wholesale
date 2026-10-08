@@ -72,6 +72,7 @@ export async function listInventory({ product_id, filter } = {}) {
       variant_id: inv.variant_id,
       product_id: product.product_id,
       product_name: product.product_name,
+      category_name: catalog.categoriesById.get(product.category_id)?.category_name || '',
       product_sku: product.sku,
       product_status: product.status,
       product_out_of_stock: product.out_of_stock,
