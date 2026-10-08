@@ -22,6 +22,9 @@ export const DEFAULT_SETTINGS = [
   { key: 'company_email', value: '', type: 'string', public: true, description: 'Customer care email' },
   { key: 'company_address', value: '', type: 'text', public: true, description: 'Registered / business address' },
   { key: 'company_gstin', value: '', type: 'string', public: true, description: 'Company GSTIN (shown on legal pages)' },
+  // ---- Bill (PDF the customer downloads after payment) ----
+  { key: 'bill_title', value: 'ESTIMATE', type: 'string', public: false, description: 'Heading printed on the order bill PDF' },
+  { key: 'bill_terms', value: "1. All Order Are Subject To Dealer's Confirmation.\n2. Order Once Given Will Not Be Cancelled.\n3. In Case Of Dispute Company's Decision Is Final And Binding To All Parties.\n4. All Dispute Subject To Delhi Jurisdiction.", type: 'text', public: false, description: 'Terms & Conditions printed on the order bill PDF (one per line)' },
   { key: 'whatsapp_number', value: '', type: 'phone', public: true, description: 'Support WhatsApp number with country code, e.g. 919876543210' },
   { key: 'business_hours', value: 'Mon-Sat, 10:00 AM - 7:00 PM', type: 'string', public: true, description: 'Business hours shown on contact page' },
   { key: 'jurisdiction_city', value: '', type: 'string', public: true, description: 'City for legal jurisdiction in Terms & Conditions' },

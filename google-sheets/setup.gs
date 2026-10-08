@@ -72,6 +72,8 @@ var NUTEX_DEFAULT_SETTINGS = [
   ["company_email","","string","Customer care email"],
   ["company_address","","text","Registered / business address"],
   ["company_gstin","","string","Company GSTIN (shown on legal pages)"],
+  ["bill_title","ESTIMATE","string","Heading printed on the order bill PDF"],
+  ["bill_terms","1. All Order Are Subject To Dealer's Confirmation.\n2. Order Once Given Will Not Be Cancelled.\n3. In Case Of Dispute Company's Decision Is Final And Binding To All Parties.\n4. All Dispute Subject To Delhi Jurisdiction.","text","Terms & Conditions printed on the order bill PDF (one per line)"],
   ["whatsapp_number","","phone","Support WhatsApp number with country code, e.g. 919876543210"],
   ["business_hours","Mon-Sat, 10:00 AM - 7:00 PM","string","Business hours shown on contact page"],
   ["jurisdiction_city","","string","City for legal jurisdiction in Terms & Conditions"],

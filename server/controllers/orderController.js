@@ -5,6 +5,7 @@ import {
   createDraftOrder, getCustomerOrder, trackOrder, activeOrderSummaries, updateOrderItems, recalculateOrder, lockOrder,
   listOrdersAdmin, getOrderAdmin, updateOrderStatusAdmin, reopenOrderAdmin, cancelOrderAdmin,
 } from '../services/orderService.js';
+import { customerBill, adminBill } from '../services/billService.js';
 import { ctx, noStore } from './helpers.js';
 
 // ------------------------------ public ------------------------------
@@ -31,6 +32,24 @@ export async function track(req, res) {
 export async function activeOrders(req, res) {
   noStore(res);
   res.json({ orders: await activeOrderSummaries(req.body.orders) });
+}
+
+function sendPdf(res, { pdf, filename }) {
+  noStore(res);
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${filename}"`,
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.send(pdf);
+}
+
+export async function bill(req, res) {
+  sendPdf(res, await customerBill(req.params.orderNumber, req.orderToken));
+}
+
+export async function adminBillPdf(req, res) {
+  sendPdf(res, await adminBill(req.params.id));
 }
 
 export async function getOrder(req, res) {

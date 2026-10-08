@@ -16,6 +16,7 @@ publicRouter.post('/orders/draft', orderCreateLimiter, customerToken, validate(d
 publicRouter.post('/orders/track', orderAccessLimiter, validate(trackOrderSchema), c.track);
 publicRouter.post('/orders/active', activeOrdersLimiter, validate(activeOrdersSchema), c.activeOrders);
 publicRouter.get('/orders/:orderNumber', orderAccessLimiter, orderToken, c.getOrder);
+publicRouter.get('/orders/:orderNumber/bill', orderAccessLimiter, orderToken, c.bill);
 publicRouter.put('/orders/:orderNumber', orderToken, validate(updateOrderSchema), c.updateOrder);
 publicRouter.post('/orders/:orderNumber/recalculate', quoteLimiter, orderToken, validate(recalculateSchema), c.recalculate);
 publicRouter.post('/orders/:orderNumber/lock', orderToken, c.lock);
@@ -23,6 +24,7 @@ publicRouter.post('/orders/:orderNumber/lock', orderToken, c.lock);
 export const adminRouter = Router();
 adminRouter.get('/orders', c.adminList);
 adminRouter.get('/orders/:id', c.adminGet);
+adminRouter.get('/orders/:id/bill', c.adminBillPdf);
 adminRouter.put('/orders/:id/status', validate(orderStatusSchema), c.adminStatus);
 adminRouter.post('/orders/:id/reopen', validate(reopenSchema), c.adminReopen);
 adminRouter.post('/orders/:id/cancel', validate(cancelSchema), c.adminCancel);

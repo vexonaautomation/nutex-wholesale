@@ -9,6 +9,7 @@ import { OrderItems } from '../../components/OrderSummary/OrderSummary.jsx';
 import { Alert, ErrorState, Field, PageLoader, Spinner, StatusBadge } from '../../components/common/ui.jsx';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { VerifyOrderAccess } from '../TrackOrder/VerifyOrderAccess.jsx';
+import { DownloadBillButton } from '../../components/DownloadBill/DownloadBillButton.jsx';
 import { formatINR } from '../../utils/format.js';
 import { compressImage, MAX_UPLOAD_BYTES } from '../../utils/image.js';
 import { paymentConfirmationMessage, waLink, waNumber } from '../../utils/whatsapp.js';
@@ -131,9 +132,12 @@ export default function Payment() {
           <p className="muted" style={{ maxWidth: 560, margin: '0 auto 14px' }}>
             Your order has been locked because payment confirmation has been submitted. Our team will verify the payment and update your order status.
           </p>
-          {wa && (
-            <a className="btn btn-whatsapp btn-lg" href={waLink(wa, message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon /> Confirm Payment on WhatsApp</a>
-          )}
+          <div className="row wrap" style={{ justifyContent: 'center', gap: 10 }}>
+            {wa && (
+              <a className="btn btn-whatsapp btn-lg" href={waLink(wa, message)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon /> Confirm Payment on WhatsApp</a>
+            )}
+            {order.permissions.can_download_bill && <DownloadBillButton orderNumber={order.order_number} className="btn btn-lg" />}
+          </div>
           <p className="tiny soft mt-2 mb-0">Sending a WhatsApp message does not verify the payment - verification is done by the Nutex team.</p>
         </div>
       )}
