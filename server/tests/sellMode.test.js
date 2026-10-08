@@ -56,7 +56,10 @@ test('BOTH product: one box per size, box price = pieces x piece MRP (size-wise)
   assert.equal(b32.color_id, '');
   assert.equal(b32.unit_mrp, 600);
   assert.equal(b34.unit_mrp, 720, '6 x size MRP 120');
-  assert.deepEqual(await inventoryOf(b32.variant_id), { stock: 10, reserved: 0, available: 10 });
+  // stock is entered in pieces only: the box stock sent (10) is ignored
+  assert.deepEqual(await inventoryOf(b32.variant_id), { stock: 0, reserved: 0, available: 0 });
+  const boxQuote = buildQuote({ items: [{ variant_id: b32.variant_id, qty: 1 }], catalog: await getCatalog({ fresh: true }) });
+  assert.equal(boxQuote.lines[0].available, 16, '50 pcs each of 2 colours, 3 of each per box -> 16 boxes');
 
   const catalog = await getCatalog({ fresh: true });
   const pub = serializeProduct(catalog, catalog.productsById.get(p.saved.product.product_id), { detail: true });
@@ -99,7 +102,10 @@ test('new customers: boxes only; existing customers: boxes or pieces (enforced b
   await assert.rejects(createDraftOrder(draftOrderSchema.parse({ customer: CUSTOMER, items: [pcsLine], idempotency_key: idem() })), code('STOCK_CHANGED'));
   const order = await createDraftOrder(draftOrderSchema.parse({ customer: CUSTOMER, items: [boxLine], idempotency_key: idem() }));
   assert.equal((await getCustomerOrder(order.order_number, order.access_token)).totals.final_payable, 240, '1 box x 600 MRP at 60% off');
-  assert.deepEqual(await inventoryOf(boxLine.variant_id), { stock: 10, reserved: 1, available: 9 });
+  // the box holds 3 Black + 3 White size 32 pieces; the box row itself has no stock
+  assert.deepEqual(await inventoryOf(p.pcs(p.black, p.s32).variant_id), { stock: 50, reserved: 3, available: 47 });
+  assert.deepEqual(await inventoryOf(p.pcs(p.white, p.s32).variant_id), { stock: 50, reserved: 3, available: 47 });
+  assert.deepEqual(await inventoryOf(boxLine.variant_id), { stock: 0, reserved: 0, available: 0 });
 
   // setting off: everybody may buy pieces
   await updateSettings({ pcs_for_existing_customers_only: false }, adminCtx);
@@ -148,14 +154,15 @@ test('bulk selling options for many products at once', async () => {
   const { adminCtx } = await freshStore({ pcsForAll: false });
   const a = await bothProduct(adminCtx, { sku: 'BULKA', product_name: 'Bulk A', sell_mode: 'PCS', units_per_box: null });
   const b = await bothProduct(adminCtx, { sku: 'BULKB', product_name: 'Bulk B', sell_mode: 'PCS', units_per_box: null });
-  const input = bulkSellingSchema.parse({ product_ids: [a.saved.product.product_id, b.saved.product.product_id], sell_mode: 'BOTH', units_per_box: 10, box_stock: 3 });
+  const input = bulkSellingSchema.parse({ product_ids: [a.saved.product.product_id, b.saved.product.product_id], sell_mode: 'BOTH', units_per_box: 10 });
   const res = await bulkSetSelling(input, adminCtx);
   assert.deepEqual(res.updated.sort(), ['BULKA', 'BULKB']);
   const after = await getProductAdmin(a.saved.product.product_id);
   assert.equal(after.product.sell_mode, 'BOTH');
   const boxes = after.variants.filter((v) => v.inventory_mode === 'BOX_WISE' && v.status === 'ACTIVE');
   assert.equal(boxes.length, 2);
-  assert.ok(boxes.every((v) => v.units_per_box === 10 && v.inventory.stock_qty === 3));
+  assert.ok(boxes.every((v) => v.units_per_box === 10 && v.inventory.stock_qty === 0), 'boxes take no stock');
+  assert.ok(boxes.every((v) => v.auto_box.ok && v.auto_box.per_colour === 5 && v.auto_box.boxes === 10), '10 pcs = 5 of each colour, 50 pcs each -> 10 boxes');
   assert.equal(after.variants.find((v) => v.inventory_mode === 'BOX_WISE' && v.size_id === a.s34).unit_mrp, 1200, '10 x size MRP 120');
   const again = await bulkSetSelling(input, adminCtx);
   assert.deepEqual(again.unchanged.sort(), ['BULKA', 'BULKB'], 'running it again changes nothing');
@@ -214,13 +221,14 @@ test('Nutex rule: existing customers always box or pieces; new customers boxes u
   const saved = await saveProduct(productSchema.parse({
     sku: 'RULE1', product_name: 'Rule Bra', category_id: m.cat('everyday-bra').category_id, mrp: 100,
     units_per_box: 6, size_ids: [s32], color_ids: [black],
-    stock: [{ color_id: black, size_id: s32, stock_qty: 5 }, { box_key: `size:${s32}`, stock_qty: 3 }], status: 'ACTIVE',
+    stock: [{ color_id: black, size_id: s32, stock_qty: 12 }, { box_key: `size:${s32}`, stock_qty: 3 }], status: 'ACTIVE',
   }), adminCtx);
   assert.equal(saved.product.sell_mode, 'BOTH');
   assert.equal(saved.product.pcs_for_new_customers, false);
   const pid = saved.product.product_id;
   const pcs = saved.variants.find((v) => v.inventory_mode === 'COLOR_WISE').variant_id;
   const box = saved.variants.find((v) => v.inventory_mode === 'BOX_WISE').variant_id;
+  assert.equal((await inventoryOf(box)).stock, 0, 'box stock is never entered (3 ignored); 12 black pcs = 2 boxes');
 
   let catalog = await getCatalog({ fresh: true });
   assert.equal(buildQuote({ items: [{ variant_id: pcs, qty: 2 }], catalog }).lines[0].issue.code, 'PCS_EXISTING_ONLY', 'new customer: no pieces');

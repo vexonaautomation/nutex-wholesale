@@ -95,8 +95,9 @@ export async function listInventory({ product_id, filter } = {}) {
       status: inv.status || INVENTORY_STATUS.ACTIVE,
       auto_box: auto,
       // an auto box follows its colours, whose own rows carry the low / out signal
-      low_stock: !auto?.ok && available > 0 && available <= threshold,
-      out_of_stock: !auto?.ok && (available <= 0 || inv.status === INVENTORY_STATUS.OUT_OF_STOCK),
+      low_stock: !auto && available > 0 && available <= threshold,
+      // boxes follow their colours (whose rows carry low / out); a box that cannot be packed is out
+      out_of_stock: auto ? !auto.ok || auto.boxes <= 0 : (available <= 0 || inv.status === INVENTORY_STATUS.OUT_OF_STOCK),
       updated_at: inv.updated_at,
     };
     if (filter === 'low' && !row.low_stock) continue;
@@ -115,8 +116,12 @@ export async function listInventory({ product_id, filter } = {}) {
  */
 export async function applyStockUpdates(updates, { admin, ip }) {
   return withLock(COMMERCE_LOCK, async () => {
-    const rows = await sheetsService.read(SHEET, { fresh: true });
+    const data = await sheetsService.readMany([SHEET, 'Products'], { fresh: true });
+    const rows = data[SHEET];
     const byId = new Map(rows.map((r) => [r.inventory_id, r]));
+    // boxes of products with "pieces per box" are packed from the loose pieces: no box stock
+    const perBoxProducts = new Set(data.Products.filter((p) => Number(p.units_per_box) >= 1).map((p) => p.product_id));
+    const piecesOnly = new Set(rows.filter((r) => r.box_id && r.size_id && perBoxProducts.has(r.product_id)).map((r) => r.inventory_id));
     const now = nowIso();
     const ops = [];
     const conflicts = [];
@@ -126,6 +131,9 @@ export async function applyStockUpdates(updates, { admin, ip }) {
       if (!inv) throw badRequest(`Inventory record ${u.inventory_id} not found`);
       const patch = {};
       const reserved = n0(inv.reserved_qty);
+      if (piecesOnly.has(inv.inventory_id) && u.stock_qty !== undefined && u.stock_qty !== n0(inv.stock_qty)) {
+        throw badRequest('Box stock is not entered - boxes are packed from the loose pieces. Enter the stock in pieces (colour + size).');
+      }
       if (u.stock_qty !== undefined && u.stock_qty !== n0(inv.stock_qty)) {
         if (u.expected_stock_qty !== null && u.expected_stock_qty !== undefined && u.expected_stock_qty !== n0(inv.stock_qty)) {
           conflicts.push({ inventory_id: inv.inventory_id, expected: u.expected_stock_qty, actual: n0(inv.stock_qty) });

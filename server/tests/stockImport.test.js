@@ -52,15 +52,15 @@ function editSheet(csv, edits, { delimiter = ',' } = {}) {
   return [head, ...rows].map((r) => r.map((c) => (c.includes(delimiter) ? `"${c}"` : c)).join(delimiter)).join('\r\n');
 }
 
-test('stock sheet lists every item with its current stock; boxes say 0 = from loose stock', async () => {
+test('stock sheet lists every colour + size with its current stock (pieces only, no box rows)', async () => {
   await setup();
   const { csv, filename, rows } = await stockSheetCsv();
   assert.match(filename, /^nutex-stock-\d{4}-\d{2}-\d{2}\.csv$/);
-  assert.equal(rows, 6, '4 colour/size rows + 2 box rows');
+  assert.equal(rows, 4, '4 colour/size rows; boxes are packed from these pieces');
   const lines = csv.replace(/^﻿/, '').trim().split(/\r\n/);
   assert.equal(lines[0], 'inventory_id,category,product_sku,product_name,type,colour,size,pcs_per_box,current_stock,reserved,new_stock,add_stock,note');
   assert.ok(lines.some((l) => l.includes(',KOMAL,Komal Bra,PCS,Pink,32,,10,0,,,')));
-  assert.ok(lines.some((l) => l.includes(',BOX,Mix,32,6,0,0,,,Boxes. Leave 0')));
+  assert.ok(!lines.some((l) => l.includes(',BOX,')), 'no box rows');
 });
 
 test('preview shows changes and problems and writes nothing; apply writes with audit', async () => {
@@ -71,22 +71,21 @@ test('preview shows changes and problems and writes nothing; apply writes with a
     { colour: 'Pink', size: '34', set: { add_stock: 5 } },
     { colour: 'Red', size: '32', set: { new_stock: '1.5' } },
     { colour: 'Red', size: '34', set: { new_stock: 3, add_stock: 2 } },
-    { type: 'BOX', colour: 'Mix', size: '32', set: { new_stock: 4 } },
   ]);
   const preview = await importStockSheet(edited);
   assert.equal(preview.applied, 0);
-  assert.equal(preview.to_change, 3);
+  assert.equal(preview.to_change, 2);
   assert.deepEqual(preview.changes.map((c) => [c.colour, c.size, c.from, c.to, c.mode]), [
-    ['Pink', '32', 10, 25, 'set'], ['Pink', '34', 10, 15, 'add'], ['Mix', '32', 0, 4, 'set'],
+    ['Pink', '32', 10, 25, 'set'], ['Pink', '34', 10, 15, 'add'],
   ]);
   assert.deepEqual(preview.errors.map((e) => e.message), ['Enter whole numbers only (0, 1, 2 ...).', 'Fill either new_stock or add_stock, not both.']);
-  assert.equal(preview.blank, 1);
+  assert.equal(preview.blank, 0, "every row of this small sheet was filled");
   assert.equal((await inventoryOf(ids.pink32)).stock, 10, 'preview never writes');
 
   const before = (await sheetsService.read('Audit_Log', { fresh: true })).length;
   const { adminCtx } = { adminCtx: { admin: { admin_id: 'ADM-TEST', email: 't@x' }, ip: '' } };
   const done = await importStockSheet(edited, { apply: true, ...adminCtx });
-  assert.equal(done.applied, 3);
+  assert.equal(done.applied, 2);
   assert.deepEqual(await inventoryOf(ids.pink32), { stock: 25, reserved: 0, available: 25 });
   assert.equal((await inventoryOf(ids.pink34)).stock, 15);
   assert.equal((await inventoryOf(ids.red32)).stock, 10, 'rows with errors are left alone');
@@ -117,6 +116,13 @@ test('a count never overwrites a sale made after download, and never goes below 
   assert.match(res.errors[1].message, /Cannot be lower than 3 reserved/);
   assert.equal((await inventoryOf(ids.pink32)).stock, 6, 'the sale is not overwritten');
   assert.equal((await inventoryOf(ids.pink34)).stock, 12);
+});
+
+test('a box row in an uploaded file is refused (boxes come from the pieces)', async () => {
+  await setup();
+  const res = await importStockSheet('product_sku,type,colour,size,new_stock\r\nKOMAL,BOX,Mix,32,5\r\n');
+  assert.equal(res.to_change, 0);
+  assert.match(res.errors[0].message, /Box stock is not entered/);
 });
 
 test('works with Excel files: ; delimiter, BOM, no inventory_id (SKU + colour + size), extra columns', async () => {

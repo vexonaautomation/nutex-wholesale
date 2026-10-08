@@ -110,7 +110,7 @@ export async function seedDemoData({ admin }) {
     selling['everyday-panty'] = { units_per_box: 12 };
     selling['camisole-collection'].pcs_for_new_customers = true;
     const job = await startCatalogImport({
-      ...ctx, stockPerVariant: 100, boxStock: 20, selling, wait: true,
+      ...ctx, stockPerVariant: 100, selling, wait: true,
     });
     if (job.created > 0) return { skipped: false, products: job.created, source: 'catalogue' };
   } catch (err) {

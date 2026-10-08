@@ -217,11 +217,10 @@ function note(msg) {
  * `wait` is true (CLI / tests / memory demo).
  */
 export async function startCatalogImport({
-  admin = null, ip = '', stockPerVariant = 0, boxStock = 0, selling = {}, activate = true, wait = false, dir = CATALOG_DIR, throttleMs = null, onProgress = null,
+  admin = null, ip = '', stockPerVariant = 0, selling = {}, activate = true, wait = false, dir = CATALOG_DIR, throttleMs = null, onProgress = null,
 } = {}) {
   if (job.status === 'running') throw conflict('IMPORT_RUNNING', 'A catalogue import is already running. Please wait for it to finish.');
   const stock = Math.max(0, Math.min(100000, Math.floor(Number(stockPerVariant) || 0)));
-  const boxes = Math.max(0, Math.min(100000, Math.floor(Number(boxStock) || 0)));
   const { catalog } = await loadCatalogFile(dir);
   for (const [slug, s] of Object.entries(selling || {})) {
     if (s.sell_mode && s.sell_mode !== SELL_MODE.PCS && !(Number(s.units_per_box) >= 1)) {
@@ -231,12 +230,12 @@ export async function startCatalogImport({
   }
   Object.assign(job, {
     status: 'running', phase: 'Preparing', total: catalog.products.length, done: 0, created: 0, skipped: 0, images_added: 0,
-    errors: [], log: [], started_at: nowIso(), finished_at: null, options: { stock_per_variant: stock, box_stock: boxes, selling, activate },
+    errors: [], log: [], started_at: nowIso(), finished_at: null, options: { stock_per_variant: stock, selling, activate },
   });
-  note(`Import started: ${catalog.products.length} products, starting stock ${stock} pcs per colour+size, ${boxes} boxes per size.`);
+  note(`Import started: ${catalog.products.length} products, starting stock ${stock} pcs per colour+size (boxes are packed from these pieces).`);
   if (!driveService.enabled) note('Google Drive is not configured - products are imported WITHOUT images (run the import again after connecting Drive to attach them).');
   const pause = throttleMs ?? (sheetsService.transport?.constructor?.name === 'MemorySheetsTransport' ? 0 : 1500);
-  const run = runImport({ catalog, dir, admin, ip, stock, boxes, selling: selling || {}, activate, pause, onProgress })
+  const run = runImport({ catalog, dir, admin, ip, stock, selling: selling || {}, activate, pause, onProgress })
     .then(() => {
       job.status = 'done';
       job.phase = 'Finished';
@@ -265,7 +264,7 @@ async function upload(dir, rel, folder, filename) {
 }
 
 async function runImport({
-  catalog, dir, admin, ip, stock, boxes, selling, activate, pause, onProgress,
+  catalog, dir, admin, ip, stock, selling, activate, pause, onProgress,
 }) {
   const by = admin?.admin_id || 'CATALOG_IMPORT';
   const progress = () => onProgress?.(importStatus());
@@ -464,7 +463,7 @@ async function runImport({
         for (const { fields } of plan) {
           const variantId = newId(ID_PREFIX.variant);
           rows.Product_Variants.push({ variant_id: variantId, product_id: pid, ...fields, created_at: now, updated_at: now });
-          rows.Inventory.push(inventoryRow(pid, variantId, fields, isBoxVariant(fields) ? boxes : stock, INVENTORY_STATUS.ACTIVE, now, by));
+          rows.Inventory.push(inventoryRow(pid, variantId, fields, isBoxVariant(fields) ? 0 : stock, INVENTORY_STATUS.ACTIVE, now, by));
           activeVariantSkus.add(fields.sku);
         }
         if (fileId) rows.Product_Images.push(imageRow(pid, fileId, p.name, now));
@@ -476,7 +475,7 @@ async function runImport({
       if (ops.length) {
         ops.push(auditOp({
           admin, ip, action: AUDIT_ACTION.CATALOG_IMPORTED, entity_type: 'Product', entity_id: createdSkus.length ? 'catalog-products' : 'catalog-images',
-          new_value: { created: createdSkus, variants: rows.Product_Variants.length, starting_stock: stock, box_stock: boxes, images_attached: imageOnly },
+          new_value: { created: createdSkus, variants: rows.Product_Variants.length, starting_stock: stock, images_attached: imageOnly },
         }));
         await sheetsService.commit(ops);
       }
