@@ -61,6 +61,8 @@ Add, edit, reorder (arrows), deactivate/reactivate (categories can also be archi
 Product list actions: edit, duplicate (copy saved inactive, zero stock), mark out of stock / restore, deactivate / reactivate, archive; tick several products → **Box / pieces** (pieces per box, loose pieces for new customers, starting box stock). The *Selling* column shows e.g. “Box of 6 pcs · Pcs: existing only”.
 
 ## Inventory
+**Many items at once:** *Bulk update (Excel)* → download the stock sheet → fill `new_stock` (counted stock) or `add_stock` (received) → upload the CSV → check the preview → Apply. Step-by-step: `docs/STOCK_BULK_UPDATE.md`.
+
 Pick a product: loose pieces show the colour × size matrix (with *reserved* and *available*) and boxes show a table of boxes per size. Edit and **Save changes** – only edited rows are written. If an order changed stock while you were editing you'll be asked to reload (nothing is overwritten). You cannot set stock below units reserved by unpaid orders.
 
 ## Discount slabs

@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Save, RotateCcw } from 'lucide-react';
+import { Save, RotateCcw, FileSpreadsheet } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { qs } from '../../services/api.js';
 import { useAsync } from '../../hooks/index.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { PageHeader } from '../components.jsx';
+import { BulkStockDialog } from './BulkStockDialog.jsx';
 import { Alert, EmptyState, ErrorState, PageLoader, Spinner } from '../../components/common/ui.jsx';
 
 export default function Inventory() {
@@ -15,6 +16,7 @@ export default function Inventory() {
   const [edits, setEdits] = useState({});
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const products = useAsync(() => adminApi.get('/products'), []);
   const { data, loading, error, reload } = useAsync(() => adminApi.get(`/inventory${qs({ product_id: productId, filter })}`), [productId, filter]);
 
@@ -128,6 +130,7 @@ export default function Inventory() {
         subtitle={`Stock = physical units. Reserved = held by unpaid orders. Available = stock − reserved. Low stock at ≤ ${data?.threshold ?? '…'}.`}
         actions={(
           <>
+            <button type="button" className="btn" onClick={() => setBulkOpen(true)}><FileSpreadsheet /> Bulk update (Excel)</button>
             {dirty > 0 && <button type="button" className="btn" onClick={() => setEdits({})}><RotateCcw /> Discard</button>}
             <button type="button" className="btn btn-primary" disabled={!dirty || saving} onClick={save}>{saving ? <Spinner small /> : <Save />} Save changes{dirty ? ` (${dirty})` : ''}</button>
           </>
@@ -177,6 +180,7 @@ export default function Inventory() {
         {boxItems.length > 0 && <><h4 className="mb-1 mt-3">Boxes (number of boxes per size)</h4><p className="muted small mb-1">Stock 0 = boxes are packed from the loose colour stock (same pieces of every colour). Enter a number only for boxes already packed.</p>{renderTable(boxItems)}</>}
         </>
       ) : renderTable(items)}
+      <BulkStockDialog open={bulkOpen} onClose={() => setBulkOpen(false)} onApplied={() => { setEdits({}); reload(); }} />
     </>
   );
 }
