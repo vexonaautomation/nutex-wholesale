@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Archive, Boxes, Copy, PackageCheck, PackageX, Pencil, Plus, Power, Shirt,
+  Archive, Boxes, Copy, PackageCheck, PackageX, Pencil, Plus, Power, Ruler, Shirt,
 } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { useAsync, useDebounce } from '../../hooks/index.js';
@@ -13,6 +13,7 @@ import {
 import { Modal } from '../../components/common/Modal.jsx';
 import { formatINR, pct } from '../../utils/format.js';
 import { qs } from '../../services/api.js';
+import { BulkSizesDialog } from './BulkSizesDialog.jsx';
 
 function SellBadge({ p }) {
   const box = p.units_per_box || (p.sell_mode && p.sell_mode !== 'PCS' ? '?' : null);
@@ -104,6 +105,7 @@ export default function ProductList() {
   const [confirm, setConfirm] = useState(null);
   const [picked, setPicked] = useState(() => new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [sizesOpen, setSizesOpen] = useState(false);
   const dq = useDebounce(q, 250);
   const toast = useToast();
   const navigate = useNavigate();
@@ -167,6 +169,7 @@ export default function ProductList() {
             <p className="small muted mb-0">{counts.all} products · {counts.active} active{picked.size ? ` · ${picked.size} selected` : ''}</p>
             <div className="row wrap">
               <button type="button" className="btn btn-sm" onClick={() => setPicked(picked.size === items.length ? new Set() : new Set(items.map((p) => p.product_id)))}>{picked.size === items.length ? 'Clear selection' : `Select all ${items.length}`}</button>
+              <button type="button" className="btn btn-sm btn-primary" disabled={!picked.size} onClick={() => setSizesOpen(true)}><Ruler /> Sizes</button>
               <button type="button" className="btn btn-sm btn-primary" disabled={!picked.size} onClick={() => setBulkOpen(true)}><Boxes /> Box / pieces</button>
             </div>
           </div>
@@ -228,6 +231,12 @@ export default function ProductList() {
         open={bulkOpen}
         products={(data?.items || []).filter((p) => picked.has(p.product_id))}
         onClose={() => setBulkOpen(false)}
+        onDone={() => { setPicked(new Set()); reload(); }}
+      />
+      <BulkSizesDialog
+        open={sizesOpen}
+        products={(data?.items || []).filter((p) => picked.has(p.product_id))}
+        onClose={() => setSizesOpen(false)}
         onDone={() => { setPicked(new Set()); reload(); }}
       />
       <ConfirmDialog

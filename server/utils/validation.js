@@ -289,6 +289,12 @@ export const bulkSellingSchema = z.object({
   if (p.sell_mode && p.sell_mode !== 'PCS' && !(p.units_per_box >= 1)) ctx.addIssue({ code: 'custom', path: ['units_per_box'], message: 'Enter how many pieces are in one box' });
 });
 
+export const bulkSizesSchema = z.object({
+  product_ids: z.array(id).min(1, 'Select at least one product').max(500),
+  size_ids: z.array(id).min(1, 'Select at least one size').max(100),
+  mode: z.enum(['replace', 'add', 'remove']).optional().default('replace'),
+});
+
 export const outOfStockSchema = z.object({ out_of_stock: z.boolean() });
 
 export const catalogImportSchema = z.object({

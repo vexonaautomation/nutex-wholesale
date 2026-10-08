@@ -6,6 +6,7 @@ import {
 import { adminApi, uploadImage } from '../../services/auth.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { PageHeader } from '../components.jsx';
+import { SIZE_PRESETS, presetSizeIds, presetForCategory } from './sizePresets.js';
 import { Alert, Field, Img, PageLoader, Spinner, StatusBadge, ErrorState } from '../../components/common/ui.jsx';
 import { PriceTag } from '../../components/common/PriceTag.jsx';
 import { formatINR, pct } from '../../utils/format.js';
@@ -118,6 +119,11 @@ export default function ProductWizard() {
   const errorSteps = new Set(Object.values(errors).map(([s]) => s));
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const toggle = (k, value) => setForm((f) => ({ ...f, [k]: f[k].includes(value) ? f[k].filter((x) => x !== value) : [...f[k], value] }));
+  // a NEW product without sizes gets its category's usual sizes (bras & sets from 28, panties from 32)
+  const pickCategory = (categoryId) => setForm((f) => {
+    const preset = isNew && !f.size_ids.length ? presetForCategory(masters.categories.find((c) => c.category_id === categoryId)) : null;
+    return { ...f, category_id: categoryId, ...(preset ? { size_ids: presetSizeIds(masters.sizes, preset) } : {}) };
+  });
 
   if (loadError) return <ErrorState error={loadError} onRetry={() => window.location.reload()} />;
   if (!masters) return <PageLoader />;
@@ -258,7 +264,7 @@ export default function ProductWizard() {
     // 2 category
     <div className="form-grid" key="s1">
       <Field label="Category" required error={err('category_id')}>
-        <select className="select" value={form.category_id} onChange={(e) => set('category_id', e.target.value)}>
+        <select className="select" value={form.category_id} onChange={(e) => pickCategory(e.target.value)}>
           <option value="">Select category</option>
           {masters.categories.filter((c) => c.status !== 'ARCHIVED').map((c) => (
             <option key={c.category_id} value={c.category_id}>{c.parent_category ? `${c.parent_category} › ` : ''}{c.category_name}{c.status !== 'ACTIVE' ? ' (inactive)' : ''}</option>
@@ -313,7 +319,14 @@ export default function ProductWizard() {
           </button>
         ))}
       </div>
-      <div className="row"><button type="button" className="btn btn-sm" onClick={() => set('size_ids', masters.sizes.filter((s) => s.status === 'ACTIVE').map((s) => s.size_id))}>Select all active</button><button type="button" className="btn btn-sm btn-ghost" onClick={() => set('size_ids', [])}>Clear</button></div>
+      <div className="row wrap">
+        {SIZE_PRESETS.map((p) => (
+          <button key={p.key} type="button" className="btn btn-sm" onClick={() => set('size_ids', presetSizeIds(masters.sizes, p.key))}>{p.label}: {p.from}–{p.to}</button>
+        ))}
+        <button type="button" className="btn btn-sm" onClick={() => set('size_ids', masters.sizes.filter((s) => s.status === 'ACTIVE').map((s) => s.size_id))}>Select all active</button>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => set('size_ids', [])}>Clear</button>
+      </div>
+      <p className="tiny soft mb-0">Bras &amp; sets usually start at 28, panties at 32 - tick or untick any size. A size not in the list? Add it in <Link to="/admin/sizes">Sizes</Link>.</p>
       {sizesSel.length > 0 && (
         <div className="card card-pad" style={{ background: 'var(--ink-50)' }}>
           <h4 className="mb-1">Size-wise MRP per piece (optional)</h4>
