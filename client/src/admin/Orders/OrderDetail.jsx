@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, CheckCircle2, ExternalLink, Lock, LockOpen, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, Ban, CheckCircle2, ExternalLink, FileDown, Lock, LockOpen, Truck, XCircle } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { useAsync } from '../../hooks/index.js';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -104,6 +104,7 @@ export default function OrderDetail() {
           <>
             <Link to="/admin/orders" className="btn"><ArrowLeft /> Orders</Link>
             {wa && <a className="btn btn-whatsapp" href={waLink(wa, `Hello ${order.customer_name_snapshot}, regarding your Nutex order ${order.order_number}: `)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon /> Customer</a>}
+            <a className="btn" href={`/api/admin/orders/${encodeURIComponent(order.order_id)}/bill`} download><FileDown /> Download bill</a>
           </>
         )}
       />

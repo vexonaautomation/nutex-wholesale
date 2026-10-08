@@ -193,6 +193,9 @@ export default function Settings() {
       {text('whatsapp_number', 'WhatsApp number', 'With country code, e.g. 919876543210')}
       {text('company_gstin', 'Company GSTIN')}
       {area('company_address', 'Address', '', 3)}
+      <h4 className="span-2 mb-0 mt-2">Order bill (PDF)</h4>
+      {text('bill_title', 'Bill heading', 'Printed at the top of the bill, e.g. ESTIMATE')}
+      {area('bill_terms', 'Bill terms & conditions', 'One per line. Printed at the bottom of every bill. Company name, GSTIN, address and phone above are printed in the bill header.', 4)}
       {text('business_hours', 'Business hours')}
       {text('jurisdiction_city', 'Legal jurisdiction city', 'Used in Terms & Conditions')}
       {area('support_message', 'Support message', 'Shown on homepage & contact page', 2)}

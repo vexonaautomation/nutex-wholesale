@@ -125,6 +125,12 @@ export function assertQuoteOrderable(quote, clientFinal) {
   }
 }
 
+/** The customer may download the bill once the payment is submitted (never for cancelled orders). */
+export function billAvailable(order) {
+  return order.order_status !== ORDER_STATUS.CANCELLED
+    && [PAYMENT_STATUS.SUBMITTED, PAYMENT_STATUS.VERIFIED].includes(order.payment_status);
+}
+
 export function authorizeOrder(order, token) {
   if (!verifyOrderAccessToken(order.order_id, token)) {
     throw new AppError(403, 'ORDER_ACCESS_REQUIRED', 'Please verify this order with your order number and mobile number.');
@@ -256,6 +262,7 @@ export function customerOrderView({ order, items, payments, history }, settings 
     permissions: {
       can_edit: editable,
       can_submit_payment: canSubmitPayment(order) && totals.balance_due > 0,
+      can_download_bill: billAvailable(order),
     },
     payment_window_hours: editable && expiryHours > 0 ? expiryHours : null,
     notices,
@@ -365,6 +372,7 @@ export async function activeOrderSummaries(entries) {
       // pieces: a box line counts its pieces per box
       total_pcs: items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.units_per_box_snapshot) || 1), 0),
       can_submit_payment: canSubmitPayment(order) && totals.balance_due > 0,
+      can_download_bill: billAvailable(order),
       closed: [ORDER_STATUS.COMPLETED, ORDER_STATUS.CANCELLED].includes(order.order_status),
     });
   }

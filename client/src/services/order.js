@@ -61,6 +61,16 @@ export const orderApi = {
   update: (n, items, client_final_payable) => api.put(`/api/orders/${encodeURIComponent(n)}`, { items, client_final_payable }, { headers: tokenHeader(n) }),
   recalculate: (n, items, opts) => api.post(`/api/orders/${encodeURIComponent(n)}/recalculate`, items ? { items } : {}, { ...opts, headers: tokenHeader(n) }),
   lock: (n) => api.post(`/api/orders/${encodeURIComponent(n)}/lock`, {}, { headers: tokenHeader(n) }),
+  // order bill PDF (after the payment is submitted)
+  bill: async (n) => {
+    const res = await fetch(`/api/orders/${encodeURIComponent(n)}/bill`, { headers: tokenHeader(n), credentials: 'same-origin' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(body?.error?.message || 'Could not download the bill.'), { code: body?.error?.code, status: res.status });
+    }
+    const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') || '')?.[1];
+    return { blob: await res.blob(), filename: name || `Bill_${n}.pdf` };
+  },
   submitPayment: (n, form) => api.upload(`/api/orders/${encodeURIComponent(n)}/payment`, form, { headers: tokenHeader(n) }),
 };
 

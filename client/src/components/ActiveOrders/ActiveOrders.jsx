@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Package, QrCode } from 'lucide-react';
 import { orderApi, openSavedOrders, markOrderClosed } from '../../services/order.js';
 import { StatusBadge } from '../common/ui.jsx';
+import { DownloadBillButton } from '../DownloadBill/DownloadBillButton.jsx';
 import { formatDate, formatINR } from '../../utils/format.js';
 
 // Orders placed on this device stay here - from checkout, through payment
@@ -55,9 +56,12 @@ export function ActiveOrders({ onNavigate, className = '' }) {
               <QrCode /> Pay {formatINR(o.amount_to_pay)} now
             </Link>
           ) : (
-            <Link to={`/order/${o.order_number}`} className="btn btn-sm btn-block" onClick={onNavigate}>
-              View order <ArrowRight />
-            </Link>
+            <div className="row" style={{ gap: 8 }}>
+              <Link to={`/order/${o.order_number}`} className="btn btn-sm grow" onClick={onNavigate}>
+                View order <ArrowRight />
+              </Link>
+              {o.can_download_bill && <DownloadBillButton orderNumber={o.order_number} className="btn btn-sm grow" label="Bill" />}
+            </div>
           )}
         </div>
       ))}

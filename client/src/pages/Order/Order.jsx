@@ -9,6 +9,7 @@ import { OrderItems, OrderTotals } from '../../components/OrderSummary/OrderSumm
 import { Alert, ErrorState, PageLoader, StatusBadge } from '../../components/common/ui.jsx';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { VerifyOrderAccess } from '../TrackOrder/VerifyOrderAccess.jsx';
+import { DownloadBillButton } from '../../components/DownloadBill/DownloadBillButton.jsx';
 import { formatDateTime, formatINR } from '../../utils/format.js';
 import { paymentConfirmationMessage, waLink, waNumber } from '../../utils/whatsapp.js';
 import { PAYMENT_STATUS } from '../../constants/index.js';
@@ -84,6 +85,7 @@ export default function Order() {
             <Link to={`/order/${order.order_number}/payment`} className="btn btn-primary"><CreditCard /> Pay {formatINR(order.amount_to_pay)}</Link>
           )}
           {order.permissions.can_edit && <button type="button" className="btn" onClick={startEdit}><Pencil /> Edit order</button>}
+          {order.permissions.can_download_bill && <DownloadBillButton orderNumber={order.order_number} />}
         </div>
       </div>
 
