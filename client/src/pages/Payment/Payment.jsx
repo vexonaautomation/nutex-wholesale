@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { CheckCircle2, FileImage, Lock, Upload, Info } from 'lucide-react';
 import { orderApi, getOrderToken, newIdempotencyKey } from '../../services/order.js';
 import { useStore } from '../../context/StoreContext.jsx';
@@ -54,6 +54,7 @@ export default function Payment() {
   if (state.error) return <div className="container page"><ErrorState error={state.error} onRetry={load} /></div>;
 
   const { order } = state;
+  if (order.payment_mode === 'OFFLINE' && !submitted) return <Navigate to={`/order/${order.order_number}/thank-you`} replace />;
   const wa = waNumber(settings, 'payment');
   const latest = submitted || order.payments.filter((p) => p.status !== 'REJECTED').slice(-1)[0];
   const message = paymentConfirmationMessage({

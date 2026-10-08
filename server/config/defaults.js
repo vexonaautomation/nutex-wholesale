@@ -56,6 +56,7 @@ export const DEFAULT_SETTINGS = [
   { key: 'upi_id', value: '', type: 'string', public: true, description: 'Company UPI ID' },
   { key: 'payment_name', value: '', type: 'string', public: true, description: 'Account / payee name shown with the QR' },
   { key: 'payment_instructions', value: '1. Scan the QR code with any UPI app (GPay, PhonePe, Paytm, BHIM).\n2. Pay the exact order amount.\n3. Note the UTR / Transaction ID.\n4. Submit the UTR and payment screenshot below.', type: 'text', public: true, description: 'Instructions shown on the payment page' },
+  { key: 'online_payment_enabled', value: true, type: 'boolean', public: true, description: 'ON = after checkout the customer pays by the UPI QR. OFF = checkout ends on a thank-you page and the team confirms each order (payment collected outside the website).' },
   { key: 'payment_whatsapp_number', value: '', type: 'phone', public: true, description: 'WhatsApp number for payment confirmation (falls back to support number)' },
 
   // ---- Legal (blank = built-in template, review before production) ----

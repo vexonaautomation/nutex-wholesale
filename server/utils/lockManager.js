@@ -1,5 +1,8 @@
 import { conflict, MESSAGES } from './errors.js';
-import { ORDER_STATUS, PAYMENT_STATUS } from '../config/constants.js';
+import { ORDER_STATUS, PAYMENT_STATUS, PAYMENT_MODE } from '../config/constants.js';
+
+/** Placed while online payment was off: no QR step, the team confirms it. */
+export const isOfflineOrder = (order) => order?.payment_mode_snapshot === PAYMENT_MODE.OFFLINE;
 
 // ---------------------------------------------------------------------
 // 1) Write mutex
@@ -51,6 +54,7 @@ export function assertOrderEditable(order) {
 
 export function canSubmitPayment(order) {
   if (!order || order.order_status === ORDER_STATUS.CANCELLED) return false;
+  if (isOfflineOrder(order)) return false; // no online payment for these orders
   if (isOrderEditable(order)) return true;
   // A rejected payment may be re-submitted; the order stays locked.
   return order.order_status === ORDER_STATUS.PAYMENT_REJECTED && order.payment_status === PAYMENT_STATUS.REJECTED;

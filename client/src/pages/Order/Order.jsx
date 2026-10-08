@@ -68,6 +68,7 @@ export default function Order() {
     navigate('/cart');
   };
 
+  const offline = order.payment_mode === 'OFFLINE';
   return (
     <div className="container page">
       <div className="order-head">
@@ -75,8 +76,10 @@ export default function Order() {
           <span className="eyebrow">Order placed {formatDateTime(order.created_at)}</span>
           <h1 className="order-no">{order.order_number}</h1>
           <div className="row wrap mt-1">
-            <StatusBadge status={order.order_status} />
-            <span className="small muted">Payment:</span> <StatusBadge kind="payment" status={order.payment_status} />
+            {offline && order.order_status === 'PAYMENT_PENDING'
+              ? <span className="badge badge-warning">Awaiting confirmation</span>
+              : <StatusBadge status={order.order_status} />}
+            {!offline && <><span className="small muted">Payment:</span> <StatusBadge kind="payment" status={order.payment_status} /></>}
             {order.locked && <span className="badge badge-dark"><Lock /> Locked</span>}
           </div>
         </div>
@@ -90,11 +93,15 @@ export default function Order() {
       </div>
 
       {order.locked && order.order_status !== 'CANCELLED' && (
-        <div className="lock-banner"><Lock /><span>Your order has been locked because payment confirmation has been submitted. To request changes, contact us on WhatsApp.</span></div>
+        <div className="lock-banner"><Lock /><span>{offline
+          ? 'Your order has been confirmed by our team and is locked. To request changes, contact us on WhatsApp.'
+          : 'Your order has been locked because payment confirmation has been submitted. To request changes, contact us on WhatsApp.'}</span></div>
       )}
       {order.notices.filter((n) => n.code !== 'ORDER_LOCKED').map((n) => <Alert key={n.code} type={n.type} className="mb-2">{n.text}</Alert>)}
       {order.permissions.can_edit && (
-        <Alert type="brand" className="mb-2">You can still add or remove products, change sizes/colours or quantities until you submit payment confirmation.</Alert>
+        <Alert type="brand" className="mb-2">{offline
+          ? 'Your order has been received and is awaiting confirmation from our team. You can still change products, sizes/colours or quantities until it is confirmed.'
+          : 'You can still add or remove products, change sizes/colours or quantities until you submit payment confirmation.'}</Alert>
       )}
 
       <div className="two-col">
