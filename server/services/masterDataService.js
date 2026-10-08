@@ -35,7 +35,7 @@ export function createMasterService({ sheet, idField, idPrefix, entity, nameFiel
       [idField]: newId(idPrefix),
       ...fields,
       status: input.status || RECORD_STATUS.ACTIVE,
-      sort_order: input.sort_order ?? maxSort + 10,
+      sort_order: input.sort_order ?? fields.sort_order ?? maxSort + 10,
       created_at: now,
       updated_at: now,
     };

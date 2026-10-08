@@ -22,3 +22,13 @@ export function presetForCategory(category) {
   if (/\bbra\b|bras?\b|\bset\b|lingerie/.test(text)) return 'bra';
   return null;
 }
+
+/** Sizes of a preset (28, 30 ... 40) that are not in the size list at all yet. */
+export function missingPresetSizes(sizes, key) {
+  const p = SIZE_PRESETS.find((x) => x.key === key);
+  if (!p) return [];
+  const have = new Set(sizes.map((s) => String(s.size_name).trim()));
+  const out = [];
+  for (let n = p.from; n <= p.to; n += 2) if (!have.has(String(n))) out.push(String(n));
+  return out;
+}

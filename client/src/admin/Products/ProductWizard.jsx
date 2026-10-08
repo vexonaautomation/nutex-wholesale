@@ -6,7 +6,9 @@ import {
 import { adminApi, uploadImage } from '../../services/auth.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { PageHeader } from '../components.jsx';
-import { SIZE_PRESETS, presetSizeIds, presetForCategory } from './sizePresets.js';
+import {
+  SIZE_PRESETS, presetSizeIds, presetForCategory, missingPresetSizes,
+} from './sizePresets.js';
 import { Alert, Field, Img, PageLoader, Spinner, StatusBadge, ErrorState } from '../../components/common/ui.jsx';
 import { PriceTag } from '../../components/common/PriceTag.jsx';
 import { formatINR, pct } from '../../utils/format.js';
@@ -119,6 +121,19 @@ export default function ProductWizard() {
   const errorSteps = new Set(Object.values(errors).map(([s]) => s));
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const toggle = (k, value) => setForm((f) => ({ ...f, [k]: f[k].includes(value) ? f[k].filter((x) => x !== value) : [...f[k], value] }));
+  // a preset size missing from the size list (e.g. 28): add it, then tick the preset
+  const addPresetSizes = async (key) => {
+    const names = missingPresetSizes(masters.sizes, key);
+    try {
+      for (const n of names) await adminApi.post('/sizes', { size_name: n });
+      const res = await adminApi.get('/sizes');
+      setMasters((m) => ({ ...m, sizes: res.items }));
+      setForm((f) => ({ ...f, size_ids: [...new Set([...f.size_ids, ...presetSizeIds(res.items, key)])] }));
+      toast.success(`Size ${names.join(', ')} added.`);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
   // a NEW product without sizes gets its category's usual sizes (bras & sets from 28, panties from 32)
   const pickCategory = (categoryId) => setForm((f) => {
     const preset = isNew && !f.size_ids.length ? presetForCategory(masters.categories.find((c) => c.category_id === categoryId)) : null;
@@ -325,6 +340,10 @@ export default function ProductWizard() {
         ))}
         <button type="button" className="btn btn-sm" onClick={() => set('size_ids', masters.sizes.filter((s) => s.status === 'ACTIVE').map((s) => s.size_id))}>Select all active</button>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => set('size_ids', [])}>Clear</button>
+        {SIZE_PRESETS.map((p) => {
+          const miss = missingPresetSizes(masters.sizes, p.key);
+          return miss.length ? <button key={`add-${p.key}`} type="button" className="btn btn-sm btn-ghost" onClick={() => addPresetSizes(p.key)}><Plus /> Add size {miss.join(', ')}</button> : null;
+        })}
       </div>
       <p className="tiny soft mb-0">Bras &amp; sets usually start at 28, panties at 32 - tick or untick any size. A size not in the list? Add it in <Link to="/admin/sizes">Sizes</Link>.</p>
       {sizesSel.length > 0 && (

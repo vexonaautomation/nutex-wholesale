@@ -76,3 +76,14 @@ test('bulk sizes: never leaves a product without sizes; old-style box products a
   await assert.rejects(bulkSetSizes({ product_ids: [a.pid], size_ids: ['SIZ-NOPE'], mode: 'add' }, adminCtx), /Unknown size/);
   assert.equal(bulkSizesSchema.safeParse({ product_ids: [a.pid], size_ids: [] }).success, false);
 });
+
+test('a new number size is placed in number order (28 before 30), other sizes at the end', async () => {
+  const { adminCtx } = await freshStore();
+  const { sizeService } = await import('../services/sizeService.js');
+  await sizeService.create({ size_name: '29' }, adminCtx);
+  await sizeService.create({ size_name: '7XL' }, adminCtx);
+  const names = (await getCatalog({ fresh: true })).sizes.map((s) => s.size_name);
+  assert.ok(names.indexOf('29') === names.indexOf('30') - 1 && names.indexOf('29') === names.indexOf('28') + 1, `29 between 28 and 30: ${names.join(' ')}`);
+  assert.equal(names[names.length - 1], '7XL', 'non-number sizes go to the end');
+  await assert.rejects(sizeService.create({ size_name: '30' }, adminCtx), /already exists/);
+});
