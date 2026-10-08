@@ -560,6 +560,66 @@ export async function bulkSetSelling({
   return result;
 }
 
+/**
+ * Bulk sizes for many products at once: `replace` (exactly these sizes),
+ * `add` or `remove`. New sizes get new piece variants (+ one box per size
+ * if the product has boxes) starting at stock 0; variants of removed sizes
+ * become INACTIVE - never deleted, their stock and order history stay.
+ * Prices, colours, images and everything else are untouched.
+ */
+export async function bulkSetSizes({ product_ids: productIds, size_ids: picked, mode = 'replace' }, { admin, ip }) {
+  const ids = [...new Set(productIds)];
+  const result = { updated: [], unchanged: [], skipped: [] };
+  for (let start = 0; start < ids.length; start += 25) {
+    const chunk = ids.slice(start, start + 25);
+    await withLock(COMMERCE_LOCK, async () => {
+      const catalog = buildCatalog(await sheetsService.readMany(CATALOG_SHEETS, { fresh: true }));
+      for (const sid of picked) if (!catalog.sizesById.has(sid)) throw badRequest(`Unknown size ${sid}`);
+      const now = nowIso();
+      const ops = [];
+      for (const id of chunk) {
+        const p = catalog.productsById.get(id);
+        if (!p) { result.skipped.push({ product_id: id, reason: 'Product not found' }); continue; }
+        const label = `${p.sku} ${p.product_name}`;
+        const existingVariants = catalog.variantsByProduct.get(id) || [];
+        if (hasLegacyBoxes(p, existingVariants)) { result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: old-style boxes - change its sizes in the product form` }); continue; }
+        const current = splitIds(p.size_ids).filter((x) => catalog.sizesById.has(x));
+        const wanted = new Set(mode === 'replace' ? picked : mode === 'add' ? [...current, ...picked] : current.filter((x) => !picked.includes(x)));
+        const sizeIds = catalog.sizes.filter((x) => wanted.has(x.size_id)).map((x) => x.size_id); // master order
+        if (!sizeIds.length) { result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: would have no sizes left` }); continue; }
+        if (sizeIds.join(',') === current.join(',')) { result.unchanged.push(p.sku); continue; }
+        const sellMode = sellModeOf(p);
+        const colorIds = splitIds(p.color_ids).filter((c) => catalog.colorsById.has(c));
+        const unitsPerBox = allowsBox({ sell_mode: sellMode }) ? unitsPerBoxOf(p, existingVariants) : null;
+        const sizeMrp = new Map(Object.entries(sizeMrpsOf(existingVariants)).filter(([sid, m]) => sizeIds.includes(sid) && m !== Number(p.mrp)));
+        const desired = planVariants({
+          catalog, existingVariants, sku: p.sku, sellMode, sizeIds, colorIds, sizeMrp, unitsPerBox,
+        });
+        try {
+          checkVariantSkus(catalog, id, desired);
+        } catch (err) {
+          result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: ${err.message}` });
+          continue;
+        }
+        const applied = applyVariantPlan({
+          catalog, pid: id, existingVariants, desired, now, by: admin.admin_id,
+        });
+        const sizeName = (sid) => catalog.sizesById.get(sid)?.size_name;
+        ops.push({ op: 'update', sheet: 'Products', id, patch: { size_ids: sizeIds.join(','), updated_at: now, updated_by: admin.admin_id } });
+        ops.push(...applied.ops);
+        ops.push(auditOp({
+          admin, ip, action: AUDIT_ACTION.PRODUCT_UPDATED, entity_type: 'Product', entity_id: id,
+          old_value: { sizes: current.map(sizeName) },
+          new_value: { sizes: sizeIds.map(sizeName), new_variants: applied.newVariants.length, via: `bulk sizes (${mode})` },
+        }));
+        result.updated.push(p.sku);
+      }
+      if (ops.length) await sheetsService.commit(ops);
+    });
+  }
+  return result;
+}
+
 /** size_id -> MRP for colour-wise variants that have their own (size-wise) MRP. */
 export function sizeMrpsOf(variants = []) {
   const out = {};
