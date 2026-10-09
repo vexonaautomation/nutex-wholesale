@@ -3,7 +3,7 @@
 //           S.No (order number) · Date · Party Name · Ph · City
 //   table   Item (Color, SKU) | size columns S/32 M/34 L/36 XL/38 ... FreeSize
 //           | Total Qty (Dzn) | Rate (per piece MRP) | Disc | Amount
-//   footer  Terms & Conditions · totals · GRAND TOTAL · signatures
+//   footer  Terms & Conditions · totals · (Less: Packing charges) · GRAND TOTAL · signatures
 // Read-only: built from the order's own snapshots, nothing is written.
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -100,6 +100,8 @@ export function buildBill({
     total_dzn: formatDzn(totalPcs),
     subtotal,
     gst: 0,
+    // "Less: Packing charges" the admin took off this order (already in final_payable)
+    packing_deduction: round2(Number(order.packing_deduction) || 0),
     grand_total: round2(Number(order.final_payable) || subtotal),
     terms: String(settings.bill_terms || '').split('\n').map((t) => t.trim()).filter(Boolean),
   };
@@ -149,12 +151,17 @@ export function renderBillPdf(bill) {
     const opts = { width, align, lineBreak: !oneLine && Boolean(width) && align === 'left', lineGap: 1 };
     doc.font(f).fontSize(fs).fillColor(color).text(str, x, y, opts);
   };
-  const money = (amount, right, y, { bold = true, size = 9, color = INK } = {}) => {
+  const money = (amount, right, y, {
+    bold = true, size = 9, color = INK, minus = false,
+  } = {}) => {
     const digits = Number(amount || 0).toFixed(2);
     doc.fontSize(size);
+    const sign = minus ? '- ' : '';
+    const wS = doc.font(bold ? 'B' : 'R').widthOfString(sign);
     const wR = doc.font(bold ? 'BX' : 'RX').widthOfString('₹');
     const wD = doc.font(bold ? 'B' : 'R').widthOfString(digits);
     const x = right - wR - wD;
+    if (minus) doc.font(bold ? 'B' : 'R').fillColor(color).text(sign, x - wS, y, { lineBreak: false });
     doc.font(bold ? 'BX' : 'RX').fillColor(color).text('₹', x, y, { lineBreak: false });
     doc.font(bold ? 'B' : 'R').fillColor(color).text(digits, x + wR, y, { lineBreak: false });
   };
@@ -262,7 +269,7 @@ export function renderBillPdf(bill) {
   }
 
   // ---- totals, terms, signatures (kept together)
-  const FOOT_H = 250;
+  const FOOT_H = 250 + (bill.packing_deduction > 0 ? 28 : 0);
   if (y + FOOT_H > bottom) {
     doc.addPage({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 0 });
     frame();
@@ -277,20 +284,22 @@ export function renderBillPdf(bill) {
     text(t, L, ty, { size: 8, width: termsW });
     ty += doc.font('R').fontSize(8).heightOfString(t, { width: termsW, lineGap: 1 }) + 3;
   }
-  const line = (label, yy, value, { money: isMoney = true } = {}) => {
+  const line = (label, yy, value, { money: isMoney = true, minus = false } = {}) => {
     text(label, tx, yy, { size: 10, width: (R - tx) * 0.6, align: 'right', color: '#374151' });
-    if (isMoney) money(value, R, yy, { size: 10.5 });
+    if (isMoney) money(value, R, yy, { size: 10.5, minus });
     else text(value, tx, yy, { f: 'B', size: 10.5, width: R - tx, align: 'right' });
     doc.save().lineWidth(0.5).strokeColor('#e5e7eb').dash(2, { space: 2 }).moveTo(tx, yy + 20).lineTo(R, yy + 20).stroke().restore();
   };
   line('Total Quantity (Dzn):', y, bill.total_dzn, { money: false });
   line('Taxable Subtotal:', y + 28, bill.subtotal);
   line('Total GST:', y + 56, bill.gst);
-  doc.save().lineWidth(0.8).strokeColor('#9ca3af').moveTo(tx, y + 78).lineTo(R, y + 78).stroke().restore();
-  text('GRAND TOTAL:', tx, y + 94, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
-  money(bill.grand_total, R, y + 92, { size: 16, color: NAVY });
+  const extra = bill.packing_deduction > 0 ? 28 : 0;
+  if (extra) line('Less: Packing charges:', y + 84, bill.packing_deduction, { minus: true });
+  doc.save().lineWidth(0.8).strokeColor('#9ca3af').moveTo(tx, y + 78 + extra).lineTo(R, y + 78 + extra).stroke().restore();
+  text('GRAND TOTAL:', tx, y + 94 + extra, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
+  money(bill.grand_total, R, y + 92 + extra, { size: 16, color: NAVY });
 
-  const sy = Math.max(ty, y + 130) + 40;
+  const sy = Math.max(ty, y + 130 + extra) + 40;
   text('Sales Representative: .....................................', L, sy, { size: 8.5 });
   text("Customer's Signature: .....................................", L, sy, { size: 8.5, width: R - L, align: 'right' });
   doc.font('B').fontSize(10);

@@ -36,6 +36,9 @@ export function OrderTotals({ totals }) {
         <span>Minimum order (at time of order)</span>
         <strong>{totals.customer_type === 'EXISTING' && !Number(totals.minimum_order_value) ? 'Not applicable (existing customer)' : formatINR(totals.minimum_order_value)}</strong>
       </div>
+      {Number(totals.packing_deduction) > 0 && (
+        <div className="summary-row"><span>Less: Packing charges</span><strong style={{ color: 'var(--success-700)' }}>− {formatINR(totals.packing_deduction)}</strong></div>
+      )}
       <div className="summary-total"><span>Final payable</span><strong>{formatINR(totals.final_payable)}</strong></div>
     </div>
   );

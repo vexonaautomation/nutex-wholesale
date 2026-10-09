@@ -81,7 +81,9 @@ function itemRows(order, revision, quote, now) {
   }));
 }
 
-function totalsFields(quote) {
+// `deduction` = "Less: Packing charges" the admin set on the order (kept when
+// the customer edits the order; the minimum order is checked before it)
+function totalsFields(quote, deduction = 0) {
   return {
     mrp_subtotal: quote.gross_mrp_subtotal,
     discount_mode_snapshot: quote.discount_mode,
@@ -90,7 +92,7 @@ function totalsFields(quote) {
     discount_percent: quote.discount_percent,
     slab_id_snapshot: quote.current_slab?.slab_id || '',
     discount_amount: quote.discount_amount,
-    final_payable: quote.final_payable,
+    final_payable: round2(Math.max(0, quote.final_payable - (Number(deduction) || 0))),
     total_qty: quote.total_qty,
     minimum_order_value_snapshot: quote.minimum_order_value,
     minimum_order_met: quote.minimum_order_met,
@@ -186,6 +188,7 @@ const itemView = (i) => ({
 });
 
 const totalsView = (o) => ({
+  packing_deduction: Number(o.packing_deduction) || 0,
   mrp_subtotal: o.mrp_subtotal,
   discount_mode: o.discount_mode_snapshot,
   discount_basis: o.discount_basis_snapshot,
@@ -436,7 +439,7 @@ export async function updateOrderItems(orderNumber, token, { items, client_final
       ...inventory.ops,
       ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
       { op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) },
-      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totalsFields(quote), revision, stock_state: STOCK_STATE.RESERVED, updated_at: now } },
+      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totalsFields(quote, order.packing_deduction), revision, stock_state: STOCK_STATE.RESERVED, updated_at: now } },
       auditOp({
         actorType: ACTOR.CUSTOMER, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_CUSTOMER, entity_type: 'Order', entity_id: order.order_id,
         old_value: { revision: order.revision, final_payable: before.final_payable, items: current.length },
@@ -666,6 +669,44 @@ export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = 
  * Requires authentication, explicit confirmation and a reason; the previous
  * and new state are written to Audit_Log in the same atomic batch.
  */
+/**
+ * "Less: Packing charges": a flat amount the admin takes off the order total
+ * (e.g. the customer does not want boxes). 0 removes it. Not for cancelled or
+ * handed-over orders, and the total never goes below payments already verified.
+ */
+export async function setPackingDeduction(id, { amount, note }, { admin, ip }) {
+  return withLock(COMMERCE_LOCK, async () => {
+    const data = await sheetsService.readMany(['Orders', 'Payments'], { fresh: true });
+    const order = data.Orders.find((o) => o.order_id === id || o.order_number === normalizeOrderNumber(id));
+    if (!order) throw notFound('Order not found.');
+    if ([ORDER_STATUS.CANCELLED, ORDER_STATUS.COMPLETED].includes(order.order_status)) {
+      throw conflict('INVALID_TRANSITION', `Packing charges cannot be changed on a ${STATE_LABELS[order.order_status]} order.`);
+    }
+    const current = Number(order.packing_deduction) || 0;
+    const base = round2((Number(order.final_payable) || 0) + current); // total before the deduction
+    const value = round2(Number(amount) || 0);
+    if (value < 0) throw badRequest('Enter 0 or more.');
+    if (value > base) throw badRequest(`Packing charges cannot be more than the order total ${formatINR(base)}.`);
+    const { amount_paid_verified: verified } = paymentTotals(order, data.Payments.filter((p) => p.order_id === order.order_id));
+    if (round2(base - value) < verified) {
+      throw conflict('PAYMENT_ALREADY_VERIFIED', `${formatINR(verified)} is already verified for this order - the total cannot go below it.`);
+    }
+    if (value === current) return getOrderAdmin(order.order_id);
+    const now = nowIso();
+    const patch = { packing_deduction: value || null, final_payable: round2(base - value), updated_at: now };
+    await sheetsService.commit([
+      { op: 'update', sheet: 'Orders', id: order.order_id, patch },
+      auditOp({
+        admin, ip, action: AUDIT_ACTION.ORDER_PACKING_CHARGES_UPDATED, entity_type: 'Order', entity_id: order.order_id,
+        old_value: { packing_deduction: current, final_payable: order.final_payable },
+        new_value: { packing_deduction: value, final_payable: patch.final_payable },
+        notes: `Less: packing charges ${formatINR(value)}${note ? ` - ${note}` : ''}`,
+      }),
+    ]);
+    return getOrderAdmin(order.order_id);
+  });
+}
+
 export async function reopenOrderAdmin(id, { reason }, { admin, ip }) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany(['Orders', 'Order_Items', 'Inventory'], { fresh: true });

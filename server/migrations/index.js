@@ -73,4 +73,9 @@ export const MIGRATIONS = [
     version: 8,
     description: 'Online payment on/off (thank-you page, team confirms orders)',
   },
+  {
+    // Additive only: Orders.packing_deduction. Older orders keep it blank = 0.
+    version: 9,
+    description: 'Less: packing charges (admin deduction per order)',
+  },
 ];
