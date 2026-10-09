@@ -1,8 +1,8 @@
-// Nutex size ranges: bras and sets start at 28, panties at 32. These only
+// Nutex size ranges: bras and sets 28-40 (some up to 44), panties 32-44. These only
 // pre-tick sizes - any other (custom) size can always be ticked or added.
 export const SIZE_PRESETS = [
   { key: 'bra', label: 'Bra & Set', from: 28, to: 40 },
-  { key: 'panty', label: 'Panty', from: 32, to: 40 },
+  { key: 'panty', label: 'Panty', from: 32, to: 44 },
 ];
 
 /** Active sizes whose number lies in the preset range (master order). */
