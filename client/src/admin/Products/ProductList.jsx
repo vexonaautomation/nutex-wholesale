@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Archive, Boxes, Copy, PackageCheck, PackageX, Pencil, Plus, Power, Ruler, Shirt,
+  Archive, Boxes, Copy, FileSpreadsheet, PackageCheck, PackageX, Pencil, Plus, Power, Ruler, Shirt,
 } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { useAsync, useDebounce } from '../../hooks/index.js';
@@ -14,6 +14,7 @@ import { Modal } from '../../components/common/Modal.jsx';
 import { formatINR, pct } from '../../utils/format.js';
 import { qs } from '../../services/api.js';
 import { BulkSizesDialog } from './BulkSizesDialog.jsx';
+import { BulkEditDialog } from './BulkEditDialog.jsx';
 
 function SellBadge({ p }) {
   const box = p.units_per_box || (p.sell_mode && p.sell_mode !== 'PCS' ? '?' : null);
@@ -106,6 +107,7 @@ export default function ProductList() {
   const [picked, setPicked] = useState(() => new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [sizesOpen, setSizesOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const dq = useDebounce(q, 250);
   const toast = useToast();
   const navigate = useNavigate();
@@ -146,7 +148,7 @@ export default function ProductList() {
       <PageHeader
         title="Products"
         subtitle="Products are never deleted - deactivate or archive them to hide from the store."
-        actions={<><Link to="/admin/catalog-import" className="btn">Import Nutex catalogue</Link><Link to="/admin/products/new" className="btn btn-primary"><Plus /> Add product</Link></>}
+        actions={<><button type="button" className="btn" onClick={() => setEditOpen(true)}><FileSpreadsheet /> Bulk edit (Excel)</button><Link to="/admin/catalog-import" className="btn">Import Nutex catalogue</Link><Link to="/admin/products/new" className="btn btn-primary"><Plus /> Add product</Link></>}
       />
       <div className="filter-bar">
         <SearchBox value={q} onChange={setQ} placeholder="Search name, SKU or ID" />
@@ -232,6 +234,13 @@ export default function ProductList() {
         products={(data?.items || []).filter((p) => picked.has(p.product_id))}
         onClose={() => setBulkOpen(false)}
         onDone={() => { setPicked(new Set()); reload(); }}
+      />
+      <BulkEditDialog
+        open={editOpen}
+        selectedIds={[...picked]}
+        total={(data?.items || []).filter((p) => p.status !== 'ARCHIVED').length}
+        onClose={() => setEditOpen(false)}
+        onApplied={() => reload()}
       />
       <BulkSizesDialog
         open={sizesOpen}

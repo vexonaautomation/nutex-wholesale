@@ -59,6 +59,8 @@ Add, edit, reorder (arrows), deactivate/reactivate (categories can also be archi
 9. Status – Active / Inactive / Archived; “entire product out of stock”
 10. Preview & **Publish** – only this product's rows are written.
 
+**Bulk edit (Excel)** (Products page): download a pre-filled .xlsx (Products + Stock tabs), change SKU, name, category, MRP, discount, pieces per box, sizes, colours, size-wise MRP, status, featured and stock, upload it, check the preview, Apply. Guide: `docs/PRODUCT_BULK_EDIT.md`.
+
 Product list actions: edit, duplicate (copy saved inactive, zero stock), mark out of stock / restore, deactivate / reactivate, archive; tick several products → **Box / pieces** (pieces per box, loose pieces for new customers). The *Selling* column shows e.g. “Box of 6 pcs · Pcs: existing only”.
 
 ## Inventory
