@@ -119,13 +119,16 @@ const parseQty = (v) => {
  * Works out every change from the uploaded sheet against the LIVE stock.
  * Returns { changes, unchanged, errors, skipped_blank } - nothing is written.
  */
-function planImport(parsed, invRows, catalogRows) {
+function planImport(parsed, invRows, catalogRows, { isPending = null } = {}) {
   const byId = new Map(invRows.map((r) => [r.inventory_id, r]));
   const byItem = new Map();
+  const byProduct = new Map(); // product_id + type + colour + size (SKU may change in the same upload)
   for (const r of catalogRows) {
     const k = itemKey(r.product_sku, typeOf(r), r.color_name, r.size_name);
     byItem.set(k, byItem.has(k) ? 'AMBIGUOUS' : r.inventory_id);
+    byProduct.set(`${r.product_id}|${itemKey('', typeOf(r), r.color_name, r.size_name)}`, r.inventory_id);
   }
+  const pending = [];
   const info = new Map(catalogRows.map((r) => [r.inventory_id, r]));
   const seen = new Set();
   const changes = [];
@@ -139,11 +142,13 @@ function planImport(parsed, invRows, catalogRows) {
     if (setQty === null && addQty === null) { blank += 1; continue; }
     const err = (message) => errors.push({ line: row.line, item: [row.product_sku, row.colour, row.size].filter(Boolean).join(' · '), message });
     let id = row.inventory_id && byId.has(row.inventory_id) ? row.inventory_id : null;
+    if (!id && row.product_id) id = byProduct.get(`${row.product_id}|${itemKey('', row.type || 'PCS', row.colour, row.size)}`) || null;
     if (!id && row.product_sku) {
       const found = byItem.get(itemKey(row.product_sku, row.type || 'PCS', row.colour, row.size));
       if (found === 'AMBIGUOUS') { err('More than one item matches - keep the inventory_id column.'); continue; }
       id = found || null;
     }
+    if (!id && isPending?.(row)) { pending.push({ line: row.line, item: [row.product_sku, row.colour, row.size].filter(Boolean).join(' · ') }); continue; }
     if (!id) { err('Item not found. Use a freshly downloaded stock sheet.'); continue; }
     if (seen.has(id)) { err('This item appears twice in the file.'); continue; }
     seen.add(id);
@@ -180,20 +185,34 @@ function planImport(parsed, invRows, catalogRows) {
       mode: setQty !== null ? 'set' : 'add',
     });
   }
-  return { changes, unchanged, errors, skipped_blank: blank };
+  return {
+    changes, unchanged, errors, pending, skipped_blank: blank,
+  };
 }
 
 /** Preview (apply = false) or apply the uploaded stock sheet. */
-export async function importStockSheet(text, { apply = false, admin, ip } = {}) {
-  const parsed = parseStockSheet(text);
+export async function importStockSheet(text, opts = {}) {
+  return importStockRows(parseStockSheet(text), opts);
+}
+
+/**
+ * Preview / apply already-read stock rows ({ line, inventory_id?, product_id?,
+ * product_sku?, type?, colour, size, current_stock?, new_stock?, add_stock? }).
+ * `isPending(row)` marks rows for items that are about to be created (e.g.
+ * a size added in the same bulk edit) instead of reporting them as unknown.
+ */
+export async function importStockRows(parsed, {
+  apply = false, admin, ip, isPending = null,
+} = {}) {
   const run = async () => {
     const [invRows, catalogRows] = await Promise.all([sheetsService.read('Inventory', { fresh: true }), stockRows()]);
-    const plan = planImport(parsed, invRows, catalogRows);
+    const plan = planImport(parsed, invRows, catalogRows, { isPending });
     const summary = {
       rows: parsed.length,
       to_change: plan.changes.length,
       unchanged: plan.unchanged,
       blank: plan.skipped_blank,
+      pending: plan.pending,
       errors: plan.errors,
       changes: plan.changes.map(({ variant_id: _v, ...c }) => c),
     };

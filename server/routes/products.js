@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import * as c from '../controllers/productController.js';
 import { validate } from '../middleware/validation.js';
 import {
@@ -15,6 +15,9 @@ adminRouter.get('/products', c.adminList);
 adminRouter.post('/products', validate(productSchema), c.adminCreate);
 adminRouter.post('/products/bulk-selling', validate(bulkSellingSchema), c.adminBulkSelling);
 adminRouter.post('/products/bulk-sizes', validate(bulkSizesSchema), c.adminBulkSizes);
+// bulk edit with Excel: download the pre-filled .xlsx, upload it back (?apply=1 writes)
+adminRouter.get('/products/bulk-edit.xlsx', c.adminBulkEditDownload);
+adminRouter.post('/products/bulk-edit', express.raw({ type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/octet-stream'], limit: '15mb' }), c.adminBulkEditUpload);
 adminRouter.get('/products/:id', c.adminGet);
 adminRouter.put('/products/:id', validate(productSchema), c.adminUpdate);
 adminRouter.post('/products/:id/deactivate', c.adminDeactivate);

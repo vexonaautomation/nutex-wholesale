@@ -5,8 +5,9 @@ import {
   listProductsAdmin, getProductAdmin, saveProduct, setProductStatus, setProductOutOfStock, duplicateProduct, bulkSetSelling, bulkSetSizes,
 } from '../services/productService.js';
 import { RECORD_STATUS } from '../config/constants.js';
-import { notFound } from '../utils/errors.js';
+import { notFound, badRequest } from '../utils/errors.js';
 import { ctx, noStore } from './helpers.js';
+import { bulkEditWorkbook, bulkEditProducts } from '../services/productBulkEditService.js';
 
 // ------------------------------ public ------------------------------
 export async function listProducts(req, res) {
@@ -72,3 +73,20 @@ export async function adminDuplicate(req, res) {
 
 export const adminBulkSelling = async (req, res) => res.json(await bulkSetSelling(req.body, ctx(req)));
 export const adminBulkSizes = async (req, res) => res.json(await bulkSetSizes(req.body, ctx(req)));
+
+export async function adminBulkEditDownload(req, res) {
+  const ids = String(req.query.ids || '').split(',').map((x) => x.trim()).filter(Boolean);
+  const { buffer, filename } = await bulkEditWorkbook({ productIds: ids });
+  res.set({
+    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Content-Disposition': `attachment; filename="${filename}"`,
+    'Cache-Control': 'no-store',
+  });
+  res.send(buffer);
+}
+
+// body = the .xlsx file; ?apply=1 writes, otherwise preview only
+export async function adminBulkEditUpload(req, res) {
+  if (!Buffer.isBuffer(req.body) || !req.body.length) throw badRequest('Upload the .xlsx file from "Bulk edit (Excel)".');
+  res.json(await bulkEditProducts(req.body, { apply: req.query.apply === '1', ...ctx(req) }));
+}
