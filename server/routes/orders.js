@@ -7,7 +7,7 @@ import {
 } from '../middleware/rateLimit.js';
 import {
   quoteSchema, draftOrderSchema, trackOrderSchema, activeOrdersSchema, updateOrderSchema, recalculateSchema,
-  orderStatusSchema, reopenSchema, cancelSchema,
+  orderStatusSchema, reopenSchema, cancelSchema, packingDeductionSchema,
 } from '../utils/validation.js';
 
 export const publicRouter = Router();
@@ -28,3 +28,4 @@ adminRouter.get('/orders/:id/bill', c.adminBillPdf);
 adminRouter.put('/orders/:id/status', validate(orderStatusSchema), c.adminStatus);
 adminRouter.post('/orders/:id/reopen', validate(reopenSchema), c.adminReopen);
 adminRouter.post('/orders/:id/cancel', validate(cancelSchema), c.adminCancel);
+adminRouter.post('/orders/:id/packing-deduction', validate(packingDeductionSchema), c.adminPackingDeduction);

@@ -66,6 +66,42 @@ export function PaymentDecision({ payment, onDone }) {
   );
 }
 
+// "Less: Packing charges": a flat amount taken off the order total
+// (e.g. the customer does not want boxes). 0 / Remove takes it off again.
+function PackingCharges({ order, totals, onSaved }) {
+  const toast = useToast();
+  const current = Number(totals.packing_deduction) || 0;
+  const [amount, setAmount] = useState(current ? String(current) : '');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  if (['CANCELLED', 'COMPLETED'].includes(order.order_status)) return null;
+  const save = async (value) => {
+    setBusy(true);
+    try {
+      const res = await adminApi.post(`/orders/${encodeURIComponent(order.order_id)}/packing-deduction`, { amount: Number(value) || 0, note });
+      onSaved(res);
+      setNote('');
+      toast.success(Number(value) > 0 ? `Packing charges ${formatINR(value)} deducted from the order.` : 'Packing charges removed.');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="packing-box">
+      <div className="small"><strong>Less: Packing charges</strong> <span className="muted">- e.g. the customer does not want boxes</span></div>
+      <div className="row wrap" style={{ gap: 8 }}>
+        <input className="input" style={{ maxWidth: 130 }} inputMode="decimal" placeholder="₹ amount" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} aria-label="Packing charges to deduct" />
+        <input className="input grow" style={{ minWidth: 140 }} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />
+        <button type="button" className="btn btn-sm btn-primary" disabled={busy || String(Number(amount) || 0) === String(current)} onClick={() => save(amount)}>{busy && <Spinner small />} Save</button>
+        {current > 0 && <button type="button" className="btn btn-sm btn-ghost" disabled={busy} onClick={() => { setAmount(''); save(0); }}>Remove</button>}
+      </div>
+      <p className="tiny soft mb-0">Shown to the customer and on the bill as a separate line; the amount to pay goes down by it.</p>
+    </div>
+  );
+}
+
 export default function OrderDetail() {
   const { id } = useParams();
   const toast = useToast();
@@ -214,6 +250,7 @@ export default function OrderDetail() {
 
         <div className="stack" style={{ gap: 16 }}>
           <section className="card card-pad"><h3 className="card-title">Totals (snapshot)</h3><OrderTotals totals={data.totals} />
+            <PackingCharges key={`${order.order_id}-${data.totals.packing_deduction}`} order={order} totals={data.totals} onSaved={setData} />
             <p className="tiny soft mt-1 mb-0">Discount mode {order.discount_mode_snapshot}{order.discount_mode_snapshot === 'SLAB' ? ` · basis ${order.discount_basis_snapshot} ${formatINR(order.discount_basis_amount)}` : ''}</p>
           </section>
           <section className="card card-pad">

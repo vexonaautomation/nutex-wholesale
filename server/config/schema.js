@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 const n = 'number';
 const b = 'boolean';
@@ -137,11 +137,14 @@ export const SCHEMA = {
       // v8: ONLINE (UPI QR step) or OFFLINE (online payment was switched off:
       // the team confirms the order). Blank = ONLINE (older orders).
       'payment_mode_snapshot',
+      // v9: flat amount the admin takes off the order total ("Less: Packing
+      // charges", e.g. the customer does not want boxes). Blank = 0.
+      'packing_deduction',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,
       final_payable: n, total_qty: n, minimum_order_value_snapshot: n, minimum_order_met: b,
-      locked: b, revision: n,
+      locked: b, revision: n, packing_deduction: n,
     },
   },
   Order_Items: {

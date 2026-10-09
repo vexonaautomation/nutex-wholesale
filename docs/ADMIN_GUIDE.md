@@ -75,6 +75,8 @@ Pick a product: loose pieces show the colour × size matrix (with *reserved* and
 - **Test calculator**: enter a cart MRP value to see the exact discount, final payable and minimum-order result.
 
 ## Orders
+**Less: Packing charges** (order page → Totals): when a customer does not want boxes / packing, enter a flat ₹ amount and Save. The order total and the amount to pay go down by it, and the customer's order page and the PDF bill show a separate line "Less: Packing charges − ₹X" above the Grand Total. Edits by the customer keep it; Remove (or 0) takes it off. Not possible on cancelled / handed-over orders or below a payment already verified.
+
 - Status tabs with counts, search by order number / mobile / name / business, date and payment filters, CSV export.
 - Order detail: items **snapshot** (original price/name/size/colour even if the product changed later), totals, customer, payments (view proof, verify, reject), timeline, audit trail, earlier revisions.
 - Status flow: after payment verification → Confirmed → Processing → Packed → **Dispatched** (courier + tracking shown to the customer) → Completed. Forward only.

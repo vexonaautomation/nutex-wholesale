@@ -295,6 +295,11 @@ export const bulkSizesSchema = z.object({
   mode: z.enum(['replace', 'add', 'remove']).optional().default('replace'),
 });
 
+export const packingDeductionSchema = z.object({
+  amount: z.coerce.number().min(0, 'Enter 0 or more').max(100000000),
+  note: z.string().trim().max(200).optional().default(''),
+});
+
 export const outOfStockSchema = z.object({ out_of_stock: z.boolean() });
 
 export const catalogImportSchema = z.object({

@@ -3,7 +3,7 @@ import { buildQuote } from '../services/quoteService.js';
 import { customerFromToken } from '../services/existingCustomerService.js';
 import {
   createDraftOrder, getCustomerOrder, trackOrder, activeOrderSummaries, updateOrderItems, recalculateOrder, lockOrder,
-  listOrdersAdmin, getOrderAdmin, updateOrderStatusAdmin, reopenOrderAdmin, cancelOrderAdmin,
+  listOrdersAdmin, getOrderAdmin, updateOrderStatusAdmin, reopenOrderAdmin, cancelOrderAdmin, setPackingDeduction,
 } from '../services/orderService.js';
 import { customerBill, adminBill } from '../services/billService.js';
 import { ctx, noStore } from './helpers.js';
@@ -78,3 +78,5 @@ export const adminGet = async (req, res) => res.json(await getOrderAdmin(req.par
 export const adminStatus = async (req, res) => res.json(await updateOrderStatusAdmin(req.params.id, req.body, ctx(req)));
 export const adminReopen = async (req, res) => res.json(await reopenOrderAdmin(req.params.id, req.body, ctx(req)));
 export const adminCancel = async (req, res) => res.json(await cancelOrderAdmin(req.params.id, req.body, ctx(req)));
+
+export const adminPackingDeduction = async (req, res) => res.json(await setPackingDeduction(req.params.id, req.body, ctx(req)));
