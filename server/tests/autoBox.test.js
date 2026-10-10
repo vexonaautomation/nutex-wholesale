@@ -66,7 +66,7 @@ test('no box stock: the common loose stock becomes boxes (box of 3, colours 5/8/
   const admin = await getProductAdmin(p.pid);
   const adminBox = admin.variants.find((v) => v.variant_id === p.box);
   assert.deepEqual(adminBox.auto_box, {
-    ok: true, per_colour: 1, colours: 3, boxes: 5, reason: null,
+    ok: true, per_colour: 1, extra: 0, colours: 3, boxes: 5, reason: null,
   });
   assert.equal(admin.summary.auto_boxes, 5);
   assert.equal(admin.summary.oos_variants, 0, 'auto box with stock is not out of stock');
@@ -162,12 +162,70 @@ test('stock is entered in pieces only: box stock is never taken, a box size can 
   }), adminCtx), /Select the colours too/);
 });
 
-test('pieces per box not divisible by the colours: no auto box, admin sees why', async () => {
+test('mix box: pieces per box not divisible by the colours - extras come from the colours with most stock', async () => {
   const { adminCtx } = await freshStore();
+  // box of 4, colours 5 / 8 / 15 -> 1 of each + 1 extra; at most 5 boxes (Pink has 5)
   const p = await autoBoxProduct(adminCtx, { units: 4 });
   const catalog = await getCatalog({ fresh: true });
-  assert.equal(buildQuote({ items: [{ variant_id: p.box, qty: 1 }], catalog }).lines[0].issue.code, 'OUT_OF_STOCK');
+  const q = buildQuote({ items: [{ variant_id: p.box, qty: 3 }], catalog });
+  assert.equal(q.lines[0].issue, null);
+  assert.equal(q.lines[0].available, 5);
   const auto = (await getProductAdmin(p.pid)).variants.find((v) => v.variant_id === p.box).auto_box;
-  assert.equal(auto.ok, false);
-  assert.match(auto.reason, /4 pcs cannot be split equally into 3 colours/);
+  assert.deepEqual([auto.ok, auto.per_colour, auto.extra, auto.boxes], [true, 1, 1, 5]);
+  await order([{ variant_id: p.box, qty: 3 }]);
+  assert.deepEqual(await reservedOf(p.pcs), [3, 3, 6], '3 of each + the 3 extras from Grey (most stock)');
+});
+
+test('mix box of 6 with 5 colours: uneven pieces per box are reserved, deducted and released exactly', async () => {
+  const { adminCtx } = await freshStore();
+  await updateSettings({ minimum_order_value: 0 }, adminCtx);
+  const m = await masters();
+  const s32 = m.size('32').size_id;
+  const colours = ['Black', 'White', 'Skin', 'Pink', 'Red'].map((c) => m.color(c).color_id);
+  const saved = await saveProduct(productSchema.parse({
+    sku: 'MIX6', product_name: 'Mix Six', category_id: m.cat('everyday-bra').category_id, mrp: 100,
+    units_per_box: 6, size_ids: [s32], color_ids: colours,
+    stock: colours.map((color_id) => ({ color_id, size_id: s32, stock_qty: 10 })), status: 'ACTIVE',
+  }), adminCtx);
+  const box = saved.variants.find((v) => v.inventory_mode === 'BOX_WISE').variant_id;
+  const pcs = colours.map((c) => saved.variants.find((v) => v.color_id === c && v.inventory_mode === 'COLOR_WISE').variant_id);
+  const catalog = await getCatalog({ fresh: true });
+  assert.equal(buildQuote({ items: [{ variant_id: box, qty: 1 }], catalog }).lines[0].available, 8, '50 pcs / 6 = 8 boxes');
+  assert.equal(buildQuote({ items: [{ variant_id: box, qty: 9 }], catalog }).lines[0].issue.code, 'INSUFFICIENT_STOCK');
+
+  const o = await order([{ variant_id: box, qty: 2 }]);
+  const reserved = await reservedOf(pcs);
+  assert.equal(reserved.reduce((a, b) => a + b, 0), 12, '2 boxes x 6 pcs');
+  assert.ok(reserved.every((n) => n === 2 || n === 3), `2 of each + 2 extras from different colours: ${reserved}`);
+
+  const amount = (await recalculateOrder(o.order_number, o.access_token)).quote.final_payable;
+  await pay(o, 'UTRMIX000001', amount);
+  const stock = await stockOf(pcs);
+  assert.equal(stock.reduce((a, b) => a + b, 0), 50 - 12);
+  assert.deepEqual(await reservedOf(pcs), [0, 0, 0, 0, 0]);
+  await reopenOrderAdmin(o.order_number, { reason: 'change', confirm: true }, adminCtx);
+  await cancelOrderAdmin(o.order_number, { reason: 'cancel' }, adminCtx);
+  assert.deepEqual(await stockOf(pcs), [10, 10, 10, 10, 10], 'exactly the same pieces come back');
+  assert.deepEqual(await reservedOf(pcs), [0, 0, 0, 0, 0]);
+});
+
+test('mix box smaller than the colours (box of 3, 6 colours): pieces from different colours', async () => {
+  const { adminCtx } = await freshStore();
+  await updateSettings({ minimum_order_value: 0 }, adminCtx);
+  const m = await masters();
+  const s32 = m.size('32').size_id;
+  const colours = ['Black', 'White', 'Skin', 'Pink', 'Red', 'Grey'].map((c) => m.color(c).color_id);
+  const saved = await saveProduct(productSchema.parse({
+    sku: 'MIX3', product_name: 'Mix Three', category_id: m.cat('everyday-bra').category_id, mrp: 100,
+    units_per_box: 3, size_ids: [s32], color_ids: colours,
+    stock: colours.map((color_id) => ({ color_id, size_id: s32, stock_qty: 10 })), status: 'ACTIVE',
+  }), adminCtx);
+  const box = saved.variants.find((v) => v.inventory_mode === 'BOX_WISE').variant_id;
+  const catalog = await getCatalog({ fresh: true });
+  assert.equal(buildQuote({ items: [{ variant_id: box, qty: 1 }], catalog }).lines[0].available, 20, '60 pcs / 3');
+  const pcs = colours.map((c) => saved.variants.find((v) => v.color_id === c && v.inventory_mode === 'COLOR_WISE').variant_id);
+  await order([{ variant_id: box, qty: 4 }]);
+  const reserved = await reservedOf(pcs);
+  assert.equal(reserved.reduce((a, b) => a + b, 0), 12);
+  assert.ok(reserved.every((n) => n <= 4), 'never more than 1 of a colour per box');
 });

@@ -346,9 +346,6 @@ function planProduct(catalog, row, skuOwners) {
     }),
   };
   const warnings = [];
-  if (!legacy && units >= 1 && orderedColours.length && units % orderedColours.length) {
-    warnings.push(`Box of ${units} cannot be split equally into ${orderedColours.length} colours - boxes cannot be sold until this is fixed.`);
-  }
   return {
     p, variants, legacy, errors, warnings, fields, sizeIds: orderedSizes, colourIds: orderedColours, sizeMrp, units, sellMode, structureChanged,
   };

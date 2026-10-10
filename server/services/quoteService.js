@@ -1,6 +1,6 @@
 import { calculatePricing, buildPricingMessages } from './priceCalculator.js';
 import {
-  variantAvailability, lineIssue, availableOf, ISSUE,
+  variantAvailability, lineIssue, availableOf, ISSUE, mixComponents,
 } from '../utils/stockValidator.js';
 import { INVENTORY_STATUS } from '../config/constants.js';
 import {
@@ -109,7 +109,8 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
       override_percent: product ? productOverridePercent(product) : null,
       units_per_item: isBoxVariant(variant) ? Number(variant?.units_per_box) || 1 : 1,
       // pieces taken from each inventory row per unit (auto boxes use the colours' loose stock)
-      stock_components: availability.components || { [variantId]: 1 },
+      // a mix box takes its extra pieces from the colours with the most stock, for this quantity
+      stock_components: (availability.mix && mixComponents(availability.mix, qty)) || availability.components || { [variantId]: 1 },
     });
   }
 
@@ -117,7 +118,7 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
   // one stock: check what the whole cart needs per inventory row together.
   const need = {};
   for (const l of resolved.filter((x) => !x.issue)) {
-    for (const [v, per] of Object.entries(l.stock_components)) need[v] = (need[v] || 0) + l.qty * per;
+    for (const [v, per] of Object.entries(l.stock_components)) need[v] = (need[v] || 0) + Math.round(l.qty * per);
   }
   const short = new Set(Object.entries(need).filter(([v, n]) => {
     const inv = catalog.inventoryByVariant.get(v);
