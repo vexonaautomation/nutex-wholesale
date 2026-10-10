@@ -27,7 +27,7 @@ Sign in at **`https://<your-site>/admin`**.
 - The server enforces all of this — a new customer cannot order pieces even by editing the cart.
 - **Stock is entered in pieces only** (per colour + size), never in boxes: wizard step 7, *Inventory*, or *Bulk update (Excel)*.
 - **Boxes are always packed from the loose stock.** Each box takes the same number of pieces of every active colour of that size (pieces per box ÷ number of colours), and the box count follows the colour with the least stock. Example: box of 3, colours Orange 5 / Pink 8 / Green 15 → 1 of each per box → **5 boxes**. Ordering a box reserves (and on payment deducts) those pieces from each colour, and boxes + loose pieces in one cart are checked together, so nothing is oversold. The admin screens show "Auto: N boxes from loose stock".
-  - Pieces per box must divide equally by the colours (6 with 3 colours = 2 each; 4 with 3 colours does not work). If not, the admin screens show a warning and that box cannot be sold until pieces per box is changed.
+  - When pieces per box do not divide equally by the colours, the box is a **mix box**: the same pieces of every colour plus the rest from different colours with the most stock (at most 1 extra of a colour per box). Example: box of 6 with 5 colours = 1 of each + 1 extra; box of 12 with 9 colours = 1 of each + 3 extra. The admin screens show e.g. "1 of each colour + 1 mixed".
   - A product with a box needs colours (the box is packed from them).
   - To stop selling one box size, set that box to *Out of stock* on the Inventory page; loose pieces keep selling.
 - Changing pieces per box (e.g. 6 → 12) creates new boxes with fresh stock; old boxes are kept inactive for order history.

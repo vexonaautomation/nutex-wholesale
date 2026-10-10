@@ -60,21 +60,25 @@ export function variantAvailability(catalog, variant, held = 0) {
       };
     }
     if (plan?.ok) {
-      let boxes = Infinity;
-      for (const part of plan.parts) {
+      const stocks = plan.parts.map((part) => {
         const inv = catalog.inventoryByVariant.get(part.variant_id);
         const out = product.out_of_stock === true || !inv || inv.status === INVENTORY_STATUS.OUT_OF_STOCK;
-        const pieces = (out ? 0 : availableOf(inv)) + heldOf(part.variant_id);
-        boxes = Math.min(boxes, Math.floor(pieces / plan.perColour));
-      }
-      const components = Object.fromEntries(plan.parts.map((p) => [p.variant_id, plan.perColour]));
+        return (out ? 0 : availableOf(inv)) + heldOf(part.variant_id);
+      });
+      const boxes = maxMixBoxes(stocks, plan.perColour, plan.extra);
+      const mix = {
+        ids: plan.parts.map((p) => p.variant_id), stocks, base: plan.perColour, extra: plan.extra,
+      };
+      const components = mixComponents(mix, 1);
       if (!(boxes > 0)) {
         return {
           purchasable: false, available: 0, code: ISSUE.OUT_OF_STOCK,
-          message: product.out_of_stock ? 'This product is currently out of stock.' : oosMessage, components, auto: true,
+          message: product.out_of_stock ? 'This product is currently out of stock.' : oosMessage, components, auto: true, mix,
         };
       }
-      return { purchasable: true, available: boxes, code: null, message: null, components, auto: true };
+      return {
+        purchasable: true, available: boxes, code: null, message: null, components, auto: true, mix,
+      };
     }
   }
 
@@ -113,10 +117,58 @@ export function autoBoxPlan(catalog, product, variant) {
     && v.status === RECORD_STATUS.ACTIVE && v.size_id === variant.size_id
     && catalog.colorsById.get(v.color_id)?.status === RECORD_STATUS.ACTIVE);
   if (!parts.length) return { ok: false, reason: 'no loose colours for this size' };
-  if (units < parts.length || units % parts.length) {
-    return { ok: false, reason: `${units} pcs cannot be split equally into ${parts.length} colours` };
+  if (units < 1) return { ok: false, reason: 'no pieces per box' };
+  // mix box: the same pieces of every colour, the rest (units % colours) from
+  // different colours - at most 1 extra of a colour per box (box of 6 with 5
+  // colours = 1 of each + 1 extra)
+  return {
+    ok: true, perColour: Math.floor(units / parts.length), extra: units % parts.length, parts,
+  };
+}
+
+/**
+ * Most boxes that can be packed: every colour gives `base` pieces per box and
+ * the `extra` pieces of each box come from different colours (at most one
+ * extra of a colour per box). `stocks` = pieces available per colour.
+ */
+export function maxMixBoxes(stocks, base, extra) {
+  const units = base * stocks.length + extra;
+  if (!units || !stocks.length) return 0;
+  const total = stocks.reduce((sum, x) => sum + Math.max(0, x), 0);
+  const fits = (b) => stocks.every((x) => x >= base * b)
+    && stocks.reduce((sum, x) => sum + Math.min(x - base * b, b), 0) >= extra * b;
+  let lo = 0;
+  let hi = Math.floor(total / units);
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (fits(mid)) lo = mid; else hi = mid - 1;
   }
-  return { ok: true, perColour: units / parts.length, parts };
+  return lo;
+}
+
+/** Pieces taken from each colour for `qty` boxes: base each, extras from the colours with the most stock left. */
+export function allocateMixBoxes(stocks, base, extra, qty) {
+  const take = stocks.map(() => base * qty);
+  const left = stocks.map((x, i) => x - take[i]);
+  const extras = stocks.map(() => 0);
+  for (let need = extra * qty; need > 0; need -= 1) {
+    let best = -1;
+    for (let i = 0; i < stocks.length; i += 1) if (extras[i] < qty && (best < 0 || left[i] > left[best])) best = i;
+    if (best < 0) break;
+    take[best] += 1;
+    left[best] -= 1;
+    extras[best] += 1;
+  }
+  return take;
+}
+
+/** Per-box pieces of each colour for an order line of `qty` boxes (may be fractional when extras rotate). */
+export function mixComponents(mix, qty) {
+  const n = Math.max(1, Math.floor(Number(qty) || 1));
+  const take = allocateMixBoxes(mix.stocks, mix.base, mix.extra, n);
+  const out = {};
+  mix.ids.forEach((id, i) => { if (take[i] > 0) out[id] = take[i] / n; });
+  return out;
 }
 
 export function lineIssue(availability, qty) {
@@ -138,9 +190,13 @@ export function lineIssue(availability, qty) {
 export function autoBoxInfo(catalog, product, variant) {
   const plan = autoBoxPlan(catalog, product, variant);
   if (!plan) return null;
-  if (!plan.ok) return { ok: false, per_colour: 0, colours: 0, boxes: 0, reason: plan.reason };
+  if (!plan.ok) {
+    return {
+      ok: false, per_colour: 0, extra: 0, colours: 0, boxes: 0, reason: plan.reason,
+    };
+  }
   const av = variantAvailability(catalog, variant);
   return {
-    ok: true, per_colour: plan.perColour, colours: plan.parts.length, boxes: av.purchasable ? av.available : 0, reason: null,
+    ok: true, per_colour: plan.perColour, extra: plan.extra, colours: plan.parts.length, boxes: av.purchasable ? av.available : 0, reason: null,
   };
 }
