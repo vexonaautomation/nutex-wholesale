@@ -12,7 +12,7 @@ import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso } from '../utils/dates.js';
 import { slugify, uniqueSlug } from '../utils/slug.js';
 import { badRequest, notFound, conflict } from '../utils/errors.js';
-import { availableOf, autoBoxInfo } from '../utils/stockValidator.js';
+import { availableOf, autoBoxInfo, EXTRA_COLOUR_AUTO } from '../utils/stockValidator.js';
 import { calculatePricing } from './priceCalculator.js';
 import {
   allowsBox, allowsPcs, isBoxVariant, primaryInventoryMode, sellModeOf, variantOffered, deriveSellMode,
@@ -188,6 +188,10 @@ export async function saveProduct(input, { admin, ip, productId = null, extraAud
     }
     if (allowsPcs(input) && (!sizeIds.length || !colorIds.length)) throw badRequest('Select sizes and colours for selling in pieces.');
 
+    // extra pieces of a mix box: a colour of this product, AUTO, or blank (= Black)
+    const extraRaw = input.box_extra_color === undefined ? String(existing?.box_extra_color || '') : input.box_extra_color;
+    const extraColour = extraRaw.toUpperCase() === EXTRA_COLOUR_AUTO ? EXTRA_COLOUR_AUTO : colorIds.includes(extraRaw) ? extraRaw : '';
+
     const takenSlugs = new Set(catalog.products.filter((p) => p.product_id !== productId).map((p) => p.slug));
     let slug = slugify(input.slug);
     if (slug && takenSlugs.has(slug)) throw badRequest('This URL slug is already used by another product.');
@@ -210,6 +214,7 @@ export async function saveProduct(input, { admin, ip, productId = null, extraAud
       sell_mode: sellMode,
       units_per_box: unitsPerBox,
       pcs_for_new_customers: input.pcs_for_new_customers === true,
+      box_extra_color: extraColour,
       size_ids: sizeIds.join(','),
       color_ids: colorIds.join(','),
       status: input.status,
@@ -719,6 +724,7 @@ export async function duplicateProduct(id, { admin, ip }) {
     sell_mode: sellModeOf(src),
     units_per_box: legacy ? null : unitsPerBoxOf(src, all),
     pcs_for_new_customers: src.pcs_for_new_customers === true,
+    box_extra_color: String(src.box_extra_color || ''),
     size_ids: splitIds(src.size_ids),
     size_mrps: Object.entries(sizeMrpsOf(variants)).map(([size_id, mrp]) => ({ size_id, mrp })),
     color_ids: splitIds(src.color_ids),

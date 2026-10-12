@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 const n = 'number';
 const b = 'boolean';
@@ -51,6 +51,8 @@ export const SCHEMA = {
       'sell_mode', 'units_per_box',
       // v6: TRUE = new customers may also buy loose pieces of this article
       'pcs_for_new_customers',
+      // v10: colour of the extra pieces in a mix box (colour id / AUTO; blank = Black)
+      'box_extra_color',
     ],
     types: {
       mrp: n, fixed_discount_percent: n, sort_order: n, out_of_stock: b, featured: b, units_per_box: n, pcs_for_new_customers: b,
