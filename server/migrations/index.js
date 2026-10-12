@@ -84,4 +84,10 @@ export const MIGRATIONS = [
     version: 10,
     description: 'Mix box extra colour per product (default Black)',
   },
+  {
+    // Additive only: Orders.placed_by_mobile + admin_order_mobiles setting
+    // (blank = no admin numbers). Older orders keep it blank.
+    version: 11,
+    description: 'Admin numbers order for customers (bill shows the customer number)',
+  },
 ];

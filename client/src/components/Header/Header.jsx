@@ -92,10 +92,10 @@ export function Header() {
               type="button"
               className={`btn btn-sm customer-btn ${customer.isExisting ? 'is-verified' : ''}`}
               onClick={customer.openLogin}
-              aria-label={customer.isExisting ? 'Existing customer verified' : 'Existing customer login'}
+              aria-label={customer.isAdmin ? 'Logged in with admin number' : customer.isExisting ? 'Existing customer verified' : 'Existing customer login'}
             >
               {customer.isExisting ? <BadgeCheck /> : <UserRound />}
-              <span className="hide-sm">{customer.isExisting ? 'Existing customer' : 'Existing customer?'}</span>
+              <span className="hide-sm">{customer.isAdmin ? 'Admin number' : customer.isExisting ? 'Existing customer' : 'Existing customer?'}</span>
             </button>
             {wa && (
               <a className="btn btn-ghost btn-icon hide-xs" href={waLink(wa, 'Hello Nutex Team, I have a wholesale enquiry.')} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp us">

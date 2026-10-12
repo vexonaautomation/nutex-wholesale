@@ -263,17 +263,21 @@ export function ExistingCustomerLogin({ open, onClose }) {
 
       {step === 'done' && auth && (        <div className="stack" style={{ textAlign: 'center' }}>
           <div className="empty-icon" style={{ margin: '0 auto', background: 'var(--success-100)', color: 'var(--success-700)' }}><BadgeCheck /></div>
-          <h3 className="mb-0">You are verified as an existing customer</h3>
+          <h3 className="mb-0">{auth.admin ? 'You are logged in with an admin number' : 'You are verified as an existing customer'}</h3>
           <p className="muted mb-0">+91 {auth.mobile_masked} · {minText(auth.minimum_order_value)}</p>
-          <p className="tiny soft mb-0">Remembered on this device until {formatDate(auth.expires_at)}. Use this same mobile number at checkout.</p>
+          <p className="tiny soft mb-0">
+            Remembered on this device until {formatDate(auth.expires_at)}.{' '}
+            {auth.admin ? 'At checkout you can enter the customer\'s mobile number - the order and bill show that number.' : 'Use this same mobile number at checkout.'}
+          </p>
           {notice && <Alert type="success">{notice}</Alert>}
-          <div className="card card-pad" style={{ textAlign: 'left', padding: 14 }}>
+          {!auth.admin && <div className="card card-pad" style={{ textAlign: 'left', padding: 14 }}>
             <div className="small" style={{ fontWeight: 700, marginBottom: 6 }}>Your registered numbers</div>
             <div className="chips">
               {(auth.numbers_masked || [auth.mobile_masked]).map((m, i) => <span key={m} className="badge badge-outline">+91 {m}{i === 0 ? ' · main' : ''}</span>)}
             </div>
             <button type="button" className="link small mt-1" onClick={() => { setStep('alt-mobile'); setError(null); setNotice(''); }}>+ Add another WhatsApp number</button>
-          </div>          <button type="button" className="btn btn-primary btn-lg btn-block" onClick={onClose}>Start shopping</button>
+          </div>}
+          <button type="button" className="btn btn-primary btn-lg btn-block" onClick={onClose}>Start shopping</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => { logout(); setStep('mobile'); setMobile(''); }}><LogOut /> Not you? Log out</button>
         </div>
       )}
@@ -289,7 +293,7 @@ export function ExistingCustomerPrompt({ compact = false }) {
       <div className="alert alert-success" style={{ alignItems: 'center' }}>
         <BadgeCheck />
         <div className="grow">
-          <strong>Existing customer verified</strong> (+91 {auth.mobile_masked}).{' '}
+          <strong>{auth.admin ? 'Admin number' : 'Existing customer verified'}</strong> (+91 {auth.mobile_masked}).{' '}
           {Number(auth.minimum_order_value) > 0 ? `Your minimum order: ${formatINR(auth.minimum_order_value)}.` : 'No minimum order for you.'}
         </div>
       </div>

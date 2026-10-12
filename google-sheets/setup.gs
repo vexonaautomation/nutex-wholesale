@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v10).
+ *  GENERATED from server/config/schema.js (schema v11).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -20,7 +20,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 10;
+var NUTEX_SCHEMA_VERSION = 11;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -36,7 +36,7 @@ var NUTEX_SCHEMA = {
   "Discount_Slabs": ["slab_id","label","min_amount","max_amount","discount_percent","priority","active","start_date","end_date","deleted","created_at","updated_at"],
   "Existing_Customers": ["mobile","customer_name","business_name","city","gstin","minimum_order_value","status","notes","added_at","updated_at","added_by","alternate_mobiles"],
   "Customers": ["customer_id","customer_name","business_name","mobile","whatsapp","email","billing_address","shipping_address","city","state","pincode","gstin","created_at","updated_at","alternate_mobile"],
-  "Orders": ["order_id","order_number","customer_id","customer_name_snapshot","business_name_snapshot","mobile_snapshot","whatsapp_snapshot","email_snapshot","billing_address_snapshot","shipping_address_snapshot","city_snapshot","state_snapshot","pincode_snapshot","gstin_snapshot","order_notes","mrp_subtotal","discount_mode_snapshot","discount_basis_snapshot","discount_basis_amount","discount_percent","slab_id_snapshot","discount_amount","final_payable","total_qty","minimum_order_value_snapshot","minimum_order_met","order_status","payment_status","locked","stock_state","revision","idempotency_key","courier_name","tracking_number","dispatch_note","cancel_reason","created_at","updated_at","locked_at","payment_submitted_at","verified_at","dispatched_at","completed_at","cancelled_at","customer_type_snapshot","alternate_mobile_snapshot","payment_mode_snapshot","packing_deduction"],
+  "Orders": ["order_id","order_number","customer_id","customer_name_snapshot","business_name_snapshot","mobile_snapshot","whatsapp_snapshot","email_snapshot","billing_address_snapshot","shipping_address_snapshot","city_snapshot","state_snapshot","pincode_snapshot","gstin_snapshot","order_notes","mrp_subtotal","discount_mode_snapshot","discount_basis_snapshot","discount_basis_amount","discount_percent","slab_id_snapshot","discount_amount","final_payable","total_qty","minimum_order_value_snapshot","minimum_order_met","order_status","payment_status","locked","stock_state","revision","idempotency_key","courier_name","tracking_number","dispatch_note","cancel_reason","created_at","updated_at","locked_at","payment_submitted_at","verified_at","dispatched_at","completed_at","cancelled_at","customer_type_snapshot","alternate_mobile_snapshot","payment_mode_snapshot","packing_deduction","placed_by_mobile"],
   "Order_Items": ["order_item_id","order_id","order_number","revision","product_id","variant_id","sku_snapshot","product_name_snapshot","category_snapshot","inventory_mode_snapshot","size_snapshot","color_snapshot","box_snapshot","units_per_box_snapshot","qty","mrp_unit_snapshot","discount_percent_snapshot","wholesale_unit_snapshot","line_mrp_total","line_total","status","created_at","stock_components"],
   "Payments": ["payment_id","order_id","order_number","amount","expected_amount","payment_method","utr","proof_file_id","proof_url","status","idempotency_key","customer_note","submitted_at","verified_at","verified_by","remarks"],
   "Order_Status_History": ["history_id","order_id","order_number","from_status","to_status","actor_type","actor_id","note","created_at"],
@@ -91,6 +91,7 @@ var NUTEX_DEFAULT_SETTINGS = [
   ["low_stock_threshold",5,"number","Variants at or below this available quantity are flagged as low stock"],
   ["reservation_expiry_hours",72,"number","Unpaid orders (no payment submitted) are auto-cancelled after this many hours and their stock released. 0 = never."],
   ["existing_customer_minimum_order_value",0,"number","Minimum order for verified existing customers (0 = no minimum). A value in the Existing_Customers sheet overrides this per customer."],
+  ["admin_order_mobiles","","string","Admin / staff mobile numbers (comma separated). They log in like an existing customer and can enter the mobile number of the customer at checkout - the order and bill then show that customer number."],
   ["existing_customer_otp_enabled",true,"boolean","Verify existing customers with a WhatsApp OTP (recommended). If off, the mobile number alone is enough."],
   ["pcs_for_existing_customers_only",true,"boolean","TRUE = new customers buy full boxes; loose pieces only where the product allows it (Products > pieces for new customers). FALSE = loose pieces for everyone on every product. Existing customers always choose box or pieces."],
   ["auto_existing_after_first_order",true,"boolean","When the first payment of a new customer is verified, add their mobile to Existing_Customers automatically (pieces allowed and no minimum order from then on)."],
@@ -119,7 +120,8 @@ var NUTEX_MIGRATIONS = [
   [7,"Boxes packed from loose colour stock"],
   [8,"Online payment on/off (thank-you page, team confirms orders)"],
   [9,"Less: packing charges (admin deduction per order)"],
-  [10,"Mix box extra colour per product (default Black)"]
+  [10,"Mix box extra colour per product (default Black)"],
+  [11,"Admin numbers order for customers (bill shows the customer number)"]
 ];
 
 var NUTEX_MASTER_DATA = {
