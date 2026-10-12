@@ -604,3 +604,8 @@ body.has-sticky-cart { padding-bottom: 84px; }
 .next-steps li.current::before { background: var(--brand-600); color: var(--white); border-color: var(--brand-600); }
 .next-steps li.done::before { content: '✓'; background: var(--success-500); color: var(--white); border-color: var(--success-500); }
 .next-steps li span { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+
+/* product page: quantities are saved to the cart as you type */
+.add-bar.is-saved { border-color: #b7e2c8; background: var(--success-100); }
+.add-bar .saved-tick { color: var(--success-700); vertical-align: -3px; margin-right: 4px; }
+.btn.is-disabled { opacity: .55; }

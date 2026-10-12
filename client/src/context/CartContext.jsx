@@ -85,6 +85,18 @@ export function CartProvider({ children }) {
     }));
   }, []);
 
+  // product page: the quantity typed IS the cart quantity (adds, changes or removes the line)
+  const setLineQty = useCallback((variantId, productId, qty) => {
+    const q = Math.max(0, Math.floor(Number(qty) || 0));
+    setCart((c) => {
+      if (q <= 0) return { ...c, items: c.items.filter((i) => i.variant_id !== variantId) };
+      if (c.items.some((i) => i.variant_id === variantId)) {
+        return { ...c, items: c.items.map((i) => (i.variant_id === variantId ? { ...i, qty: q } : i)) };
+      }
+      return { ...c, items: [...c.items, { variant_id: variantId, product_id: productId, qty: q }] };
+    });
+  }, []);
+
   const removeItem = useCallback((variantId) => {
     setCart((c) => ({ ...c, items: c.items.filter((i) => i.variant_id !== variantId) }));
   }, []);
@@ -125,6 +137,7 @@ export function CartProvider({ children }) {
     refreshQuote: () => refreshQuote(cart),
     addItems,
     setQty,
+    setLineQty,
     removeItem,
     changeVariant,
     clear,
@@ -133,7 +146,7 @@ export function CartProvider({ children }) {
     drawerOpen,
     openDrawer: () => setDrawerOpen(true),
     closeDrawer: () => setDrawerOpen(false),
-  }), [cart, quote, quoting, quoteError, refreshQuote, addItems, setQty, removeItem, changeVariant, clear, startEditOrder, stopEditing, drawerOpen]);
+  }), [cart, quote, quoting, quoteError, refreshQuote, addItems, setQty, setLineQty, removeItem, changeVariant, clear, startEditOrder, stopEditing, drawerOpen]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

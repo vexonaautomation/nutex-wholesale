@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  BadgeCheck, Boxes, Info, Lock, PackageX, Ruler, ShoppingBag, Target,
+  BadgeCheck, Boxes, CheckCircle2, Info, Lock, PackageX, Ruler, ShoppingBag, Target,
 } from 'lucide-react';
 import { api } from '../../services/api.js';
 import { useAsync, useSeo } from '../../hooks/index.js';
 import { useStore } from '../../context/StoreContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
-import { useToast } from '../../context/ToastContext.jsx';
 import { ProductGallery } from '../../components/ProductGallery/ProductGallery.jsx';
 import { ColorSelector } from '../../components/ColorSelector/ColorSelector.jsx';
 import { SizeSelector } from '../../components/SizeSelector/SizeSelector.jsx';
@@ -29,9 +28,7 @@ export default function Product() {
   const { settings } = useStore();
   const cart = useCart();
   const customer = useCustomer();
-  const toast = useToast();
   const [color, setColor] = useState(null);
-  const [qty, setQty] = useState({});
   const [buyAs, setBuyAs] = useState('BOX');
   const [sizeChart, setSizeChart] = useState(false);
 
@@ -57,7 +54,6 @@ export default function Product() {
   }, [pcsVariants]);
 
   useEffect(() => {
-    setQty({});
     if (!product) return;
     // existing customers start with pieces, new customers with boxes
     setBuyAs(pcsOpen && (customer.isExisting || !canBox) ? 'PCS' : 'BOX');
@@ -89,23 +85,18 @@ export default function Product() {
   const colorVariants = pcsVariants.filter((v) => v.color_id === color).sort(bySize);
   const boxVariants = (product.variants || []).filter((v) => v.kind === 'BOX').sort(bySize);
   const units = product.box_min_units === product.box_max_units ? product.box_min_units : null;
-  const selected = Object.entries(qty).filter(([, n]) => n > 0);
+  // quantities typed here go straight into the cart (no "Add to cart" needed):
+  // search the next product and these stay in the cart
+  const setLine = (variantId, n) => cart.setLineQty(variantId, product.product_id, n);
+  const selected = product.variants.filter((v) => inCart[v.variant_id] > 0).map((v) => [v.variant_id, inCart[v.variant_id]]);
+  const selectedBoxes = selected.filter(([vid]) => product.variants.find((x) => x.variant_id === vid)?.kind === 'BOX').reduce((s, [, n]) => s + n, 0);
   const selectedUnits = selected.reduce((s, [, n]) => s + n, 0);
   const selectedPieces = selected.reduce((s, [vid, n]) => s + n * (product.variants.find((x) => x.variant_id === vid)?.units_per_box || 1), 0);
   const selectedValue = selected.reduce((s, [vid, n]) => {
     const v = product.variants.find((x) => x.variant_id === vid);
     return s + wholesaleOf(v?.unit_mrp || 0, percent) * n;
   }, 0);
-  const switchTo = (m) => { setBuyAs(m); setQty({}); };
-
-  const add = () => {
-    const lines = selected.map(([variant_id, n]) => ({ variant_id, product_id: product.product_id, qty: n }));
-    if (!lines.length) return;
-    cart.addItems(lines);
-    setQty({});
-    toast.success(`${isBox ? `${selectedUnits} box(es) (${selectedPieces} pcs)` : `${selectedUnits} piece(s)`} of ${product.name} added to ${cart.editing ? 'the order being edited' : 'cart'}.`);
-    cart.openDrawer();
-  };
+  const switchTo = (m) => setBuyAs(m);
 
   const sizeChartLink = showSizeChart && <button type="button" className="link small" style={{ ...sub, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }} onClick={() => setSizeChart(true)}><Ruler size={15} /> Size chart</button>;
 
@@ -177,7 +168,7 @@ export default function Product() {
                 <span>Sizes &amp; quantity <span className="soft small" style={sub}>pieces</span></span>
                 {sizeChartLink}
               </h3>
-              <SizeSelector variants={colorVariants} quantities={qty} inCart={inCart} onChange={(vid, n) => setQty((q) => ({ ...q, [vid]: n }))} showPrice={priceVaries} percent={percent} mode={settings?.price_display_mode} />
+              <SizeSelector variants={colorVariants} quantities={inCart} onChange={setLine} showPrice={priceVaries} percent={percent} mode={settings?.price_display_mode} />
             </div>
           )}
 
@@ -187,10 +178,10 @@ export default function Product() {
               <p className="small muted"><span className="mix-tag"><Boxes size={16} /> MIX COLOR BOX</span> - colours in a box are assorted (no colour choice).</p>
               <div className="stack">
                 {boxVariants.map((v) => {
-                  const already = inCart[v.variant_id] || 0;
-                  const max = Math.max(0, v.available_qty - already);
+                  const inCartQty = inCart[v.variant_id] || 0;
+                  const max = Math.max(0, v.available_qty);
                   return (
-                    <div key={v.variant_id} className={`box-row ${qty[v.variant_id] ? 'has-qty' : ''} ${v.purchasable ? '' : 'is-oos'}`}>
+                    <div key={v.variant_id} className={`box-row ${inCartQty ? 'has-qty' : ''} ${v.purchasable ? '' : 'is-oos'}`}>
                       <div>
                         <div style={{ fontWeight: 700 }}>{v.size_name ? `Size ${v.size_name} · ` : ''}Box of {v.units_per_box} pcs</div>
                         <div className="small mt-1">
@@ -199,9 +190,9 @@ export default function Product() {
                         <div className="small soft">
                           {formatINR(wholesaleOf(v.piece_mrp, percent))} per piece · {v.mixed_color_description || 'Assorted colours'}
                         </div>
-                        <div className="small soft">{v.purchasable ? `${v.available_qty} boxes available${already ? ` · ${already} in cart` : ''}` : 'Out of stock'}</div>
+                        <div className="small soft">{v.purchasable ? `${v.available_qty} boxes available${inCartQty ? ' · in cart' : ''}` : 'Out of stock'}</div>
                       </div>
-                      <QuantitySelector value={qty[v.variant_id] || 0} max={max} disabled={!v.purchasable || max === 0} onChange={(n) => setQty((q) => ({ ...q, [v.variant_id]: n }))} label={`Number of boxes${v.size_name ? ` for size ${v.size_name}` : ''}`} />
+                      <QuantitySelector value={inCartQty} max={max} disabled={(!v.purchasable || max === 0) && !inCartQty} onChange={(n) => setLine(v.variant_id, n)} label={`Number of boxes${v.size_name ? ` for size ${v.size_name}` : ''}`} />
                     </div>
                   );
                 })}
@@ -210,12 +201,23 @@ export default function Product() {
           )}
 
           {mode && (
-            <div className="add-bar">
+            <div className={`add-bar ${selectedUnits ? 'is-saved' : ''}`}>
               <div>
-                <div style={{ fontWeight: 700 }}>{selectedUnits ? (isBox ? `${selectedUnits} box(es) · ${selectedPieces} pcs` : `${selectedUnits} pcs selected`) : 'Select quantities'}</div>
-                <div className="small muted">{selectedUnits ? `Approx. ${formatINR(selectedValue)} at ${pct(percent)} off` : isBox ? 'Choose the number of boxes per size' : 'Enter quantity for each size'}</div>
+                <div style={{ fontWeight: 700 }}>
+                  {selectedUnits
+                    ? <><CheckCircle2 size={16} className="saved-tick" /> In your {cart.editing ? 'order' : 'cart'}: {selectedBoxes ? `${selectedBoxes} box(es) · ` : ''}{selectedPieces} pcs</>
+                    : 'Enter quantities'}
+                </div>
+                <div className="small muted">
+                  {selectedUnits
+                    ? `Approx. ${formatINR(selectedValue)} at ${pct(percent)} off · saved automatically - search the next product`
+                    : `Quantities go straight into your ${cart.editing ? 'order' : 'cart'} - no need to press Add.`}
+                </div>
               </div>
-              <button type="button" className="btn btn-primary btn-lg" disabled={!selectedUnits} onClick={add}><ShoppingBag /> Add to {cart.editing ? 'order' : 'cart'}</button>
+              <div className="row" style={{ gap: 8 }}>
+                <button type="button" className="btn" onClick={cart.openDrawer}><ShoppingBag /> View {cart.editing ? 'order' : 'cart'}</button>
+                {!cart.editing && <Link to="/checkout" className={`btn btn-primary ${cart.quote?.can_checkout ? '' : 'is-disabled'}`} aria-disabled={!cart.quote?.can_checkout} onClick={(e) => { if (!cart.quote?.can_checkout) { e.preventDefault(); cart.openDrawer(); } }}>Checkout</Link>}
+              </div>
             </div>
           )}
 
