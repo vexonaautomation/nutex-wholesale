@@ -23,7 +23,9 @@ export function CustomerProvider({ children }) {
           clearCustomerAuth();
           setAuth(null);
         } else {
-          const next = { ...stored, minimum_order_value: s.minimum_order_value, mobile: s.mobile || stored.mobile, numbers_masked: s.numbers_masked || stored.numbers_masked };
+          const next = {
+            ...stored, minimum_order_value: s.minimum_order_value, mobile: s.mobile || stored.mobile, numbers_masked: s.numbers_masked || stored.numbers_masked, admin: s.admin === true,
+          };
           saveCustomerAuth(next);
           setAuth(next);
         }
@@ -47,6 +49,8 @@ export function CustomerProvider({ children }) {
       mobile_masked: res.mobile_masked,
       numbers_masked: res.numbers_masked || [res.mobile_masked],
       minimum_order_value: res.minimum_order_value,
+      // admin number: orders for customers (customer's mobile at checkout)
+      admin: res.admin === true,
     };
     saveCustomerAuth(next);
     setAuth(next);
@@ -69,6 +73,7 @@ export function CustomerProvider({ children }) {
   const value = useMemo(() => ({
     auth,
     isExisting: Boolean(auth),
+    isAdmin: auth?.admin === true,
     login,
     logout,
     setNumbers,

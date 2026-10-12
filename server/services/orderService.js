@@ -105,7 +105,10 @@ function totalsFields(quote, deduction = 0) {
 function existingCustomerForOrder(catalog, order) {
   if (order.customer_type_snapshot !== CUSTOMER_TYPE.EXISTING) return null;
   const status = resolveExistingCustomer(catalog.existingCustomers, catalog.settings, order.mobile_snapshot);
-  return status.existing ? status : null;
+  if (status.existing) return status;
+  // placed by an admin number for a customer: kept while it is still an admin number
+  const admin = order.placed_by_mobile ? resolveExistingCustomer(catalog.existingCustomers, catalog.settings, order.placed_by_mobile) : null;
+  return admin?.admin ? admin : null;
 }
 
 export function assertQuoteOrderable(quote, clientFinal) {
@@ -292,8 +295,9 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
     // Exemption only when the WhatsApp-verified number IS the order's mobile
     // and it is still in the Existing_Customers list (fresh data).
     const verified = customerFromToken(catalog, customerToken);
-    // any of the customer's registered numbers (main or alternate) may be used on the order
-    const sameNumber = verified.existing && (verified.numbers || [verified.mobile]).includes(input.customer.mobile);
+    // any of the customer's registered numbers (main or alternate) may be used on the order;
+    // an admin number orders for customers: existing-customer rules on the customer's number
+    const sameNumber = verified.existing && (verified.admin || (verified.numbers || [verified.mobile]).includes(input.customer.mobile));
     const quote = buildQuote({ items: input.items, catalog, customer: sameNumber ? verified : null });
     if (verified.existing && !sameNumber && !quote.minimum_order_met) {
       throw unprocessable('MIN_ORDER_NOT_MET', `The minimum order exemption applies only to your verified number ${maskMobile(verified.mobile)}. Use that mobile number to order without the minimum.`);
@@ -329,6 +333,8 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
       idempotency_key: input.idempotency_key,
       // online payment switched off in Settings -> thank-you page, the team confirms the order
       payment_mode_snapshot: catalog.settings.online_payment_enabled === false ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
+      // admin number that placed it for the customer (the bill shows the customer's mobile)
+      placed_by_mobile: verified.admin ? verified.mobile : '',
       created_at: now,
       updated_at: now,
     };
@@ -404,7 +410,7 @@ export async function trackOrder({ order_number: orderNumber, mobile }) {
   }
   const m = normalizeMobile(mobile);
   const { order } = bundle;
-  const orderNumbers = [order.mobile_snapshot, order.whatsapp_snapshot, order.alternate_mobile_snapshot].filter(Boolean).map(normalizeMobile);
+  const orderNumbers = [order.mobile_snapshot, order.whatsapp_snapshot, order.alternate_mobile_snapshot, order.placed_by_mobile].filter(Boolean).map(normalizeMobile);
   if (!orderNumbers.includes(m)) throw generic;
   const settings = await getSettings();
   return { access_token: orderAccessToken(order.order_id), order: customerOrderView(bundle, settings) };

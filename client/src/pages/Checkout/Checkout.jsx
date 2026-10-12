@@ -28,12 +28,12 @@ function loadSaved() {
   }
 }
 
-function validate(f) {
+function validate(f, { mobileOptional = false } = {}) {
   const e = {};
   const digits = (v) => String(v || '').replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
   if (f.customer_name.trim().length < 2) e.customer_name = 'Enter your name';
   if (f.business_name.trim().length < 2) e.business_name = 'Enter your business / shop name';
-  if (!/^[6-9]\d{9}$/.test(digits(f.mobile))) e.mobile = 'Enter a valid 10-digit mobile number';
+  if (!(mobileOptional && !f.mobile.trim()) && !/^[6-9]\d{9}$/.test(digits(f.mobile))) e.mobile = 'Enter a valid 10-digit mobile number';
   if (f.whatsapp && !/^[6-9]\d{9}$/.test(digits(f.whatsapp))) e.whatsapp = 'Enter a valid 10-digit WhatsApp number';
   if (f.alternate_mobile && !/^[6-9]\d{9}$/.test(digits(f.alternate_mobile))) e.alternate_mobile = 'Enter a valid 10-digit alternate number';
   else if (f.alternate_mobile && digits(f.alternate_mobile) === digits(f.mobile)) e.alternate_mobile = 'Must be different from the main mobile number';
@@ -50,7 +50,9 @@ function validate(f) {
 export default function Checkout() {
   const cart = useCart();
   const toast = useToast();
-  const [form, setForm] = useState(loadSaved);
+  const customer = useCustomer();
+  // an admin number orders for different customers: start with empty details
+  const [form, setForm] = useState(() => (customer.isAdmin ? { ...EMPTY } : loadSaved()));
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
@@ -60,14 +62,15 @@ export default function Checkout() {
   const { quote } = cart;
   const { settings } = useStore();
   const onlinePay = settings?.online_payment_enabled !== false;
-  const customer = useCustomer();
   const verifiedMobile = customer.auth?.mobile || '';
+  const isAdmin = customer.isAdmin;
   useSeo({ title: 'Checkout | Nutex Wholesale', noindex: true });
 
-  // The minimum-order exemption is tied to the WhatsApp-verified number.
+  // The minimum-order exemption is tied to the WhatsApp-verified number
+  // (an admin number enters the customer's mobile instead).
   useEffect(() => {
-    if (verifiedMobile) setForm((f) => (f.mobile === verifiedMobile ? f : { ...f, mobile: verifiedMobile }));
-  }, [verifiedMobile]);
+    if (verifiedMobile && !isAdmin) setForm((f) => (f.mobile === verifiedMobile ? f : { ...f, mobile: verifiedMobile }));
+  }, [verifiedMobile, isAdmin]);
 
   // One idempotency key per checkout attempt: double-clicks / refreshes never create two orders.
   const idemKey = useMemo(() => {
@@ -96,7 +99,7 @@ export default function Checkout() {
 
   const submit = async (e) => {
     e.preventDefault();
-    const v = validate(form);
+    const v = validate(form, { mobileOptional: isAdmin });
     setErrors(v);
     if (Object.keys(v).length) {
       toast.error('Please complete the highlighted fields.');
@@ -106,16 +109,19 @@ export default function Checkout() {
     setServerError(null);
     try {
       const res = await orderApi.createDraft({
-        customer: { ...form, gstin: form.gstin.trim().toUpperCase() },
+        // admin number without a customer number: the order uses the admin number
+        customer: { ...form, mobile: isAdmin && !form.mobile.trim() ? verifiedMobile : form.mobile, gstin: form.gstin.trim().toUpperCase() },
         items: cart.items.map(({ variant_id, qty }) => ({ variant_id, qty })),
         idempotency_key: idemKey,
         client_final_payable: quote.final_payable,
       });
       saveOrderAccess(res.order_number, res.access_token, { final_payable: res.order?.totals?.final_payable, business: form.business_name });
-      try {
-        const { order_notes: _n, ...remember } = form;
-        localStorage.setItem(SAVED_KEY, JSON.stringify(remember));
-      } catch { /* ignore */ }
+      if (!isAdmin) {
+        try {
+          const { order_notes: _n, ...remember } = form;
+          localStorage.setItem(SAVED_KEY, JSON.stringify(remember));
+        } catch { /* ignore */ }
+      }
       sessionStorage.removeItem(IDEM_KEY);
       const offline = res.order?.payment_mode === 'OFFLINE';
       setPlaced({ number: res.order_number, offline });
@@ -152,6 +158,15 @@ export default function Checkout() {
             <div className="form-grid">
               <Field label="Customer name" required error={errors.customer_name}><input className="input" value={form.customer_name} onChange={set('customer_name')} autoComplete="name" aria-invalid={!!errors.customer_name} /></Field>
               <Field label="Business / shop name" required error={errors.business_name}><input className="input" value={form.business_name} onChange={set('business_name')} autoComplete="organization" aria-invalid={!!errors.business_name} /></Field>
+              {isAdmin ? (
+                <Field
+                  label="Customer's mobile number"
+                  error={errors.mobile}
+                  hint={<>Logged in with admin number +91 {customer.auth.mobile_masked} ✓ · the order and bill show this number. Blank = your admin number.</>}
+                >
+                  <input className="input" value={form.mobile} onChange={set('mobile')} inputMode="tel" autoComplete="off" placeholder="Customer's 10-digit mobile" aria-invalid={!!errors.mobile} />
+                </Field>
+              ) : (
               <Field
                 label="Mobile number"
                 required
@@ -176,6 +191,7 @@ export default function Checkout() {
               >
                 <input className="input" value={form.mobile} onChange={set('mobile')} inputMode="tel" autoComplete="tel" placeholder="10-digit mobile" aria-invalid={!!errors.mobile} readOnly={!!verifiedMobile} style={verifiedMobile ? { background: '#f3fbf6' } : undefined} />
               </Field>
+              )}
               <Field label="WhatsApp number" hint="Leave blank if same as mobile" error={errors.whatsapp}><input className="input" value={form.whatsapp} onChange={set('whatsapp')} inputMode="tel" aria-invalid={!!errors.whatsapp} /></Field>
               <Field label="Alternate mobile (optional)" hint="Another number you use - it can also be used later to log in as an existing customer" error={errors.alternate_mobile} className="span-2"><input className="input" value={form.alternate_mobile} onChange={set('alternate_mobile')} inputMode="tel" placeholder="Second mobile / WhatsApp number" aria-invalid={!!errors.alternate_mobile} /></Field>
               <Field label="Email (optional)" error={errors.email} className="span-2"><input className="input" type="email" value={form.email} onChange={set('email')} autoComplete="email" aria-invalid={!!errors.email} /></Field>

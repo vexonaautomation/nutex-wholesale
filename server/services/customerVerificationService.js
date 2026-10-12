@@ -69,6 +69,8 @@ function verifiedResponse(mobile, status) {
     mobile_masked: maskMobile(mobile),
     numbers_masked: (status.numbers || [mobile]).map(maskMobile),
     minimum_order_value: status.minimum_order_value,
+    // admin number: may enter the customer's mobile at checkout
+    admin: status.admin === true,
   };
 }
 
@@ -158,7 +160,7 @@ export async function confirmVerification(rawMobile, rawOtp, { ip } = {}) {
   checkOtp('login', mobile, rawOtp);
   const { status } = await listed(mobile);
   if (!status.existing) throw new AppError(403, 'NOT_EXISTING_CUSTOMER', 'This number is no longer registered as an existing customer.');
-  await auditVerified(mobile, ip, mobile === status.primary ? 'WhatsApp OTP' : 'WhatsApp OTP (alternate number)');
+  await auditVerified(mobile, ip, status.admin ? 'WhatsApp OTP (admin number)' : mobile === status.primary ? 'WhatsApp OTP' : 'WhatsApp OTP (alternate number)');
   return verifiedResponse(mobile, status);
 }
 
@@ -176,6 +178,7 @@ export async function customerStatus(token) {
     numbers_masked: status.numbers.map(maskMobile),
     expires_at: new Date(t.exp).toISOString(),
     minimum_order_value: status.minimum_order_value,
+    admin: status.admin === true,
   };
 }
 
@@ -191,6 +194,7 @@ async function verifiedCustomer(token) {
 export async function startAlternate(token, rawNewMobile, { ip } = {}) {
   sweep();
   const me = await verifiedCustomer(token);
+  if (me.status.admin) throw badRequest('Admin numbers are set in Settings - enter the customer\'s number at checkout instead.');
   const newMobile = validMobile(rawNewMobile);
   if (me.status.numbers.includes(newMobile)) throw badRequest('This number is already linked to your account.');
   const other = resolveExistingCustomer(me.rows, me.settings, newMobile);

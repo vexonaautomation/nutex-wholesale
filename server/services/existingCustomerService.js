@@ -39,13 +39,28 @@ export function numbersOf(row) {
 
 const ownerOf = (rows, mobile, exceptKey = null) => rows.find((r) => r.mobile !== exceptKey && numbersOf(r).includes(mobile)) || null;
 
+/** Admin / staff numbers (Settings > admin_order_mobiles): they order for customers. */
+export const adminMobilesOf = (settings) => splitMobiles(settings?.admin_order_mobiles);
+
 /**
  * Is this mobile (primary OR alternate) in the Existing_Customers list?
- * Accepts numbers typed by hand in any common format.
+ * Accepts numbers typed by hand in any common format. An admin number counts
+ * as an existing customer (admin: true) and may order for any customer number.
  */
 export function resolveExistingCustomer(rows, settings, mobile) {
   const m = normalizeMobile(mobile);
   if (!MOBILE_RE.test(m)) return { existing: false, mobile: m };
+  if (adminMobilesOf(settings).includes(m)) {
+    return {
+      existing: true,
+      admin: true,
+      mobile: m,
+      key: '',
+      primary: m,
+      numbers: [m],
+      minimum_order_value: Math.max(0, Number(settings?.existing_customer_minimum_order_value) || 0),
+    };
+  }
   const row = (rows || []).find((r) => isActive(r) && numbersOf(r).includes(m));
   if (!row) return { existing: false, mobile: m };
   const own = row.minimum_order_value;
@@ -74,6 +89,8 @@ export function autoExistingOps({
   if (settings.auto_existing_after_first_order === false) return [];
   const mobile = normalizeMobile(order?.mobile_snapshot);
   if (!MOBILE_RE.test(mobile)) return [];
+  // an order an admin placed on their own number does not make the admin a customer
+  if (adminMobilesOf(settings).includes(mobile)) return [];
   const alternate = normalizeMobile(order.alternate_mobile_snapshot);
   const numbers = [mobile, ...(MOBILE_RE.test(alternate) && alternate !== mobile ? [alternate] : [])];
   if (existingRows.some((r) => numbersOf(r).some((m) => numbers.includes(m)))) return [];

@@ -141,9 +141,10 @@ export default function Settings() {
   const lastData = useRef(null);
   useEffect(() => {
     if (!data) return;
+    // read the previous data NOW: the updater below may run after lastData is replaced
+    const old = lastData.current?.settings;
     setDraft((prev) => {
       const next = { ...data.settings };
-      const old = lastData.current?.settings;
       if (old) {
         for (const d of data.definitions) {
           if (d.key !== 'payment_qr_file_id' && String(prev[d.key] ?? '') !== String(old[d.key] ?? '')) next[d.key] = prev[d.key];
@@ -171,6 +172,8 @@ export default function Settings() {
       const res = await adminApi.put('/settings', changed);
       res.warnings?.forEach((w) => toast.info(w));
       toast.success(`Saved ${Object.keys(res.changed).length} setting(s) to Google Sheets.`);
+      // show the values as saved (e.g. numbers cleaned up), not as typed
+      lastData.current = null;
       reload();
     } catch (err) {
       toast.error(err.message);
@@ -218,6 +221,9 @@ export default function Settings() {
           <option value="true">ON - send WhatsApp OTP</option>
           <option value="false">OFF - mobile number only</option>
         </select>
+      </Field>
+      <Field label="Admin numbers - order for customers" className="span-2" hint="Comma separated, e.g. 9876543210, 9123456789. Log in on the website with &quot;Existing customer?&quot; using this number (same OTP) - all existing-customer rules apply, and at checkout you can enter the customer's mobile number: the order and the bill show the customer's number.">
+        <input className="input" value={draft.admin_order_mobiles ?? ''} onChange={set('admin_order_mobiles')} inputMode="tel" placeholder="Your admin / staff mobile number(s)" />
       </Field>
       <Field label="Loose pieces for new customers" hint="Existing customers can always choose box or loose pieces. Per article you can open loose pieces for new customers (product wizard step 5 or Products → Box / pieces).">
         <select className="select" value={String(draft.pcs_for_existing_customers_only)} onChange={(e) => setDraft((d) => ({ ...d, pcs_for_existing_customers_only: e.target.value === 'true' }))}>

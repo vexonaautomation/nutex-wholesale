@@ -261,6 +261,7 @@ export default function OrderDetail() {
               <dt>Mobile</dt><dd><a href={`tel:${order.mobile_snapshot}`}>{order.mobile_snapshot}</a></dd>
               <dt>WhatsApp</dt><dd>{order.whatsapp_snapshot}</dd>
               {order.alternate_mobile_snapshot && <><dt>Alternate mobile</dt><dd>{order.alternate_mobile_snapshot}</dd></>}
+              {order.placed_by_mobile && <><dt>Placed by</dt><dd><span className="badge badge-outline">Admin number {order.placed_by_mobile}</span></dd></>}
               <dt>Email</dt><dd>{order.email_snapshot || '—'}</dd>
               <dt>GSTIN</dt><dd>{order.gstin_snapshot || '—'}</dd>
               <dt>Billing</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.billing_address_snapshot}</dd>

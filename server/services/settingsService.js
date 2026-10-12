@@ -5,6 +5,7 @@ import { auditOp } from './auditService.js';
 import { badRequest } from '../utils/errors.js';
 import { nowIso } from '../utils/dates.js';
 import { parseBool } from './sheetsService.js';
+import { normalizeMobile } from '../utils/orderToken.js';
 
 const SHEET = 'Settings';
 
@@ -64,6 +65,18 @@ export async function ensureDefaultSettings() {
 
 const digitsOnly = (v) => String(v || '').replace(/\D/g, '');
 
+// "98765 43210, +91 91234 56789" -> "9876543210, 9123456789" (a wrong number is refused)
+function mobileList(value) {
+  const out = [];
+  for (const part of String(value || '').split(/[,;/|\n]+/)) {
+    if (!part.trim()) continue;
+    const m = normalizeMobile(part);
+    if (!/^[6-9]\d{9}$/.test(m)) throw badRequest(`"${part.trim()}" is not a valid 10-digit mobile number`);
+    if (!out.includes(m)) out.push(m);
+  }
+  return out.join(', ');
+}
+
 function normalizePhone(value) {
   const d = digitsOnly(value);
   if (!d) return '';
@@ -103,6 +116,7 @@ function validateSetting(key, value) {
       if (key === 'upi_id' && s && !/^[\w.-]{2,256}@[A-Za-z][A-Za-z0-9.-]{1,64}$/.test(s)) throw badRequest('Enter a valid UPI ID, e.g. nutex@okaxis');
       if (key === 'company_email' && s && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s)) throw badRequest('Enter a valid email address');
       if (key === 'otp_message_template' && !s.includes('{{otp}}')) throw badRequest('The OTP message must contain {{otp}}');
+      if (key === 'admin_order_mobiles') return mobileList(s);
       return key === 'order_prefix' ? s.toUpperCase() : s;
     }
   }

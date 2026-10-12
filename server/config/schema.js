@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 const n = 'number';
 const b = 'boolean';
@@ -142,6 +142,9 @@ export const SCHEMA = {
       // v9: flat amount the admin takes off the order total ("Less: Packing
       // charges", e.g. the customer does not want boxes). Blank = 0.
       'packing_deduction',
+      // v11: admin number that placed the order for a customer (blank = the
+      // customer ordered themselves)
+      'placed_by_mobile',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,
