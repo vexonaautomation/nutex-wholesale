@@ -27,7 +27,8 @@ export function piecesByInventory(lines) {
   for (const l of lines) {
     const qty = Number(l.qty) || 0;
     if (!qty) continue;
-    for (const [v, per] of Object.entries(componentsOf(l))) out[v] = (out[v] || 0) + qty * per;
+    // per-box pieces may be fractional for mix boxes (extras rotate between colours)
+    for (const [v, per] of Object.entries(componentsOf(l))) out[v] = (out[v] || 0) + Math.round(qty * per);
   }
   return out;
 }

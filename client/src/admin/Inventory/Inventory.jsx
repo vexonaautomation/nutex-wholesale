@@ -7,6 +7,7 @@ import { useAsync } from '../../hooks/index.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { PageHeader } from '../components.jsx';
 import { BulkStockDialog } from './BulkStockDialog.jsx';
+import { mixText } from '../Products/mixBox.js';
 import { Alert, EmptyState, ErrorState, PageLoader, Spinner } from '../../components/common/ui.jsx';
 
 export default function Inventory() {
@@ -105,7 +106,7 @@ export default function Inventory() {
                     {r.auto_box.ok ? (
                       <>
                         <span className={`badge ${r.auto_box.boxes > 0 && valueOf(r, 'status') !== 'OUT_OF_STOCK' ? 'badge-success' : 'badge-danger'}`}>{r.auto_box.boxes}</span>
-                        <div className="cell-sub auto-ok">{r.auto_box.per_colour} of each colour</div>
+                        <div className="cell-sub auto-ok">{mixText(r.auto_box.per_colour, r.auto_box.extra || 0)}</div>
                       </>
                     ) : <div className="cell-sub auto-warn">{r.auto_box.reason} - change pieces per box</div>}
                   </td>

@@ -6,6 +6,7 @@ import {
 import { adminApi, uploadImage } from '../../services/auth.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { PageHeader } from '../components.jsx';
+import { maxMixBoxes, mixText } from './mixBox.js';
 import {
   SIZE_PRESETS, presetSizeIds, presetForCategory, missingPresetSizes,
 } from './sizePresets.js';
@@ -157,16 +158,18 @@ export default function ProductWizard() {
   // changing pieces per box creates NEW boxes: their stock is entered fresh
   const unitsChanged = !isNew && Boolean(form.loaded_units) && form.units_per_box !== form.loaded_units;
   const setUnits = (v) => set('units_per_box', v);
-  // box stock left 0 -> boxes are packed from the loose colours (equal pcs of each)
+  // boxes are packed from the loose colours: same pcs of each, the rest mixed
   const autoBoxes = (sizeId) => {
     if (!colorsSel.length) return { ok: false, reason: 'Select colours (step 6) - boxes are packed from their pieces.' };
-    if (units % colorsSel.length) return { ok: false, reason: `${units} pcs cannot be split equally into ${colorsSel.length} colours - change pieces per box (step 5) so boxes can be packed.` };
-    const per = units / colorsSel.length;
-    const boxes = Math.min(...colorsSel.map((c) => {
+    const per = Math.floor(units / colorsSel.length);
+    const extra = units % colorsSel.length;
+    const stocks = colorsSel.map((c) => {
       const st = stockOf(`${c.color_id}|${sizeId}`);
-      return Math.floor(Math.max(0, st.qty - (st.reserved || 0)) / per);
-    }));
-    return { ok: true, per, boxes };
+      return Math.max(0, st.qty - (st.reserved || 0));
+    });
+    return {
+      ok: true, per, extra, boxes: maxMixBoxes(stocks, per, extra),
+    };
   };
 
   // ------------------------------------------------------------ images
@@ -510,7 +513,7 @@ export default function ProductWizard() {
                       <td className="cell-main">Size {s.size_name} · box of {units} pcs</td>
                       <td className="right">
                         {a.ok
-                          ? <><strong className="num">{a.boxes}</strong><div className="cell-sub auto-ok">{a.per} pc{a.per === 1 ? '' : 's'} of each colour</div></>
+                          ? <><strong className="num">{a.boxes}</strong><div className="cell-sub auto-ok">{mixText(a.per, a.extra)}</div></>
                           : <div className="cell-sub auto-warn">{a.reason}</div>}
                       </td>
                     </tr>
@@ -519,7 +522,7 @@ export default function ProductWizard() {
               </tbody>
             </table>
           </div>
-          <p className="muted small mb-0">Stock is entered in pieces only. Each box takes the same number of pieces of every colour of that size; the box count follows the colour with the least stock.</p>
+          <p className="muted small mb-0">Stock is entered in pieces only. Each box takes the same pieces of every colour of that size; when they do not split equally, the rest come mixed from the colours with the most stock.</p>
         </>
       )}
       {hasBox(form) && form.legacy_boxes && (
