@@ -15,26 +15,26 @@ function SizePrice({ mrp, percent, mode }) {
  * colour+size combinations are disabled (never addable).
  * When sizes have different MRPs (size-wise MRP), each row shows its price.
  */
-export function SizeSelector({ variants, quantities, onChange, inCart = {}, showPrice = false, percent = 0, mode = 'SHOW_BOTH' }) {
+// `quantities` are the cart quantities: changing one updates the cart straight away
+export function SizeSelector({ variants, quantities, onChange, showPrice = false, percent = 0, mode = 'SHOW_BOTH' }) {
   return (
     <div className="size-grid">
       {variants.map((v) => {
         const qty = quantities[v.variant_id] || 0;
-        const already = inCart[v.variant_id] || 0;
-        const max = Math.max(0, v.available_qty - already);
+        const max = Math.max(0, v.available_qty);
         const oos = !v.purchasable;
         const low = !oos && v.available_qty <= 10;
         return (
           <div key={v.variant_id} className={`size-row ${qty ? 'has-qty' : ''} ${oos ? 'is-oos' : ''}`}>
             <span className="size-name">{v.size_name}{showPrice && <SizePrice mrp={v.unit_mrp} percent={percent} mode={mode} />}</span>
             <span className={`size-stock ${low ? 'low' : ''}`}>
-              {oos ? 'Out of stock' : `${v.available_qty} available${already ? ` · ${already} in cart` : ''}`}
+              {oos ? 'Out of stock' : `${v.available_qty} available${qty ? ' · in cart' : ''}`}
             </span>
             <QuantitySelector
               size="sm"
               value={qty}
               max={max}
-              disabled={oos || max === 0}
+              disabled={(oos || max === 0) && !qty}
               onChange={(n) => onChange(v.variant_id, n)}
               label={`Quantity for size ${v.size_name}`}
             />
