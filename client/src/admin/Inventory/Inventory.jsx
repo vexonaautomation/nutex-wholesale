@@ -106,7 +106,7 @@ export default function Inventory() {
                     {r.auto_box.ok ? (
                       <>
                         <span className={`badge ${r.auto_box.boxes > 0 && valueOf(r, 'status') !== 'OUT_OF_STOCK' ? 'badge-success' : 'badge-danger'}`}>{r.auto_box.boxes}</span>
-                        <div className="cell-sub auto-ok">{mixText(r.auto_box.per_colour, r.auto_box.extra || 0)}</div>
+                        <div className="cell-sub auto-ok">{mixText(r.auto_box.per_colour, r.auto_box.extra || 0, r.auto_box.extra_color)}</div>
                       </>
                     ) : <div className="cell-sub auto-warn">{r.auto_box.reason} - change pieces per box</div>}
                   </td>

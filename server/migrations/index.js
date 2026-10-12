@@ -78,4 +78,10 @@ export const MIGRATIONS = [
     version: 9,
     description: 'Less: packing charges (admin deduction per order)',
   },
+  {
+    // Additive only: Products.box_extra_color. Blank = the extra pieces of a
+    // mix box are Black when the product has Black, else the most stock.
+    version: 10,
+    description: 'Mix box extra colour per product (default Black)',
+  },
 ];

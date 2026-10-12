@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v9).
+ *  GENERATED from server/config/schema.js (schema v10).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -20,7 +20,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 9;
+var NUTEX_SCHEMA_VERSION = 10;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -29,7 +29,7 @@ var NUTEX_SCHEMA = {
   "Categories": ["category_id","category_name","parent_category","slug","description","image_file_id","image_url","status","sort_order","seo_title","seo_description","created_at","updated_at"],
   "Colors": ["color_id","color_name","color_code","hex_code","swatch_image","status","sort_order","created_at","updated_at"],
   "Sizes": ["size_id","size_name","sort_order","status","created_at","updated_at"],
-  "Products": ["product_id","sku","product_name","slug","category_id","subcategory","description","mrp","discount_mode","fixed_discount_percent","inventory_mode","size_ids","color_ids","status","out_of_stock","featured","sort_order","seo_title","seo_description","created_at","updated_at","created_by","updated_by","sell_mode","units_per_box","pcs_for_new_customers"],
+  "Products": ["product_id","sku","product_name","slug","category_id","subcategory","description","mrp","discount_mode","fixed_discount_percent","inventory_mode","size_ids","color_ids","status","out_of_stock","featured","sort_order","seo_title","seo_description","created_at","updated_at","created_by","updated_by","sell_mode","units_per_box","pcs_for_new_customers","box_extra_color"],
   "Product_Images": ["image_id","product_id","drive_file_id","file_url","image_type","alt_text","sort_order","status","created_at","updated_at"],
   "Product_Variants": ["variant_id","product_id","sku","size_id","color_id","box_id","inventory_mode","units_per_box","box_mrp","mixed_color_description","status","sort_order","created_at","updated_at","variant_mrp"],
   "Inventory": ["inventory_id","variant_id","product_id","color_id","size_id","box_id","stock_qty","reserved_qty","available_qty","status","updated_at","updated_by"],
@@ -118,7 +118,8 @@ var NUTEX_MIGRATIONS = [
   [6,"Loose pieces for new customers per product"],
   [7,"Boxes packed from loose colour stock"],
   [8,"Online payment on/off (thank-you page, team confirms orders)"],
-  [9,"Less: packing charges (admin deduction per order)"]
+  [9,"Less: packing charges (admin deduction per order)"],
+  [10,"Mix box extra colour per product (default Black)"]
 ];
 
 var NUTEX_MASTER_DATA = {

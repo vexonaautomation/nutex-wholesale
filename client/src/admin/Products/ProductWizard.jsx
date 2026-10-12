@@ -6,7 +6,9 @@ import {
 import { adminApi, uploadImage } from '../../services/auth.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { PageHeader } from '../components.jsx';
-import { maxMixBoxes, mixText } from './mixBox.js';
+import {
+  maxMixBoxes, mixText, extraColourIndex, EXTRA_COLOUR_AUTO,
+} from './mixBox.js';
 import {
   SIZE_PRESETS, presetSizeIds, presetForCategory, missingPresetSizes,
 } from './sizePresets.js';
@@ -26,7 +28,7 @@ const hasPcs = (f) => f.color_ids.length > 0;
 const EMPTY = {
   product_name: '', sku: '', slug: '', description: '', subcategory: '', category_id: '',
   mrp: '', discount_mode: 'GLOBAL', fixed_discount_percent: '',
-  size_ids: [], size_mrps: {}, units_per_box: '', pcs_for_new_customers: false, legacy_boxes: false, color_ids: [], boxes: [],
+  size_ids: [], size_mrps: {}, units_per_box: '', pcs_for_new_customers: false, box_extra_color: '', legacy_boxes: false, color_ids: [], boxes: [],
   stock: {}, images: [], status: 'ACTIVE', out_of_stock: false, featured: false, sort_order: 1000,
   seo_title: '', seo_description: '',
 };
@@ -52,6 +54,7 @@ function fromServer(res) {
     fixed_discount_percent: p.fixed_discount_percent ?? '',
     discount_mode: p.discount_mode || 'GLOBAL',
     pcs_for_new_customers: p.pcs_for_new_customers === true,
+    box_extra_color: p.box_extra_color || '',
     units_per_box: p.units_per_box ? String(p.units_per_box) : '',
     loaded_units: p.units_per_box ? String(p.units_per_box) : '',
     legacy_boxes: Boolean(res.legacy_boxes),
@@ -158,7 +161,10 @@ export default function ProductWizard() {
   // changing pieces per box creates NEW boxes: their stock is entered fresh
   const unitsChanged = !isNew && Boolean(form.loaded_units) && form.units_per_box !== form.loaded_units;
   const setUnits = (v) => set('units_per_box', v);
-  // boxes are packed from the loose colours: same pcs of each, the rest mixed
+  // boxes are packed from the loose colours: same pcs of each, the rest = extra colour (default Black)
+  const boxSplits = colorsSel.length > 0 && units > colorsSel.length && units % colorsSel.length > 0;
+  const extraIdx = boxSplits ? extraColourIndex(colorsSel, form.box_extra_color) : -1;
+  const hasBlack = extraColourIndex(colorsSel, '') >= 0;
   const autoBoxes = (sizeId) => {
     if (!colorsSel.length) return { ok: false, reason: 'Select colours (step 6) - boxes are packed from their pieces.' };
     const per = Math.floor(units / colorsSel.length);
@@ -168,7 +174,7 @@ export default function ProductWizard() {
       return Math.max(0, st.qty - (st.reserved || 0));
     });
     return {
-      ok: true, per, extra, boxes: maxMixBoxes(stocks, per, extra),
+      ok: true, per, extra, extraName: extraIdx >= 0 ? colorsSel[extraIdx].color_name : '', boxes: maxMixBoxes(stocks, per, extra, extraIdx),
     };
   };
 
@@ -233,6 +239,7 @@ export default function ProductWizard() {
       discount_mode: form.discount_mode,
       fixed_discount_percent: form.discount_mode === 'CUSTOM' ? Number(form.fixed_discount_percent) : null,
       pcs_for_new_customers: form.pcs_for_new_customers,
+      box_extra_color: form.box_extra_color,
       units_per_box: hasBox(form) && !form.legacy_boxes ? Number(form.units_per_box) : null,
       size_ids: form.size_ids,
       size_mrps: form.size_ids.filter((sid) => Number(form.size_mrps[sid]) > 0).map((sid) => ({ size_id: sid, mrp: Number(form.size_mrps[sid]) })),
@@ -502,6 +509,15 @@ export default function ProductWizard() {
       {hasBox(form) && !form.legacy_boxes && sizesSel.length > 0 && units > 0 && (
         <>
           <h4 className="mb-0">Boxes (packed from the loose pieces above)</h4>
+          {boxSplits && (
+            <Field label="Extra piece colour" hint={`${units} pcs do not split equally into ${colorsSel.length} colours: each box gets ${Math.floor(units / colorsSel.length)} of every colour + ${units % colorsSel.length} extra of this colour.`}>
+              <select className="select" value={form.box_extra_color} onChange={(e) => set('box_extra_color', e.target.value)} aria-label="Extra piece colour" style={{ maxWidth: 360 }}>
+                <option value="">{hasBlack ? 'Black (default)' : 'Default: Black - not in this product, so most stock'}</option>
+                {colorsSel.filter((c) => c.color_name.trim().toLowerCase() !== 'black').map((c) => <option key={c.color_id} value={c.color_id}>{c.color_name}</option>)}
+                <option value={EXTRA_COLOUR_AUTO}>Mixed - colours with the most stock</option>
+              </select>
+            </Field>
+          )}
           <div className="table-wrap">
             <table className="table">
               <thead><tr><th>Box</th><th className="right">Boxes available</th></tr></thead>
@@ -513,7 +529,7 @@ export default function ProductWizard() {
                       <td className="cell-main">Size {s.size_name} · box of {units} pcs</td>
                       <td className="right">
                         {a.ok
-                          ? <><strong className="num">{a.boxes}</strong><div className="cell-sub auto-ok">{mixText(a.per, a.extra)}</div></>
+                          ? <><strong className="num">{a.boxes}</strong><div className="cell-sub auto-ok">{mixText(a.per, a.extra, a.extraName)}</div></>
                           : <div className="cell-sub auto-warn">{a.reason}</div>}
                       </td>
                     </tr>
@@ -522,7 +538,7 @@ export default function ProductWizard() {
               </tbody>
             </table>
           </div>
-          <p className="muted small mb-0">Stock is entered in pieces only. Each box takes the same pieces of every colour of that size; when they do not split equally, the rest come mixed from the colours with the most stock.</p>
+          <p className="muted small mb-0">Stock is entered in pieces only. Each box takes the same pieces of every colour of that size; when they do not split equally, the extra pieces are of the colour chosen above (Black by default).</p>
         </>
       )}
       {hasBox(form) && form.legacy_boxes && (

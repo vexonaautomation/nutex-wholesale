@@ -238,6 +238,8 @@ export const productSchema = z.object({
   // optional: derived from units_per_box / colours when not sent
   sell_mode: z.enum(SELL_MODES).optional(),
   pcs_for_new_customers: z.boolean().optional().default(false),
+  // colour of the extra pieces in a mix box: colour id, AUTO or '' (Black); not sent = unchanged
+  box_extra_color: z.string().trim().max(64).optional(),
   units_per_box: nullableNumber(z.coerce.number().int('Pieces per box must be a whole number').min(1, 'At least 1 piece per box').max(10000)).optional().default(null),
   inventory_mode: z.enum([INVENTORY_MODE.COLOR_WISE, INVENTORY_MODE.BOX_WISE]).optional(),
   size_ids: z.array(id).max(60).default([]),

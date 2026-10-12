@@ -65,9 +65,10 @@ export function variantAvailability(catalog, variant, held = 0) {
         const out = product.out_of_stock === true || !inv || inv.status === INVENTORY_STATUS.OUT_OF_STOCK;
         return (out ? 0 : availableOf(inv)) + heldOf(part.variant_id);
       });
-      const boxes = maxMixBoxes(stocks, plan.perColour, plan.extra);
+      const fixed = plan.extraPart ? plan.parts.indexOf(plan.extraPart) : -1;
+      const boxes = maxMixBoxes(stocks, plan.perColour, plan.extra, fixed);
       const mix = {
-        ids: plan.parts.map((p) => p.variant_id), stocks, base: plan.perColour, extra: plan.extra,
+        ids: plan.parts.map((p) => p.variant_id), stocks, base: plan.perColour, extra: plan.extra, fixed,
       };
       const components = mixComponents(mix, 1);
       if (!(boxes > 0)) {
@@ -118,22 +119,44 @@ export function autoBoxPlan(catalog, product, variant) {
     && catalog.colorsById.get(v.color_id)?.status === RECORD_STATUS.ACTIVE);
   if (!parts.length) return { ok: false, reason: 'no loose colours for this size' };
   if (units < 1) return { ok: false, reason: 'no pieces per box' };
-  // mix box: the same pieces of every colour, the rest (units % colours) from
-  // different colours - at most 1 extra of a colour per box (box of 6 with 5
-  // colours = 1 of each + 1 extra)
+  // mix box: the same pieces of every colour, the rest (units % colours) are
+  // the extra pieces: all of the product's extra colour (box of 6 with 5
+  // colours = 1 of each + 1 Black), or with "most stock" from different
+  // colours - at most 1 extra of a colour per box
+  const perColour = Math.floor(units / parts.length);
+  const extra = units % parts.length;
   return {
-    ok: true, perColour: Math.floor(units / parts.length), extra: units % parts.length, parts,
+    ok: true, perColour, extra, parts, extraPart: extra && perColour ? extraColourPart(catalog, product, parts) : null,
   };
+}
+
+export const EXTRA_COLOUR_AUTO = 'AUTO';
+
+/**
+ * Which colour gives the extra pieces of a box (Products.box_extra_color):
+ * a colour id = that colour; AUTO = the colours with the most stock; blank
+ * (default) = Black when the product has it, else the most stock.
+ */
+export function extraColourPart(catalog, product, parts) {
+  const pref = String(product?.box_extra_color || '').trim();
+  if (pref.toUpperCase() === EXTRA_COLOUR_AUTO) return null;
+  const chosen = pref && parts.find((p) => p.color_id === pref);
+  if (chosen) return chosen;
+  return parts.find((p) => String(catalog.colorsById.get(p.color_id)?.color_name || '').trim().toLowerCase() === 'black') || null;
 }
 
 /**
  * Most boxes that can be packed: every colour gives `base` pieces per box and
- * the `extra` pieces of each box come from different colours (at most one
- * extra of a colour per box). `stocks` = pieces available per colour.
+ * the `extra` pieces of each box come from colour `fixed` (index), or with
+ * fixed = -1 from different colours (at most one extra of a colour per box).
+ * `stocks` = pieces available per colour.
  */
-export function maxMixBoxes(stocks, base, extra) {
+export function maxMixBoxes(stocks, base, extra, fixed = -1) {
   const units = base * stocks.length + extra;
   if (!units || !stocks.length) return 0;
+  if (fixed >= 0 && fixed < stocks.length) {
+    return Math.max(0, Math.min(...stocks.map((x, i) => Math.floor(Math.max(0, x) / (base + (i === fixed ? extra : 0)) || 0))));
+  }
   const total = stocks.reduce((sum, x) => sum + Math.max(0, x), 0);
   const fits = (b) => stocks.every((x) => x >= base * b)
     && stocks.reduce((sum, x) => sum + Math.min(x - base * b, b), 0) >= extra * b;
@@ -146,9 +169,13 @@ export function maxMixBoxes(stocks, base, extra) {
   return lo;
 }
 
-/** Pieces taken from each colour for `qty` boxes: base each, extras from the colours with the most stock left. */
-export function allocateMixBoxes(stocks, base, extra, qty) {
+/** Pieces taken from each colour for `qty` boxes: base each, extras from colour `fixed` or the colours with the most stock left. */
+export function allocateMixBoxes(stocks, base, extra, qty, fixed = -1) {
   const take = stocks.map(() => base * qty);
+  if (fixed >= 0 && fixed < stocks.length) {
+    take[fixed] += extra * qty;
+    return take;
+  }
   const left = stocks.map((x, i) => x - take[i]);
   const extras = stocks.map(() => 0);
   for (let need = extra * qty; need > 0; need -= 1) {
@@ -165,7 +192,7 @@ export function allocateMixBoxes(stocks, base, extra, qty) {
 /** Per-box pieces of each colour for an order line of `qty` boxes (may be fractional when extras rotate). */
 export function mixComponents(mix, qty) {
   const n = Math.max(1, Math.floor(Number(qty) || 1));
-  const take = allocateMixBoxes(mix.stocks, mix.base, mix.extra, n);
+  const take = allocateMixBoxes(mix.stocks, mix.base, mix.extra, n, mix.fixed ?? -1);
   const out = {};
   mix.ids.forEach((id, i) => { if (take[i] > 0) out[id] = take[i] / n; });
   return out;
@@ -192,11 +219,17 @@ export function autoBoxInfo(catalog, product, variant) {
   if (!plan) return null;
   if (!plan.ok) {
     return {
-      ok: false, per_colour: 0, extra: 0, colours: 0, boxes: 0, reason: plan.reason,
+      ok: false, per_colour: 0, extra: 0, extra_color: '', colours: 0, boxes: 0, reason: plan.reason,
     };
   }
   const av = variantAvailability(catalog, variant);
   return {
-    ok: true, per_colour: plan.perColour, extra: plan.extra, colours: plan.parts.length, boxes: av.purchasable ? av.available : 0, reason: null,
+    ok: true,
+    per_colour: plan.perColour,
+    extra: plan.extra,
+    extra_color: plan.extraPart ? catalog.colorsById.get(plan.extraPart.color_id)?.color_name || '' : '',
+    colours: plan.parts.length,
+    boxes: av.purchasable ? av.available : 0,
+    reason: null,
   };
 }
