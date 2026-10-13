@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { BadgeCheck, ChevronDown, Menu, Search, ShoppingBag, PackageSearch, ChevronRight, UserRound } from 'lucide-react';
+import { BadgeCheck, ChevronDown, Menu, Search, ShoppingBag, Package, PackageSearch, ChevronRight, UserRound } from 'lucide-react';
 import { useStore } from '../../context/StoreContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
 import { useCustomer } from '../../context/CustomerContext.jsx';
@@ -151,6 +151,7 @@ export function Header() {
             {customer.isExisting ? 'Existing customer (verified)' : 'Existing customer login'} <BadgeCheck size={16} />
           </button>
           <Link to="/cart">Cart <ShoppingBag size={16} /></Link>
+          <Link to="/my-orders">My orders (pending / history) <Package size={16} /></Link>
           <Link to="/track-order">Track order <PackageSearch size={16} /></Link>
           <Link to="/contact">Contact us <ChevronRight size={16} /></Link>
         </nav>

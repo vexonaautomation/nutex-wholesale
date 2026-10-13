@@ -43,4 +43,6 @@ export const customerApi = {
   // verified customers: link another WhatsApp number (OTP goes to the new number)
   alternateStart: (mobile) => api.post('/api/customer/alternate/start', { mobile }, { headers: customerHeader() }),
   alternateConfirm: (mobile, otp) => api.post('/api/customer/alternate/confirm', { mobile, otp }, { headers: customerHeader() }),
+  // "My orders" from any device (logged in with the WhatsApp OTP)
+  orders: () => api.get('/api/customer/orders', { headers: customerHeader() }),
 };

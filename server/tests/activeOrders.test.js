@@ -57,7 +57,7 @@ test('your orders: pay first, then visible until handed over', async () => {
   assert.equal(card.closed, true, 'handed over: the device stops showing it');
 });
 
-test('your orders: cancelled orders close; at most 10 per request', async () => {
+test('your orders: cancelled orders close (History); at most 50 per request', async () => {
   const { adminCtx } = await freshStore();
   await updateSettings({ minimum_order_value: 0 }, adminCtx);
   const { boxVariant } = await createBoxProduct(adminCtx);
@@ -65,8 +65,9 @@ test('your orders: cancelled orders close; at most 10 per request', async () => 
   await cancelOrderAdmin(o.order_number, { reason: 'test' }, adminCtx);
   const [card] = await activeOrderSummaries([entry(o)]);
   assert.equal(card.closed, true);
+  assert.equal(card.group, 'HISTORY');
 
-  const many = Array.from({ length: 11 }, () => entry(o));
+  const many = Array.from({ length: 51 }, () => entry(o));
   assert.equal(activeOrdersSchema.safeParse({ orders: many }).success, false);
-  assert.equal(activeOrdersSchema.safeParse({ orders: many.slice(0, 10) }).success, true);
+  assert.equal(activeOrdersSchema.safeParse({ orders: many.slice(0, 50) }).success, true);
 });

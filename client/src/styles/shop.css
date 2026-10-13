@@ -587,14 +587,25 @@ body.has-sticky-cart { padding-bottom: 84px; }
 .buy-as-opt:disabled { cursor: not-allowed; opacity: 0.7; background: var(--ink-50); }
 .buy-as-opt:disabled svg { color: var(--ink-500); }
 
-/* "Your orders": open orders of this device, shown in the cart until handed over */
-.active-orders { display: grid; gap: 10px; margin-bottom: 18px; }
-.active-orders-title { display: flex; align-items: center; gap: 8px; font-size: 16px; margin: 0; }
+/* "Cart | Pending orders" tabs + "My orders" page (Pending / Confirmed / History) */
+.cart-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.cart-tab { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: -1px; border: 1px solid transparent; border-radius: var(--radius) var(--radius) 0 0; font-weight: 600; color: var(--text-muted); text-decoration: none; }
+.cart-tab svg { width: 18px; height: 18px; }
+.cart-tab.is-on { color: var(--ink-900); background: var(--white); border-color: var(--border); border-bottom-color: var(--white); }
+a.cart-tab:hover { color: var(--brand-700); }
+.cart-tab-count { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--warning-500); color: var(--white); font-size: 12px; display: inline-grid; place-items: center; }
+.order-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.order-tab { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: var(--radius-pill); border: 1px solid var(--border-strong); background: var(--white); font-weight: 600; color: var(--ink-700); cursor: pointer; }
+.order-tab svg { width: 16px; height: 16px; }
+.order-tab.is-on { background: var(--ink-900); border-color: var(--ink-900); color: var(--white); }
+.order-tab-count { font-size: 12px; opacity: .8; }
+.order-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
 .order-card {
   display: grid; gap: 8px; padding: 14px; background: var(--surface);
   border: 1px solid var(--border); border-left: 4px solid var(--brand-500); border-radius: var(--radius);
 }
 .order-card.is-due { border-left-color: var(--warning-500); background: var(--warning-100); }
+.order-card.is-closed { border-left-color: var(--ink-300, #cbd5e1); }
 .order-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .order-card-no { font-size: 15px; letter-spacing: .02em; }
 
