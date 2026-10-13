@@ -221,7 +221,7 @@ export default function Settings() {
           <option value="false">OFF - do not show it</option>
         </select>
       </Field>
-      <Field label="GST % included in prices" hint="Shown as “Including GST” on the bill, checkout and order totals. 0 = not shown."><input className="input" inputMode="decimal" value={draft.gst_percent ?? ''} onChange={set('gst_percent')} /></Field>
+      <Field label="GST % included in prices" hint="Only the line “5% GST included” is shown on the bill, checkout and order totals - no GST amount. 0 = not shown."><input className="input" inputMode="decimal" value={draft.gst_percent ?? ''} onChange={set('gst_percent')} /></Field>
       <h4 className="span-2 mb-0 mt-2">Existing customers</h4>
       <Field label="Minimum order for existing customers ₹" hint="0 = no minimum (any quantity). Can be overridden per customer in Existing Customers."><input className="input" inputMode="decimal" value={draft.existing_customer_minimum_order_value ?? ''} onChange={set('existing_customer_minimum_order_value')} /></Field>
       <Field label="Verify existing customers with WhatsApp OTP" hint="Recommended ON. OFF = the mobile number alone is enough (less secure).">

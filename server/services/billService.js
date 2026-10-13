@@ -4,8 +4,7 @@
 //   table   Item (Color, SKU) | size columns S/32 M/34 L/36 XL/38 ... FreeSize
 //           | Total Qty (Dzn, pcs, boxes) | Rate (per piece MRP) | Disc | Amount
 //   footer  Terms & Conditions · total boxes / pieces / dozens · totals
-//           · (Less: Packing charges) · taxable value + GST included
-//           · GRAND TOTAL (incl. GST) · signatures
+//           · (Less: Packing charges) · GRAND TOTAL + "5% GST included" · signatures
 // Read-only: built from the order's own snapshots, nothing is written.
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -18,7 +17,6 @@ import { sheetsService } from './sheetsService.js';
 import { INVENTORY_MODE } from '../config/constants.js';
 import { conflict } from '../utils/errors.js';
 import { round2 } from '../utils/money.js';
-import { gstIncluded } from '../utils/packing.js';
 
 // ------------------------------------------------------------ size columns
 // Nutex sizes: S starts at 32 (S/32, M/34, L/36, XL/38, ...). Letter sizes and
@@ -87,10 +85,6 @@ export function buildBill({
   const totalPcs = list.reduce((s, r) => s + r.pcs, 0);
   const totalBoxes = list.reduce((s, r) => s + r.boxes, 0);
   const subtotal = round2(list.reduce((s, r) => s + r.amount, 0));
-  const grandTotal = round2(Number(order.final_payable) || subtotal);
-  // prices include GST: the bill shows the GST inside the grand total
-  const gstPercent = Number(settings.gst_percent) || 0;
-  const gst = gstIncluded(grandTotal, gstPercent);
   return {
     title: String(settings.bill_title || 'ESTIMATE').trim() || 'ESTIMATE',
     company: {
@@ -112,14 +106,13 @@ export function buildBill({
     total_pcs: totalPcs,
     total_dzn: formatDzn(totalPcs),
     subtotal,
-    gst_percent: gstPercent,
-    gst,
-    taxable_value: round2(grandTotal - gst),
+    // prices include GST: only the line "5% GST included" is printed, no amount
+    gst_percent: Number(settings.gst_percent) || 0,
     // "Less: Packing charges" taken off this order (already in final_payable):
     // chosen by the customer at checkout, or set by the admin
     packing_deduction: round2(Number(order.packing_deduction) || 0),
     less_packing: order.less_packing === true,
-    grand_total: grandTotal,
+    grand_total: round2(Number(order.final_payable) || subtotal),
     terms: String(settings.bill_terms || '').split('\n').map((t) => t.trim()).filter(Boolean),
   };
 }
@@ -290,7 +283,7 @@ export function renderBillPdf(bill) {
   }
 
   // ---- totals, terms, signatures (kept together)
-  const FOOT_H = 350 + (bill.packing_deduction > 0 ? 28 : 0);
+  const FOOT_H = 306 + (bill.packing_deduction > 0 ? 28 : 0);
   if (y + FOOT_H > bottom) {
     doc.addPage({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 0 });
     frame();
@@ -318,16 +311,10 @@ export function renderBillPdf(bill) {
   next('Total Quantity (Dzn):', bill.total_dzn, { money: false });
   next('Subtotal:', bill.subtotal);
   if (bill.packing_deduction > 0) next('Less: Packing charges:', bill.packing_deduction, { minus: true });
-  if (bill.gst_percent > 0) {
-    next('Taxable Value:', bill.taxable_value);
-    next(`GST ${bill.gst_percent}% (included):`, bill.gst);
-  } else {
-    next('Total GST:', 0);
-  }
   doc.save().lineWidth(0.8).strokeColor('#9ca3af').moveTo(tx, ly - 6).lineTo(R, ly - 6).stroke().restore();
   text('GRAND TOTAL:', tx, ly + 10, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
   money(bill.grand_total, R, ly + 8, { size: 16, color: NAVY });
-  if (bill.gst_percent > 0) text(`Including GST ${bill.gst_percent}%`, tx, ly + 32, { size: 8.5, width: R - tx, align: 'right', color: SOFT });
+  if (bill.gst_percent > 0) text(`${bill.gst_percent}% GST included`, tx, ly + 32, { size: 9, width: R - tx, align: 'right', color: SOFT });
 
   const sy = Math.max(ty, ly + 46) + 40;
   text('Sales Representative: .....................................', L, sy, { size: 8.5 });

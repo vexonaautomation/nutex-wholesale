@@ -25,7 +25,7 @@ export function CartSummary({ quote, title = 'Order summary', lessPacking = 0 })
         <div className="summary-row"><span>Less: Packing charges</span><strong style={{ color: 'var(--success-700)' }}>− {formatINR(lessPacking)}</strong></div>
       )}
       <div className="summary-total"><span>Final wholesale total</span><strong>{formatINR(Math.max(0, quote.final_payable - lessPacking))}</strong></div>
-      {quote.gst_percent > 0 && <div className="tiny soft right">Including GST {quote.gst_percent}%</div>}
+      {quote.gst_percent > 0 && <div className="tiny soft right">{quote.gst_percent}% GST included</div>}
     </div>
   );
 }

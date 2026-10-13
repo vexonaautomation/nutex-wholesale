@@ -90,7 +90,7 @@ var NUTEX_DEFAULT_SETTINGS = [
   ["order_prefix","NX","string","Prefix of customer-facing order numbers, e.g. NX-20261003-0001"],
   ["low_stock_threshold",5,"number","Variants at or below this available quantity are flagged as low stock"],
   ["packing_choice_enabled",true,"boolean","Ask at checkout: \"Do you wish to less packing charges?\" - ticked = the packing charges (per category, Admin > Categories) are taken off the order."],
-  ["gst_percent",5,"number","GST % included in the prices. Shown as \"Including GST\" on the bill, checkout and order totals. 0 = not shown."],
+  ["gst_percent",5,"number","GST % included in the prices. Only the line \"5% GST included\" is shown (no GST amount) on the bill, checkout and order totals. 0 = not shown."],
   ["reservation_expiry_hours",72,"number","Unpaid orders (no payment submitted) are auto-cancelled after this many hours and their stock released. 0 = never."],
   ["existing_customer_minimum_order_value",0,"number","Minimum order for verified existing customers (0 = no minimum). A value in the Existing_Customers sheet overrides this per customer."],
   ["admin_order_mobiles","","string","Admin / staff mobile numbers (comma separated). They log in like an existing customer and can enter the mobile number of the customer at checkout - the order and bill then show that customer number."],

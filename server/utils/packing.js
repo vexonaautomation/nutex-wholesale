@@ -45,9 +45,3 @@ export function packingCharges(catalog, lines) {
   const breakdown = [...byCategory.values()];
   return { amount: round2(breakdown.reduce((s, r) => s + r.amount, 0)), breakdown };
 }
-
-/** GST included in an amount (prices include GST): amount x r / (100 + r). */
-export const gstIncluded = (amount, percent) => {
-  const r = Number(percent) || 0;
-  return r > 0 ? round2((Number(amount) || 0) * (r / (100 + r))) : 0;
-};

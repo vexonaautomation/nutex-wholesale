@@ -11,14 +11,14 @@ import { adminBill } from '../services/billService.js';
 import { buildQuote } from '../services/quoteService.js';
 import { getCatalog } from '../services/catalogService.js';
 import { updateSettings } from '../services/settingsService.js';
-import { autoPackingRate, packingRateOf, gstIncluded } from '../utils/packing.js';
+import { autoPackingRate, packingRateOf } from '../utils/packing.js';
 import {
   productSchema, draftOrderSchema, categorySchema, adminOrderItemsSchema,
 } from '../utils/validation.js';
 
 // "Do you wish to less packing charges?" at checkout: bra / panty ₹2 per
 // piece, set ₹4 per set (rate per category), a box counts its pieces.
-// Prices include GST 5%.
+// Prices include GST 5%: only the line "5% GST included" is shown.
 
 let n = 0;
 const idem = () => `packing-${Date.now()}-${(n += 1)}`;
@@ -32,8 +32,6 @@ test('packing rate per category: own rate, else Set 4 / Bra 2 / Panty 2 / others
   assert.equal(packingRateOf({ category_name: 'Print Collection', packing_charge: 3 }), 3, 'own rate wins');
   assert.equal(packingRateOf({ category_name: 'Padded Bra', packing_charge: 0 }), 0, '0 = no packing charge');
   assert.equal(packingRateOf({ category_name: 'Padded Bra', packing_charge: null }), 2, 'blank = automatic');
-  assert.equal(gstIncluded(1050, 5), 50);
-  assert.equal(gstIncluded(1050, 0), 0);
 });
 
 async function setup() {
@@ -94,7 +92,7 @@ test('customer ticks it: packing charges taken off, admin sees it, bill shows it
   assert.equal(view.totals.final_payable, 760);
   assert.equal(view.amount_to_pay, 760);
   assert.equal(view.totals.gst_percent, 5);
-  assert.equal(view.totals.gst_amount, gstIncluded(760, 5));
+  assert.equal(view.totals.gst_amount, undefined, 'no GST amount shown');
 
   const admin = await getOrderAdmin(o.order_number);
   assert.equal(admin.order.less_packing, true, 'highlighted for the admin');
@@ -109,8 +107,7 @@ test('customer ticks it: packing charges taken off, admin sees it, bill shows it
   assert.equal(bill.less_packing, true);
   assert.equal(bill.grand_total, 760);
   assert.equal(bill.gst_percent, 5);
-  assert.equal(bill.gst, 36.19);
-  assert.equal(bill.taxable_value, 723.81);
+  assert.equal(bill.gst, undefined, 'only the line "5% GST included"');
   assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
 
   // not ticked: nothing taken off

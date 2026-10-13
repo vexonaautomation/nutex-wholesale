@@ -31,7 +31,6 @@ import {
 import { formatINR, round2 } from '../utils/money.js';
 import { piecesByInventory, encodeComponents, componentsOf } from '../utils/stockComponents.js';
 import { pcsAllowedFor } from '../utils/sellMode.js';
-import { gstIncluded } from '../utils/packing.js';
 import { logger } from '../utils/logger.js';
 
 export const ORDER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_Status_History'];
@@ -202,8 +201,7 @@ const itemView = (i) => ({
 const totalsView = (o, settings = {}) => ({
   packing_deduction: Number(o.packing_deduction) || 0,
   less_packing: o.less_packing === true,
-  gst_percent: Number(settings.gst_percent) || 0,
-  gst_amount: gstIncluded(o.final_payable, settings.gst_percent),
+  gst_percent: Number(settings.gst_percent) || 0, // shown as "5% GST included", no amount
   mrp_subtotal: o.mrp_subtotal,
   discount_mode: o.discount_mode_snapshot,
   discount_basis: o.discount_basis_snapshot,

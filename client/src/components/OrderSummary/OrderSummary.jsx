@@ -40,7 +40,7 @@ export function OrderTotals({ totals }) {
         <div className="summary-row"><span>Less: Packing charges{totals.less_packing ? ' (chosen at checkout)' : ''}</span><strong style={{ color: 'var(--success-700)' }}>− {formatINR(totals.packing_deduction)}</strong></div>
       )}
       <div className="summary-total"><span>Final payable</span><strong>{formatINR(totals.final_payable)}</strong></div>
-      {totals.gst_percent > 0 && <div className="tiny soft right">Including GST {totals.gst_percent}% ({formatINR(totals.gst_amount)})</div>}
+      {totals.gst_percent > 0 && <div className="tiny soft right">{totals.gst_percent}% GST included</div>}
     </div>
   );
 }
