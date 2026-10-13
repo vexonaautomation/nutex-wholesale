@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 const n = 'number';
 const b = 'boolean';
@@ -27,8 +27,11 @@ export const SCHEMA = {
       'category_id', 'category_name', 'parent_category', 'slug', 'description',
       'image_file_id', 'image_url', 'status', 'sort_order', 'seo_title', 'seo_description',
       'created_at', 'updated_at',
+      // v12: ₹ per piece (per set) taken off when the customer chooses "less
+      // packing charges". Blank = from the name: Set 4, Bra / Panty 2, else 0.
+      'packing_charge',
     ],
-    types: { sort_order: n },
+    types: { sort_order: n, packing_charge: n },
   },
   Colors: {
     idField: 'color_id',
@@ -145,11 +148,14 @@ export const SCHEMA = {
       // v11: admin number that placed the order for a customer (blank = the
       // customer ordered themselves)
       'placed_by_mobile',
+      // v12: TRUE = the customer chose "less packing charges" at checkout;
+      // packing_deduction then follows the items. Blank = no.
+      'less_packing',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,
       final_payable: n, total_qty: n, minimum_order_value_snapshot: n, minimum_order_met: b,
-      locked: b, revision: n, packing_deduction: n,
+      locked: b, revision: n, packing_deduction: n, less_packing: b,
     },
   },
   Order_Items: {

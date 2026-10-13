@@ -39,6 +39,8 @@ export const categoryService = createMasterService({
       image_url: driveViewUrl(input.image_file_id),
       seo_title: input.seo_title || '',
       seo_description: input.seo_description || '',
+      // blank = automatic rate from the name (kept as it was when not sent)
+      packing_charge: input.packing_charge === undefined ? existing?.packing_charge ?? '' : input.packing_charge ?? '',
     };
   },
 });

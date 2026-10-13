@@ -4,7 +4,7 @@
 //   table   Item (Color, SKU) | size columns S/32 M/34 L/36 XL/38 ... FreeSize
 //           | Total Qty (Dzn, pcs, boxes) | Rate (per piece MRP) | Disc | Amount
 //   footer  Terms & Conditions · total boxes / pieces / dozens · totals
-//           · (Less: Packing charges) · GRAND TOTAL · signatures
+//           · (Less: Packing charges) · GRAND TOTAL + "5% GST included" · signatures
 // Read-only: built from the order's own snapshots, nothing is written.
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -106,9 +106,12 @@ export function buildBill({
     total_pcs: totalPcs,
     total_dzn: formatDzn(totalPcs),
     subtotal,
-    gst: 0,
-    // "Less: Packing charges" the admin took off this order (already in final_payable)
+    // prices include GST: only the line "5% GST included" is printed, no amount
+    gst_percent: Number(settings.gst_percent) || 0,
+    // "Less: Packing charges" taken off this order (already in final_payable):
+    // chosen by the customer at checkout, or set by the admin
     packing_deduction: round2(Number(order.packing_deduction) || 0),
+    less_packing: order.less_packing === true,
     grand_total: round2(Number(order.final_payable) || subtotal),
     terms: String(settings.bill_terms || '').split('\n').map((t) => t.trim()).filter(Boolean),
   };
@@ -306,12 +309,12 @@ export function renderBillPdf(bill) {
   next('Total Boxes:', formatBoxes(bill.total_boxes), { money: false });
   next('Total Pieces:', formatPcs(bill.total_pcs), { money: false });
   next('Total Quantity (Dzn):', bill.total_dzn, { money: false });
-  next('Taxable Subtotal:', bill.subtotal);
-  next('Total GST:', bill.gst);
+  next('Subtotal:', bill.subtotal);
   if (bill.packing_deduction > 0) next('Less: Packing charges:', bill.packing_deduction, { minus: true });
   doc.save().lineWidth(0.8).strokeColor('#9ca3af').moveTo(tx, ly - 6).lineTo(R, ly - 6).stroke().restore();
   text('GRAND TOTAL:', tx, ly + 10, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
   money(bill.grand_total, R, ly + 8, { size: 16, color: NAVY });
+  if (bill.gst_percent > 0) text(`${bill.gst_percent}% GST included`, tx, ly + 32, { size: 9, width: R - tx, align: 'right', color: SOFT });
 
   const sy = Math.max(ty, ly + 46) + 40;
   text('Sales Representative: .....................................', L, sy, { size: 8.5 });

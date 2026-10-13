@@ -279,6 +279,10 @@ a.stat:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
 .ml-1 { margin-left: 8px; }
 
 /* order detail: Less: Packing charges */
+/* customer chose "less packing charges" */
+.packing-flag { background: #fff4d6; color: #8a5a00; border-color: #f5c451; font-weight: 700; }
+.packing-note { color: #8a5a00; background: #fff4d6; border-radius: 6px; padding: 6px 8px; }
+
 /* Order > Edit items */
 .oe-search { position: relative; }
 .oe-search .input { width: 100%; padding-left: 36px; }

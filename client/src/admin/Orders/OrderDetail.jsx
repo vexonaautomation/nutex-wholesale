@@ -98,6 +98,7 @@ function PackingCharges({ order, totals, onSaved }) {
         <button type="button" className="btn btn-sm btn-primary" disabled={busy || String(Number(amount) || 0) === String(current)} onClick={() => save(amount)}>{busy && <Spinner small />} Save</button>
         {current > 0 && <button type="button" className="btn btn-sm btn-ghost" disabled={busy} onClick={() => { setAmount(''); save(0); }}>Remove</button>}
       </div>
+      {order.less_packing && <p className="small mb-0 packing-note">The customer ticked “Do you wish to less packing charges?” at checkout. The amount follows the items automatically when the order is edited.</p>}
       <p className="tiny soft mb-0">Shown to the customer and on the bill as a separate line; the amount to pay goes down by it.</p>
     </div>
   );
@@ -152,6 +153,7 @@ export default function OrderDetail() {
         {order.locked ? <span className="badge badge-dark"><Lock /> Locked {order.locked_at && `· ${formatDateTime(order.locked_at)}`}</span> : <span className="badge badge-outline"><LockOpen /> Editable by customer</span>}
         <span className="badge badge-outline">Stock: {order.stock_state}</span>
         {order.payment_mode_snapshot === 'OFFLINE' && <span className="badge badge-gold">No online payment - confirm with the customer</span>}
+        {order.less_packing && <span className="badge badge-gold packing-flag">Customer chose: less packing charges {formatINR(data.totals.packing_deduction)}</span>}
         {order.customer_type_snapshot === 'EXISTING' ? <span className="badge badge-success">Existing customer · minimum {order.minimum_order_value_snapshot ? formatINR(order.minimum_order_value_snapshot) : 'not applicable'}</span> : <span className="badge badge-outline">New customer</span>}
       </div>
 

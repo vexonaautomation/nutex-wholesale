@@ -214,6 +214,14 @@ export default function Settings() {
       {text('order_prefix', 'Order number prefix', 'e.g. NX → NX-20261003-0001', { maxLength: 8, style: { textTransform: 'uppercase' } })}
       <Field label="Low stock threshold"><input className="input" inputMode="numeric" value={draft.low_stock_threshold ?? ''} onChange={set('low_stock_threshold')} /></Field>
       <Field label="Auto-cancel unpaid orders after (hours)" hint="Releases reserved stock. 0 = never. Orders with any payment are never auto-cancelled." className="span-2"><input className="input" inputMode="numeric" value={draft.reservation_expiry_hours ?? ''} onChange={set('reservation_expiry_hours')} /></Field>
+      <h4 className="span-2 mb-0 mt-2">Packing charges &amp; GST</h4>
+      <Field label="Ask “Do you wish to less packing charges?” at checkout" hint="Ticked by the customer = packing charges are taken off the order. Rate per category in Categories (blank = Set ₹4, Bra / Panty ₹2).">
+        <select className="select" value={String(draft.packing_choice_enabled !== false)} onChange={(e) => setDraft((d) => ({ ...d, packing_choice_enabled: e.target.value === 'true' }))}>
+          <option value="true">ON - show the option at checkout</option>
+          <option value="false">OFF - do not show it</option>
+        </select>
+      </Field>
+      <Field label="GST % included in prices" hint="Only the line “5% GST included” is shown on the bill, checkout and order totals - no GST amount. 0 = not shown."><input className="input" inputMode="decimal" value={draft.gst_percent ?? ''} onChange={set('gst_percent')} /></Field>
       <h4 className="span-2 mb-0 mt-2">Existing customers</h4>
       <Field label="Minimum order for existing customers ₹" hint="0 = no minimum (any quantity). Can be overridden per customer in Existing Customers."><input className="input" inputMode="decimal" value={draft.existing_customer_minimum_order_value ?? ''} onChange={set('existing_customer_minimum_order_value')} /></Field>
       <Field label="Verify existing customers with WhatsApp OTP" hint="Recommended ON. OFF = the mobile number alone is enough (less secure).">

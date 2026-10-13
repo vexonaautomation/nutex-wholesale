@@ -90,4 +90,11 @@ export const MIGRATIONS = [
     version: 11,
     description: 'Admin numbers order for customers (bill shows the customer number)',
   },
+  {
+    // Additive only: Categories.packing_charge, Orders.less_packing and the
+    // packing_choice_enabled + gst_percent settings. Older rows stay blank
+    // (= automatic rate / customer did not choose).
+    version: 12,
+    description: 'Customer can choose to less packing charges; prices include GST',
+  },
 ];

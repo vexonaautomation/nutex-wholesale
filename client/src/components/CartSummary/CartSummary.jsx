@@ -1,6 +1,7 @@
 import { formatINR, pct } from '../../utils/format.js';
 
-export function CartSummary({ quote, title = 'Order summary' }) {
+// lessPacking: amount the customer chose to take off at checkout (0 = not chosen)
+export function CartSummary({ quote, title = 'Order summary', lessPacking = 0 }) {
   if (!quote) return null;
   const blended = quote.effective_discount_percent !== quote.discount_percent && quote.discount_amount > 0;
   return (
@@ -20,7 +21,11 @@ export function CartSummary({ quote, title = 'Order summary' }) {
       {!quote.minimum_order_met && quote.total_qty > 0 && (
         <div className="summary-row"><span>Amount remaining to minimum</span><strong style={{ color: 'var(--warning-700)' }}>{formatINR(quote.amount_to_minimum)}</strong></div>
       )}
-      <div className="summary-total"><span>Final wholesale total</span><strong>{formatINR(quote.final_payable)}</strong></div>
+      {lessPacking > 0 && (
+        <div className="summary-row"><span>Less: Packing charges</span><strong style={{ color: 'var(--success-700)' }}>− {formatINR(lessPacking)}</strong></div>
+      )}
+      <div className="summary-total"><span>Final wholesale total</span><strong>{formatINR(Math.max(0, quote.final_payable - lessPacking))}</strong></div>
+      {quote.gst_percent > 0 && <div className="tiny soft right">{quote.gst_percent}% GST included</div>}
     </div>
   );
 }
