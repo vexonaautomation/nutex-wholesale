@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ShoppingBag, Trash2, RefreshCw, XCircle } from 'lucide-react';
+import { ArrowRight, Package, ShoppingBag, Trash2, RefreshCw, XCircle } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useSeo } from '../../hooks/index.js';
@@ -12,7 +12,7 @@ import { MinimumOrderProgress } from '../../components/MinimumOrderProgress/Mini
 import { EmptyState, Img, Messages, PageLoader, Spinner, Alert } from '../../components/common/ui.jsx';
 import { formatINR, pct } from '../../utils/format.js';
 import { ExistingCustomerPrompt } from '../../components/ExistingCustomerLogin/ExistingCustomerLogin.jsx';
-import { ActiveOrders } from '../../components/ActiveOrders/ActiveOrders.jsx';
+import { useMyOrders } from '../../components/MyOrders/OrderCard.jsx';
 
 function VariantPicker({ line, options: all, onChange }) {
   // a box line can switch to another box, a pieces line to another colour/size
@@ -48,6 +48,20 @@ function VariantPicker({ line, options: all, onChange }) {
   );
 }
 
+// "Cart | Pending orders" tabs on top of the cart page
+function CartTabs({ count }) {
+  const { orders } = useMyOrders();
+  const pending = orders.filter((o) => o.group === 'PENDING').length;
+  return (
+    <div className="cart-tabs" role="tablist" aria-label="Cart and orders">
+      <span className="cart-tab is-on" role="tab" aria-selected="true"><ShoppingBag /> Cart{count ? ` (${count})` : ''}</span>
+      <Link to="/my-orders" className="cart-tab" role="tab" aria-selected="false">
+        <Package /> Pending orders {pending > 0 && <span className="cart-tab-count">{pending}</span>}
+      </Link>
+    </div>
+  );
+}
+
 export default function Cart() {
   const cart = useCart();
   const toast = useToast();
@@ -77,7 +91,7 @@ export default function Cart() {
   if (!cart.items.length && !cart.editing) {
     return (
       <div className="container page">
-        <ActiveOrders />
+        <CartTabs count={0} />
         <EmptyState icon={ShoppingBag} title="Your cart is empty" action={<Link to="/shop" className="btn btn-primary">Browse products</Link>}>
           Add products by colour and size, or choose mix-colour boxes.
         </EmptyState>
@@ -94,7 +108,7 @@ export default function Cart() {
 
   return (
     <div className="container page">
-      {!cart.editing && <ActiveOrders />}
+      {!cart.editing && <CartTabs count={cart.items.length} />}
       <div className="row-between wrap">
         <h1 className="page-title mb-0">{cart.editing ? `Edit order ${cart.editing.order_number}` : `Your cart (${cart.items.length} ${cart.items.length === 1 ? 'item' : 'items'})`}</h1>
         {!cart.editing && <button type="button" className="btn btn-sm btn-danger" onClick={clearCart}><XCircle /> Clear cart</button>}

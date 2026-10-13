@@ -33,23 +33,6 @@ export function listSavedOrders() {
     .sort((a, b) => (a.saved_at < b.saved_at ? 1 : -1));
 }
 
-/** Orders handed over or cancelled stop being shown in "Your orders". */
-export function markOrderClosed(orderNumber) {
-  try {
-    const all = readAll();
-    if (!all[orderNumber] || all[orderNumber].closed) return;
-    all[orderNumber].closed = true;
-    localStorage.setItem(KEY, JSON.stringify(all));
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Open orders saved on this device (newest first, max 10). */
-export function openSavedOrders() {
-  return listSavedOrders().filter((o) => o.token && !o.closed).slice(0, 10);
-}
-
 const tokenHeader = (orderNumber) => ({ 'X-Order-Token': getOrderToken(orderNumber) });
 
 export const orderApi = {

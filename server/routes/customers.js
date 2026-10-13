@@ -12,6 +12,7 @@ export const publicRouter = Router();
 publicRouter.post('/customer/verify/start', otpSendLimiter, validate(verifyStartSchema), c.verifyStart);
 publicRouter.post('/customer/verify/confirm', otpVerifyLimiter, validate(verifyConfirmSchema), c.verifyConfirm);
 publicRouter.get('/customer/status', orderAccessLimiter, customerToken, c.status);
+publicRouter.get('/customer/orders', orderAccessLimiter, customerToken, c.orders);
 // verified customers can link another WhatsApp number (OTP to the new number)
 publicRouter.post('/customer/alternate/start', otpSendLimiter, customerToken, validate(verifyStartSchema), c.alternateStart);
 publicRouter.post('/customer/alternate/confirm', otpVerifyLimiter, customerToken, validate(verifyConfirmSchema), c.alternateConfirm);

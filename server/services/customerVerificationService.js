@@ -58,8 +58,8 @@ async function listed(mobile, { fresh = true } = {}) {
   return { rows, settings, status: resolveExistingCustomer(rows, settings, mobile) };
 }
 
-function verifiedResponse(mobile, status) {
-  const { token, expires_at: expiresAt } = issueCustomerToken(mobile);
+function verifiedResponse(mobile, status, { otp = false } = {}) {
+  const { token, expires_at: expiresAt } = issueCustomerToken(mobile, { otp });
   return {
     existing: true,
     verified: true,
@@ -161,7 +161,7 @@ export async function confirmVerification(rawMobile, rawOtp, { ip } = {}) {
   const { status } = await listed(mobile);
   if (!status.existing) throw new AppError(403, 'NOT_EXISTING_CUSTOMER', 'This number is no longer registered as an existing customer.');
   await auditVerified(mobile, ip, status.admin ? 'WhatsApp OTP (admin number)' : mobile === status.primary ? 'WhatsApp OTP' : 'WhatsApp OTP (alternate number)');
-  return verifiedResponse(mobile, status);
+  return verifiedResponse(mobile, status, { otp: true });
 }
 
 /** Lets the browser confirm its stored token is still valid and listed. */

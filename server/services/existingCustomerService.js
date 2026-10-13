@@ -124,9 +124,11 @@ export function autoExistingOps({
 // ------------------------------------------------------------------
 const sign = (payload, secret) => createHmac('sha256', secret).update(`existing-customer:${payload}`).digest('base64url');
 
-export function issueCustomerToken(mobile, { secret = config.sessionSecret, days = VERIFIED_DAYS } = {}) {
+// otp: the WhatsApp OTP was checked (needed to list the customer's orders
+// from any device - with the OTP switched off the number alone is not proof)
+export function issueCustomerToken(mobile, { secret = config.sessionSecret, days = VERIFIED_DAYS, otp = false } = {}) {
   const exp = Date.now() + days * 86400000;
-  const payload = Buffer.from(JSON.stringify({ m: mobile, exp })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ m: mobile, exp, ...(otp ? { o: 1 } : {}) })).toString('base64url');
   return { token: `${payload}.${sign(payload, secret)}`, expires_at: new Date(exp).toISOString() };
 }
 
@@ -138,9 +140,9 @@ export function readCustomerToken(token, { secret = config.sessionSecret } = {})
   const given = Buffer.from(sig);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
   try {
-    const { m, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    const { m, exp, o } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
     if (!MOBILE_RE.test(m) || !(exp > Date.now())) return null;
-    return { mobile: m, exp };
+    return { mobile: m, exp, otp: o === 1 };
   } catch {
     return null;
   }

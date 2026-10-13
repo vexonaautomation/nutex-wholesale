@@ -12,7 +12,7 @@ import {
   ACTOR, AUDIT_ACTION, CUSTOMER_TYPE, ITEM_STATUS, ORDER_STATUS, PAYMENT_STATUS, STOCK_STATE, PAYMENT_MODE,
 } from '../config/constants.js';
 import {
-  customerFromToken, resolveExistingCustomer, maskMobile, autoExistingOps,
+  customerFromToken, resolveExistingCustomer, maskMobile, autoExistingOps, readCustomerToken,
 } from './existingCustomerService.js';
 import {
   withLock, COMMERCE_LOCK, assertOrderEditable, isOrderEditable, canSubmitPayment, isOfflineOrder,
@@ -389,11 +389,20 @@ export async function getCustomerOrder(orderNumber, token) {
   return customerOrderView(bundle, settings);
 }
 
+// "My orders" tabs: Pending (waiting for payment / the team), Confirmed
+// (being packed or on the way), History (handed over or cancelled)
+export const ORDER_GROUP = Object.freeze({ PENDING: 'PENDING', CONFIRMED: 'CONFIRMED', HISTORY: 'HISTORY' });
+export function orderGroup(order) {
+  if ([ORDER_STATUS.COMPLETED, ORDER_STATUS.CANCELLED].includes(order.order_status)) return ORDER_GROUP.HISTORY;
+  if ([ORDER_STATUS.DRAFT, ORDER_STATUS.PAYMENT_PENDING, ORDER_STATUS.PAYMENT_SUBMITTED, ORDER_STATUS.PAYMENT_REJECTED].includes(order.order_status)) return ORDER_GROUP.PENDING;
+  return ORDER_GROUP.CONFIRMED;
+}
+
 /**
- * Short status cards for the orders saved on a customer's device (cart
- * "Your orders"). Read-only; every entry needs its own order access token -
- * entries with a wrong token or unknown number are left out silently.
- * `closed` = handed over (COMPLETED) or cancelled: the device stops showing it.
+ * Short status cards for the customer's orders ("My orders"). Read-only;
+ * every entry needs its own order access token - entries with a wrong token
+ * or unknown number are left out silently.
+ * `closed` = handed over (COMPLETED) or cancelled (shown under History).
  */
 export async function activeOrderSummaries(entries) {
   if (!entries.length) return [];
@@ -420,9 +429,32 @@ export async function activeOrderSummaries(entries) {
       can_submit_payment: canSubmitPayment(order) && totals.balance_due > 0,
       can_download_bill: billAvailable(order),
       closed: [ORDER_STATUS.COMPLETED, ORDER_STATUS.CANCELLED].includes(order.order_status),
+      group: orderGroup(order),
     });
   }
   return out;
+}
+
+/**
+ * "My orders" from any device for an existing customer logged in with the
+ * WhatsApp OTP: every order on their registered numbers (an admin number:
+ * the orders it placed for customers), newest first, with the access tokens
+ * so the device can open them. Without the OTP (switched off, or an older
+ * login) nothing is returned - only the orders saved on the device show.
+ */
+export async function customerOrderHistory(token) {
+  const t = readCustomerToken(token);
+  if (!t?.otp) return { verified: false, orders: [] };
+  const data = await sheetsService.readMany(['Orders', 'Existing_Customers', 'Settings'], { fresh: false });
+  const status = resolveExistingCustomer(data.Existing_Customers, parseSettings(data.Settings), t.mobile);
+  if (!status.existing) return { verified: false, orders: [] };
+  const numbers = new Set((status.numbers || [t.mobile]).map(normalizeMobile));
+  const mine = data.Orders.filter((o) => (status.admin
+    ? normalizeMobile(o.placed_by_mobile || '') === t.mobile
+    : [o.mobile_snapshot, o.whatsapp_snapshot, o.alternate_mobile_snapshot].some((m) => m && numbers.has(normalizeMobile(m)))))
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+    .slice(0, 50);
+  return { verified: true, orders: mine.map((o) => ({ order_number: o.order_number, token: orderAccessToken(o.order_id) })) };
 }
 
 export async function trackOrder({ order_number: orderNumber, mobile }) {

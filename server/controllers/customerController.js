@@ -5,6 +5,7 @@ import {
 import {
   listExistingCustomers, addExistingCustomers, parseBulkText, updateExistingCustomer,
 } from '../services/existingCustomerService.js';
+import { customerOrderHistory } from '../services/orderService.js';
 import { badRequest } from '../utils/errors.js';
 import { ctx, noStore } from './helpers.js';
 
@@ -22,6 +23,12 @@ export async function verifyConfirm(req, res) {
 export async function status(req, res) {
   noStore(res);
   res.json(await customerStatus(req.customerToken));
+}
+
+// "My orders" from any device (existing customers logged in with the OTP)
+export async function orders(req, res) {
+  noStore(res);
+  res.json(await customerOrderHistory(req.customerToken));
 }
 
 export async function alternateStart(req, res) {
