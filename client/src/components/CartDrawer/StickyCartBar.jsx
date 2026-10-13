@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useCart } from '../../context/CartContext.jsx';
 import { formatINR } from '../../utils/format.js';
 
@@ -31,7 +31,7 @@ export function StickyCartBar() {
           </div>
           <div className={`progress ${q?.minimum_order_met ? 'is-complete' : ''}`}><span style={{ width: `${progress}%` }} /></div>
         </div>
-        <button type="button" className="btn btn-primary" onClick={cart.openDrawer}>View cart</button>
+        <Link to="/cart" className="btn btn-primary">View cart</Link>
       </div>
     </div>
   );

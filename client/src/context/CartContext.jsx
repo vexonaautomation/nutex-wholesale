@@ -16,7 +16,6 @@ export function CartProvider({ children }) {
   const [quote, setQuote] = useState(null);
   const [quoting, setQuoting] = useState(false);
   const [quoteError, setQuoteError] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const reqId = useRef(0);
   // re-quote whenever the customer logs in/out as an existing customer
   const customerToken = useCustomer()?.auth?.token || '';
@@ -143,10 +142,7 @@ export function CartProvider({ children }) {
     clear,
     startEditOrder,
     stopEditing,
-    drawerOpen,
-    openDrawer: () => setDrawerOpen(true),
-    closeDrawer: () => setDrawerOpen(false),
-  }), [cart, quote, quoting, quoteError, refreshQuote, addItems, setQty, setLineQty, removeItem, changeVariant, clear, startEditOrder, stopEditing, drawerOpen]);
+  }), [cart, quote, quoting, quoteError, refreshQuote, addItems, setQty, setLineQty, removeItem, changeVariant, clear, startEditOrder, stopEditing]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

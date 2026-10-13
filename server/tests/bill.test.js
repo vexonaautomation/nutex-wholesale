@@ -97,11 +97,12 @@ test('bill rows follow the estimate: boxes as "Mix" with pieces per size, loose 
   assert.equal(buildBill({ order: { order_number: 'X', final_payable: 0 }, items: [], settings: await getSettings() }).rows.length, 0);
 });
 
-test('customer downloads the bill only after submitting payment; admin any time', async () => {
+test('customer downloads the bill as soon as the order is placed (also unpaid); admin any time', async () => {
   const { adminCtx, order } = await setup();
   let view = await getCustomerOrder(order.order_number, order.access_token);
-  assert.equal(view.permissions.can_download_bill, false);
-  await assert.rejects(customerBill(order.order_number, order.access_token), code('BILL_NOT_READY'));
+  assert.equal(view.permissions.can_download_bill, true, 'before payment / confirmation');
+  const unpaid = await customerBill(order.order_number, order.access_token);
+  assert.equal(unpaid.pdf.subarray(0, 5).toString(), '%PDF-');
   await assert.rejects(customerBill(order.order_number, 'x'.repeat(40)), code('ORDER_ACCESS_REQUIRED'));
 
   const admin = await adminBill(order.order_number);
