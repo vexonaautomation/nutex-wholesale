@@ -2,8 +2,9 @@
 //   header  GSTIN · title (ESTIMATE) · company name, address, phone
 //           S.No (order number) · Date · Party Name · Ph · City
 //   table   Item (Color, SKU) | size columns S/32 M/34 L/36 XL/38 ... FreeSize
-//           | Total Qty (Dzn) | Rate (per piece MRP) | Disc | Amount
-//   footer  Terms & Conditions · totals · (Less: Packing charges) · GRAND TOTAL · signatures
+//           | Total Qty (Dzn, pcs, boxes) | Rate (per piece MRP) | Disc | Amount
+//   footer  Terms & Conditions · total boxes / pieces / dozens · totals
+//           · (Less: Packing charges) · GRAND TOTAL · signatures
 // Read-only: built from the order's own snapshots, nothing is written.
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -40,6 +41,8 @@ const columnFor = (key) => (key === 'FREE' ? sizeColumn('Free Size') : sizeColum
 
 // ------------------------------------------------------------ bill data
 export const formatDzn = (pcs) => `${Number((pcs / 12).toFixed(2))} Dzn`;
+export const formatPcs = (pcs) => `${pcs} pcs`;
+export const formatBoxes = (boxes) => `${boxes} ${boxes === 1 ? 'Box' : 'Boxes'}`;
 const istDate = (iso) => {
   const d = new Date(new Date(iso || Date.now()).getTime() + 5.5 * 3600 * 1000);
   return `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`;
@@ -58,14 +61,15 @@ export function buildBill({
   for (const i of items) {
     const isBox = i.inventory_mode_snapshot === INVENTORY_MODE.BOX_WISE;
     const units = isBox ? Number(i.units_per_box_snapshot) || 1 : 1;
-    const pcs = (Number(i.qty) || 0) * units;
+    const qty = Number(i.qty) || 0;
+    const pcs = qty * units;
     const rate = round2((Number(i.mrp_unit_snapshot) || 0) / units);
     const disc = Number(i.discount_percent_snapshot) || 0;
     const colour = isBox ? 'Mix' : i.color_snapshot || 'Mix';
     const key = [i.product_id, colour, rate, disc].join('|');
     if (!rows.has(key)) {
       rows.set(key, {
-        product_name: i.product_name_snapshot, sku: productSkus[i.product_id] || i.sku_snapshot, colour, rate, disc, sizes: {}, pcs: 0, amount: 0,
+        product_name: i.product_name_snapshot, sku: productSkus[i.product_id] || i.sku_snapshot, colour, rate, disc, sizes: {}, pcs: 0, boxes: 0, amount: 0,
       });
     }
     const row = rows.get(key);
@@ -73,11 +77,13 @@ export function buildBill({
     used.add(col);
     row.sizes[col] = (row.sizes[col] || 0) + pcs;
     row.pcs += pcs;
+    if (isBox) row.boxes += qty;
     row.amount = round2(row.amount + (Number(i.line_total) || 0));
   }
   const list = [...rows.values()];
   const columns = [...used].map(columnFor).sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
   const totalPcs = list.reduce((s, r) => s + r.pcs, 0);
+  const totalBoxes = list.reduce((s, r) => s + r.boxes, 0);
   const subtotal = round2(list.reduce((s, r) => s + r.amount, 0));
   return {
     title: String(settings.bill_title || 'ESTIMATE').trim() || 'ESTIMATE',
@@ -96,6 +102,7 @@ export function buildBill({
     },
     columns,
     rows: list,
+    total_boxes: totalBoxes,
     total_pcs: totalPcs,
     total_dzn: formatDzn(totalPcs),
     subtotal,
@@ -200,7 +207,7 @@ export function renderBillPdf(bill) {
     }
     const q = cols.find((c) => c.key === 'qty');
     text('Total', q.x, mid - 10, { size: 8.5, color: SOFT, width: q.w, align: 'center' });
-    text('Qty (Dzn)', q.x, mid + 1, { size: 8.5, color: SOFT, width: q.w, align: 'center' });
+    text('Qty', q.x, mid + 1, { size: 8.5, color: SOFT, width: q.w, align: 'center' });
     const rate = cols.find((c) => c.key === 'rate');
     text('Rate', rate.x, mid - 5, { size: 8.5, color: SOFT, width: rate.w - 6, align: 'right' });
     const disc = cols.find((c) => c.key === 'disc');
@@ -225,7 +232,11 @@ export function renderBillPdf(bill) {
       if (n) text(n, c.x, mid, { size: 8, width: c.w, align: 'center' });
     }
     const q = cols.find((c) => c.key === 'qty');
-    text(formatDzn(row.pcs), q.x, mid, { f: 'B', size: 8.5, width: q.w, align: 'center' });
+    // dozens, then pieces, then boxes (box rows only)
+    const qy = row.boxes ? y + 5 : y + 10;
+    text(formatDzn(row.pcs), q.x, qy, { f: 'B', size: 8.5, width: q.w, align: 'center' });
+    text(formatPcs(row.pcs), q.x, qy + 11, { size: 7.5, width: q.w, align: 'center' });
+    if (row.boxes) text(formatBoxes(row.boxes), q.x, qy + 21, { size: 7.5, width: q.w, align: 'center' });
     const rate = cols.find((c) => c.key === 'rate');
     text(Number(row.rate).toFixed(2), rate.x, mid, { size: 8, width: rate.w - 6, align: 'right' });
     const disc = cols.find((c) => c.key === 'disc');
@@ -269,7 +280,7 @@ export function renderBillPdf(bill) {
   }
 
   // ---- totals, terms, signatures (kept together)
-  const FOOT_H = 250 + (bill.packing_deduction > 0 ? 28 : 0);
+  const FOOT_H = 306 + (bill.packing_deduction > 0 ? 28 : 0);
   if (y + FOOT_H > bottom) {
     doc.addPage({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 0 });
     frame();
@@ -290,16 +301,19 @@ export function renderBillPdf(bill) {
     else text(value, tx, yy, { f: 'B', size: 10.5, width: R - tx, align: 'right' });
     doc.save().lineWidth(0.5).strokeColor('#e5e7eb').dash(2, { space: 2 }).moveTo(tx, yy + 20).lineTo(R, yy + 20).stroke().restore();
   };
-  line('Total Quantity (Dzn):', y, bill.total_dzn, { money: false });
-  line('Taxable Subtotal:', y + 28, bill.subtotal);
-  line('Total GST:', y + 56, bill.gst);
-  const extra = bill.packing_deduction > 0 ? 28 : 0;
-  if (extra) line('Less: Packing charges:', y + 84, bill.packing_deduction, { minus: true });
-  doc.save().lineWidth(0.8).strokeColor('#9ca3af').moveTo(tx, y + 78 + extra).lineTo(R, y + 78 + extra).stroke().restore();
-  text('GRAND TOTAL:', tx, y + 94 + extra, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
-  money(bill.grand_total, R, y + 92 + extra, { size: 16, color: NAVY });
+  let ly = y;
+  const next = (label, value, opts) => { line(label, ly, value, opts); ly += 28; };
+  next('Total Boxes:', formatBoxes(bill.total_boxes), { money: false });
+  next('Total Pieces:', formatPcs(bill.total_pcs), { money: false });
+  next('Total Quantity (Dzn):', bill.total_dzn, { money: false });
+  next('Taxable Subtotal:', bill.subtotal);
+  next('Total GST:', bill.gst);
+  if (bill.packing_deduction > 0) next('Less: Packing charges:', bill.packing_deduction, { minus: true });
+  doc.save().lineWidth(0.8).strokeColor('#9ca3af').moveTo(tx, ly - 6).lineTo(R, ly - 6).stroke().restore();
+  text('GRAND TOTAL:', tx, ly + 10, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
+  money(bill.grand_total, R, ly + 8, { size: 16, color: NAVY });
 
-  const sy = Math.max(ty, y + 130 + extra) + 40;
+  const sy = Math.max(ty, ly + 46) + 40;
   text('Sales Representative: .....................................', L, sy, { size: 8.5 });
   text("Customer's Signature: .....................................", L, sy, { size: 8.5, width: R - L, align: 'right' });
   doc.font('B').fontSize(10);

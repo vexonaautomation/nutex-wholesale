@@ -9,7 +9,7 @@ import { createDraftOrder, getCustomerOrder, cancelOrderAdmin } from '../service
 import { submitPayment } from '../services/paymentService.js';
 import { updateSettings, getSettings } from '../services/settingsService.js';
 import {
-  sizeColumn, buildBill, formatDzn, customerBill, adminBill,
+  sizeColumn, buildBill, formatDzn, formatPcs, formatBoxes, customerBill, adminBill,
 } from '../services/billService.js';
 import { productSchema, draftOrderSchema, paymentSubmitSchema } from '../utils/validation.js';
 
@@ -32,6 +32,9 @@ test('size columns: S starts at 32 (S/32, M/34, L/36, XL/38), letters share the 
   assert.equal(formatDzn(48), '4 Dzn');
   assert.equal(formatDzn(6), '0.5 Dzn');
   assert.equal(formatDzn(18), '1.5 Dzn');
+  assert.equal(formatPcs(27), '27 pcs');
+  assert.equal(formatBoxes(1), '1 Box');
+  assert.equal(formatBoxes(4), '4 Boxes');
 });
 
 async function setup() {
@@ -74,12 +77,16 @@ test('bill rows follow the estimate: boxes as "Mix" with pieces per size, loose 
   assert.deepEqual(bill.columns.map((c) => c.key), ['S', 'M', 'L', 'XL', 'FREE']);
   const mix = bill.rows.find((r) => r.colour === 'Mix');
   assert.deepEqual(mix.sizes, { S: 12, M: 12 }, '2 boxes of 6 in size 32 and in 34');
+  assert.equal(mix.boxes, 4);
+  assert.equal(mix.pcs, 24);
   assert.equal(mix.rate, 62.5, 'rate is the per-piece MRP');
   assert.equal(mix.sku, 'YASHIKA', 'article SKU, not the size-specific box SKU');
   assert.equal(mix.disc, 60);
   assert.equal(mix.amount, 600, '24 pcs x 62.50 x 40%');
   const pink = bill.rows.find((r) => r.colour === 'Pink');
   assert.deepEqual(pink.sizes, { M: 3 });
+  assert.equal(pink.boxes, 0, 'loose pieces are not boxes');
+  assert.equal(bill.total_boxes, 4);
   assert.equal(bill.total_pcs, 27);
   assert.equal(bill.total_dzn, '2.25 Dzn');
   assert.equal(bill.subtotal, view.totals.final_payable);
