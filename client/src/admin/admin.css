@@ -279,4 +279,18 @@ a.stat:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
 .ml-1 { margin-left: 8px; }
 
 /* order detail: Less: Packing charges */
+/* Order > Edit items */
+.oe-search { position: relative; }
+.oe-search .input { width: 100%; padding-left: 36px; }
+.oe-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--ink-500); }
+.oe-results { display: grid; gap: 6px; max-height: 280px; overflow-y: auto; }
+.oe-result { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-align: left; cursor: pointer; }
+.oe-result:hover { border-color: var(--ink-500); }
+.oe-result > span { display: flex; flex-direction: column; }
+.oe-result img, .oe-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: var(--ink-50); flex: 0 0 auto; }
+.oe-grid th:not(:first-child), .oe-grid td:not(:first-child) { text-align: center; }
+.oe-grid .swatch-dot { display: inline-block; vertical-align: middle; }
+.oe-pcs { width: 68px; padding: 6px; text-align: center; }
+.chip svg { width: 16px; height: 16px; }
+.chip:disabled { opacity: 0.5; cursor: not-allowed; }
 .packing-box { margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--radius); display: grid; gap: 8px; background: var(--surface-muted); }

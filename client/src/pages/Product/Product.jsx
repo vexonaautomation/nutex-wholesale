@@ -55,11 +55,11 @@ export default function Product() {
 
   useEffect(() => {
     if (!product) return;
-    // existing customers start with pieces, new customers with boxes
-    setBuyAs(pcsOpen && (customer.isExisting || !canBox) ? 'PCS' : 'BOX');
+    // everyone starts with boxes; existing customers switch to pieces themselves
+    setBuyAs(pcsOpen && !canBox ? 'PCS' : 'BOX');
     const firstAvailable = product.colors.find((c) => colorAvailability[c.color_id]) || product.colors[0];
     setColor(firstAvailable?.color_id || null);
-  }, [product, pcsOpen, canBox, customer.isExisting, colorAvailability]);
+  }, [product, pcsOpen, canBox, colorAvailability]);
 
   const inCart = useMemo(() => Object.fromEntries(cart.items.map((i) => [i.variant_id, i.qty])), [cart.items]);
 

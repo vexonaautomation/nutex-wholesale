@@ -4,6 +4,7 @@ import { customerFromToken } from '../services/existingCustomerService.js';
 import {
   createDraftOrder, getCustomerOrder, trackOrder, activeOrderSummaries, updateOrderItems, recalculateOrder, lockOrder,
   listOrdersAdmin, getOrderAdmin, updateOrderStatusAdmin, reopenOrderAdmin, cancelOrderAdmin, setPackingDeduction,
+  previewOrderItemsAdmin, orderProductOptionsAdmin, updateOrderItemsAdmin,
 } from '../services/orderService.js';
 import { customerBill, adminBill } from '../services/billService.js';
 import { ctx, noStore } from './helpers.js';
@@ -80,3 +81,6 @@ export const adminReopen = async (req, res) => res.json(await reopenOrderAdmin(r
 export const adminCancel = async (req, res) => res.json(await cancelOrderAdmin(req.params.id, req.body, ctx(req)));
 
 export const adminPackingDeduction = async (req, res) => res.json(await setPackingDeduction(req.params.id, req.body, ctx(req)));
+export const adminProductOptions = async (req, res) => res.json(await orderProductOptionsAdmin(req.params.id, { q: req.query.q }));
+export const adminPreviewItems = async (req, res) => res.json(await previewOrderItemsAdmin(req.params.id, req.body));
+export const adminUpdateItems = async (req, res) => res.json(await updateOrderItemsAdmin(req.params.id, req.body, ctx(req)));
