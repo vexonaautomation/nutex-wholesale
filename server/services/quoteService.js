@@ -7,6 +7,7 @@ import {
   isBoxVariant, variantOffered, pcsAllowedFor, PCS_EXISTING_ONLY_MESSAGE,
 } from '../utils/sellMode.js';
 import { unitMrpForVariant, productOverridePercent, productImages } from './catalogService.js';
+import { packingCharges } from '../utils/packing.js';
 
 function mergeItems(items) {
   const merged = new Map();
@@ -197,9 +198,15 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
     });
   }
   const { lines: _priced, ...totals } = pricing;
+  // what "less packing charges" would take off (boxes count their pieces)
+  const packing = packingCharges(catalog, valid.map((l) => ({ product: l.product, pieces: l.qty * l.units_per_item })));
   return {
     ...totals,
     lines,
+    packing_charges: packing.amount,
+    packing_breakdown: packing.breakdown,
+    packing_choice: catalog.settings.packing_choice_enabled !== false && packing.amount > 0,
+    gst_percent: Number(catalog.settings.gst_percent) || 0,
     variant_options,
     customer_type: existing ? 'EXISTING' : 'NEW',
     pcs_allowed: pcsAllowed,

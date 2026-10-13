@@ -31,6 +31,7 @@ import {
 import { formatINR, round2 } from '../utils/money.js';
 import { piecesByInventory, encodeComponents, componentsOf } from '../utils/stockComponents.js';
 import { pcsAllowedFor } from '../utils/sellMode.js';
+import { gstIncluded } from '../utils/packing.js';
 import { logger } from '../utils/logger.js';
 
 export const ORDER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_Status_History'];
@@ -102,6 +103,11 @@ function totalsFields(quote, deduction = 0) {
     customer_type_snapshot: quote.customer_type,
   };
 }
+
+// "Less: Packing charges" on an order: the customer's choice follows the
+// items (recalculated on every change); otherwise the admin's flat amount.
+const packingDeductionFor = (order, quote) => (order.less_packing === true ? quote.packing_charges : order.packing_deduction);
+const packingPatch = (order, quote) => (order.less_packing === true ? { packing_deduction: quote.packing_charges || null } : {});
 
 // An unpaid order placed by a verified existing customer keeps the exemption
 // while it is edited - as long as the number is still in the list.
@@ -193,8 +199,11 @@ const itemView = (i) => ({
   status: i.status,
 });
 
-const totalsView = (o) => ({
+const totalsView = (o, settings = {}) => ({
   packing_deduction: Number(o.packing_deduction) || 0,
+  less_packing: o.less_packing === true,
+  gst_percent: Number(settings.gst_percent) || 0,
+  gst_amount: gstIncluded(o.final_payable, settings.gst_percent),
   mrp_subtotal: o.mrp_subtotal,
   discount_mode: o.discount_mode_snapshot,
   discount_basis: o.discount_basis_snapshot,
@@ -252,7 +261,7 @@ export function customerOrderView({ order, items, payments, history }, settings 
     },
     order_notes: order.order_notes,
     items: activeItems(items, order.order_id).map(itemView),
-    totals: totalsView(order),
+    totals: totalsView(order, settings),
     payments: payments.map((p) => ({
       payment_id: p.payment_id,
       amount: p.amount,
@@ -307,6 +316,9 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
     }
     assertQuoteOrderable(quote, input.client_final_payable);
 
+    // "Do you wish to less packing charges?" ticked: taken off automatically
+    const lessPacking = input.less_packing === true && quote.packing_choice;
+
     const c = input.customer;
     const { customer_id: customerId, ops: customerOps } = customerUpsertOps(data.Customers, c);
     const now = nowIso();
@@ -327,7 +339,9 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
       gstin_snapshot: c.gstin,
       alternate_mobile_snapshot: c.alternate_mobile,
       order_notes: c.order_notes,
-      ...totalsFields(quote),
+      ...totalsFields(quote, lessPacking ? quote.packing_charges : 0),
+      less_packing: lessPacking,
+      packing_deduction: lessPacking ? quote.packing_charges : null,
       order_status: ORDER_STATUS.PAYMENT_PENDING,
       payment_status: PAYMENT_STATUS.PENDING,
       locked: false,
@@ -352,7 +366,10 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
       ...customerOps,
       auditOp({
         actorType: ACTOR.CUSTOMER, ip, action: AUDIT_ACTION.ORDER_CREATED, entity_type: 'Order', entity_id: order.order_id,
-        new_value: { order_number: order.order_number, final_payable: order.final_payable, lines: quote.lines.length, mobile: c.mobile },
+        new_value: {
+          order_number: order.order_number, final_payable: order.final_payable, lines: quote.lines.length, mobile: c.mobile,
+          ...(lessPacking ? { less_packing: quote.packing_charges } : {}),
+        },
       }),
     ]);
     logger.info(`Order created ${order.order_number} (${formatINR(order.final_payable)})`);
@@ -448,7 +465,7 @@ export async function updateOrderItems(orderNumber, token, { items, client_final
       ...inventory.ops,
       ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
       { op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) },
-      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totalsFields(quote, order.packing_deduction), revision, stock_state: STOCK_STATE.RESERVED, updated_at: now } },
+      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totalsFields(quote, packingDeductionFor(order, quote)), ...packingPatch(order, quote), revision, stock_state: STOCK_STATE.RESERVED, updated_at: now } },
       auditOp({
         actorType: ACTOR.CUSTOMER, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_CUSTOMER, entity_type: 'Order', entity_id: order.order_id,
         old_value: { revision: order.revision, final_payable: before.final_payable, items: current.length },
@@ -506,6 +523,8 @@ const orderSummary = (o) => ({
   city: o.city_snapshot,
   final_payable: o.final_payable,
   total_qty: o.total_qty,
+  less_packing: o.less_packing === true,
+  packing_deduction: Number(o.packing_deduction) || 0,
   order_status: o.order_status,
   payment_status: o.payment_status,
   payment_mode_snapshot: isOfflineOrder(o) ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
@@ -548,7 +567,7 @@ export async function listOrdersAdmin({ q, order_status: orderStatus, payment_st
 }
 
 export async function getOrderAdmin(idOrNumber) {
-  const data = await sheetsService.readMany([...ORDER_SHEETS, 'Audit_Log'], { fresh: true });
+  const [data, settings] = await Promise.all([sheetsService.readMany([...ORDER_SHEETS, 'Audit_Log'], { fresh: true }), getSettings()]);
   const key = String(idOrNumber);
   const order = data.Orders.find((o) => o.order_id === key || o.order_number === normalizeOrderNumber(key));
   if (!order) throw notFound('Order not found.');
@@ -563,7 +582,7 @@ export async function getOrderAdmin(idOrNumber) {
     status_label: STATE_LABELS[order.order_status] || order.order_status,
     items: activeItems(items, order.order_id).map(itemView),
     item_revisions: revisions,
-    totals: totalsView(order),
+    totals: totalsView(order, settings),
     ...totals,
     payments: payments.map((p) => ({ ...p, idempotency_key: undefined, proof_view_url: p.proof_file_id ? `/api/admin/payments/${p.payment_id}/proof` : '' })),
     history: data.Order_Status_History.filter((h) => h.order_id === order.order_id).sort((a, b) => (a.created_at > b.created_at ? 1 : -1)),
@@ -798,9 +817,10 @@ export async function previewOrderItemsAdmin(id, { items } = {}) {
   const quote = adminEditQuote({
     order, current, catalog, items: items ?? current.map((i) => ({ variant_id: i.variant_id, qty: i.qty })),
   });
-  const deduction = Number(order.packing_deduction) || 0;
+  const deduction = Number(packingDeductionFor(order, quote)) || 0;
   return {
     quote,
+    less_packing: order.less_packing === true,
     packing_deduction: deduction,
     current_final_payable: Number(order.final_payable) || 0,
     new_final_payable: round2(Math.max(0, quote.final_payable - deduction)),
@@ -865,12 +885,12 @@ export async function updateOrderItemsAdmin(id, { items, client_final_payable: c
       if (d) deltas.set(v, deducted ? { stock: -d } : { reserved: d });
     }
     const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: admin.admin_id });
-    const totals = totalsFields(quote, order.packing_deduction);
+    const totals = totalsFields(quote, packingDeductionFor(order, quote));
     await sheetsService.commit([
       ...inventory.ops,
       ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
       { op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) },
-      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totals, revision, updated_at: now } },
+      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totals, ...packingPatch(order, quote), revision, updated_at: now } },
       auditOp({
         admin, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_ADMIN, entity_type: 'Order', entity_id: order.order_id,
         old_value: { revision: order.revision, final_payable: order.final_payable, items: current.length },

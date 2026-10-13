@@ -89,6 +89,8 @@ export const draftOrderSchema = z.object({
   items: cartItemsSchema,
   idempotency_key: idempotencyKey,
   client_final_payable: z.number().nonnegative().nullable().optional(),
+  // "Do you wish to less packing charges?" ticked at checkout
+  less_packing: z.boolean().optional().default(false),
 });
 
 export const updateOrderSchema = z.object({
@@ -181,6 +183,8 @@ export const categorySchema = z.object({
   sort_order: z.coerce.number().int().min(0).max(1000000).optional(),
   seo_title: optText(120),
   seo_description: optText(300),
+  // ₹ per piece (per set) for "less packing charges"; blank = automatic
+  packing_charge: z.union([z.literal(''), z.null(), z.coerce.number().min(0, 'Enter 0 or more').max(1000)]).optional(),
 });
 
 export const colorSchema = z.object({

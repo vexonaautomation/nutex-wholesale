@@ -69,7 +69,7 @@ export default function OrderList() {
                     <td><div className="cell-main">{o.business_name} {o.customer_type === 'EXISTING' && <span className="badge badge-success">Existing</span>}</div><div className="cell-sub">{o.customer_name}</div></td>
                     <td className="small">{o.mobile}</td>
                     <td className="small">{o.city}</td>
-                    <td className="right num"><strong>{formatINR(o.final_payable)}</strong></td>
+                    <td className="right num"><strong>{formatINR(o.final_payable)}</strong>{o.less_packing && <div><span className="badge badge-gold packing-flag" title="Customer chose to less packing charges">− packing {formatINR(o.packing_deduction)}</span></div>}</td>
                     <td>{o.payment_mode_snapshot === 'OFFLINE' ? <span className="badge badge-gold">No online payment</span> : <StatusBadge kind="payment" status={o.payment_status} />}</td>
                     <td><StatusBadge status={o.order_status} /></td>
                     <td>{o.locked ? <Lock size={16} color="var(--ink-700)" aria-label="Locked" /> : <span className="soft small">Open</span>}</td>

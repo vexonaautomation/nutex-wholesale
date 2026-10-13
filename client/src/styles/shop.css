@@ -563,6 +563,11 @@ body.has-sticky-cart { padding-bottom: 84px; }
 /* ============================================================ BUY AS (box / pieces) */
 .buy-as { display: grid; grid-template-columns: 1fr; gap: 10px; }
 @media (min-width: 480px) { .buy-as { grid-template-columns: 1fr 1fr; } }
+/* checkout: "Do you wish to less packing charges?" */
+.packing-choice { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--white); cursor: pointer; }
+.packing-choice input { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; accent-color: var(--brand-600); }
+.packing-choice > span { display: flex; flex-direction: column; gap: 3px; }
+.packing-choice.is-on { border-color: var(--success-700); background: #f3fbf6; }
 .buy-as-opt {
   display: flex;
   gap: 10px;

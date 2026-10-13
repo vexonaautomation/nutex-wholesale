@@ -96,6 +96,7 @@ function validateSetting(key, value) {
       if (key === 'default_discount_percent' && (n < 0 || n >= 100)) throw badRequest('Discount % must be between 0 and 99.99');
       if (key === 'reservation_expiry_hours' && (n < 0 || n > 720)) throw badRequest('Reservation expiry must be between 0 and 720 hours');
       if (key === 'low_stock_threshold' && (n < 0 || n > 100000)) throw badRequest('Low stock threshold must be 0 or more');
+      if (key === 'gst_percent' && (n < 0 || n > 28)) throw badRequest('GST % must be between 0 and 28');
       if (key === 'existing_customer_minimum_order_value' && (n < 0 || n > 100000000)) throw badRequest('Existing customer minimum must be 0 or more');
       return Math.round(n * 100) / 100;
     }

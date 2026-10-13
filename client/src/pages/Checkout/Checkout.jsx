@@ -59,6 +59,8 @@ export default function Checkout() {
   // order just placed: go to its payment (QR) page. Checked before the
   // empty-cart redirect, which would otherwise win once the cart is cleared.
   const [placed, setPlaced] = useState(null);
+  // "Do you wish to less packing charges?"
+  const [lessPacking, setLessPacking] = useState(false);
   const { quote } = cart;
   const { settings } = useStore();
   const onlinePay = settings?.online_payment_enabled !== false;
@@ -91,6 +93,7 @@ export default function Checkout() {
   if (!cart.items.length) return <Navigate to="/cart" replace />;
   if (!quote) return <PageLoader label="Preparing checkout…" />;
 
+  const packingOff = lessPacking && quote.packing_choice ? quote.packing_charges : 0;
   const set = (k) => (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     setForm((f) => ({ ...f, [k]: v }));
@@ -114,6 +117,7 @@ export default function Checkout() {
         items: cart.items.map(({ variant_id, qty }) => ({ variant_id, qty })),
         idempotency_key: idemKey,
         client_final_payable: quote.final_payable,
+        less_packing: packingOff > 0,
       });
       saveOrderAccess(res.order_number, res.access_token, { final_payable: res.order?.totals?.final_payable, business: form.business_name });
       if (!isAdmin) {
@@ -242,7 +246,17 @@ export default function Checkout() {
         </div>
 
         <aside className="sticky-col stack">
-          <div className="card card-pad"><CartSummary quote={quote} /></div>
+          <div className="card card-pad"><CartSummary quote={quote} lessPacking={packingOff} /></div>
+          {quote.packing_choice && (
+            <label className={`packing-choice${lessPacking ? ' is-on' : ''}`}>
+              <input type="checkbox" checked={lessPacking} onChange={(e) => setLessPacking(e.target.checked)} />
+              <span>
+                <strong>Do you wish to less packing charges?</strong>
+                <span className="small">Tick to take <strong>{formatINR(quote.packing_charges)}</strong> off this order.</span>
+                <span className="tiny soft">{quote.packing_breakdown.map((b) => `${b.category_name}: ${b.pieces} pcs × ₹${b.rate}`).join(' · ')}</span>
+              </span>
+            </label>
+          )}
           <MinimumOrderProgress quote={quote} />
           <Messages messages={quote.messages.filter((m) => m.type !== 'success')} />
           {serverError && (
@@ -252,7 +266,7 @@ export default function Checkout() {
             </Alert>
           )}
           <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={!quote.can_checkout || submitting || cart.quoting}>
-            {submitting ? <Spinner small /> : <Lock />} Place order · {formatINR(quote.final_payable)}
+            {submitting ? <Spinner small /> : <Lock />} Place order · {formatINR(Math.max(0, quote.final_payable - packingOff))}
           </button>
           <div className="info-tile"><ShieldCheck /> {onlinePay
             ? 'Your order number is created now. You can still edit the order until you submit payment confirmation.'
