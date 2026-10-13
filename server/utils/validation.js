@@ -96,6 +96,12 @@ export const updateOrderSchema = z.object({
   client_final_payable: z.number().nonnegative().nullable().optional(),
 });
 
+export const adminOrderItemsSchema = z.object({
+  items: cartItemsSchema,
+  client_final_payable: z.number().nonnegative().nullable().optional(),
+  note: z.string().trim().max(300).optional().default(''),
+});
+
 export const recalculateSchema = z.object({
   items: z.array(z.object({ variant_id: id, qty: z.coerce.number().int().min(0).max(100000) })).max(300).optional(),
 });

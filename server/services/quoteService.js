@@ -45,7 +45,7 @@ export function describeVariant(catalog, product, variant) {
   };
 }
 
-function variantOptions(catalog, product, heldByOrder, customer) {
+export function variantOptions(catalog, product, heldByOrder, customer) {
   const pcsAllowed = pcsAllowedFor(customer, catalog.settings, product);
   return (catalog.variantsByProduct.get(product.product_id) || [])
     .filter((v) => variantOffered(product, v) && (pcsAllowed || isBoxVariant(v)))
@@ -78,8 +78,11 @@ function variantOptions(catalog, product, heldByOrder, customer) {
  * @param {object} p.catalog             buildCatalog() result (fresh for checkout)
  * @param {object} [p.heldByOrder]       inventory variant_id -> pieces already reserved by the order being edited
  * @param {object} [p.customer]          { existing, minimum_order_value } for a verified existing customer
+ * @param {object} [p.keep]              admin edit: variant_id -> { qty, unit_mrp, components } the
+ *                                       order already has. Up to that qty a line keeps the order's rate and
+ *                                       packed pieces, even if the article / box was stopped since.
  */
-export function buildQuote({ items, catalog, heldByOrder = {}, today, customer = null }) {
+export function buildQuote({ items, catalog, heldByOrder = {}, today, customer = null, keep = {} }) {
   const existing = customer?.existing === true;
   const pcsAllowed = pcsAllowedFor(customer, catalog.settings);
   // Existing customers get their own (usually zero) minimum. Discounts are unchanged.
@@ -92,10 +95,13 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
     const variant = catalog.variantsById.get(variantId) || null;
     const product = variant ? catalog.productsById.get(variant.product_id) || null : null;
     const availability = variantAvailability(catalog, variant, heldByOrder);
+    const kept = keep[variantId] || null;
+    const keptAll = Boolean(kept) && qty <= kept.qty;
     // new customers: full boxes, loose pieces only where the product allows them
-    const issue = variant && !isBoxVariant(variant) && !pcsAllowedFor(customer, catalog.settings, product) && availability.purchasable
+    let issue = variant && !isBoxVariant(variant) && !pcsAllowedFor(customer, catalog.settings, product) && availability.purchasable
       ? { code: 'PCS_EXISTING_ONLY', message: PCS_EXISTING_ONLY_MESSAGE, available: 0 }
       : lineIssue(availability, qty);
+    if (keptAll) issue = null; // already held by this order
     resolved.push({
       key: variantId,
       variant_id: variantId,
@@ -103,14 +109,17 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
       qty,
       product,
       variant,
-      available: availability.available,
+      available: keptAll ? Math.max(availability.available, kept.qty) : availability.available,
       issue,
-      unit_mrp: product && variant ? unitMrpForVariant(product, variant) : 0,
+      unit_mrp: kept ? kept.unit_mrp : product && variant ? unitMrpForVariant(product, variant) : 0,
       override_percent: product ? productOverridePercent(product) : null,
       units_per_item: isBoxVariant(variant) ? Number(variant?.units_per_box) || 1 : 1,
       // pieces taken from each inventory row per unit (auto boxes use the colours' loose stock)
       // a mix box takes its extra pieces from the colours with the most stock, for this quantity
-      stock_components: (availability.mix && mixComponents(availability.mix, qty)) || availability.components || { [variantId]: 1 },
+      // (an unchanged admin-edit line keeps exactly the pieces it holds)
+      stock_components: (keptAll && qty === kept.qty && kept.components)
+        || (availability.mix && mixComponents(availability.mix, qty))
+        || (keptAll && kept.components) || availability.components || { [variantId]: 1 },
     });
   }
 

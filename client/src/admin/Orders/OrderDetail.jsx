@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, CheckCircle2, ExternalLink, FileDown, Lock, LockOpen, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, Ban, CheckCircle2, ExternalLink, FileDown, Lock, LockOpen, Pencil, Truck, XCircle } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { useAsync } from '../../hooks/index.js';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -12,6 +12,7 @@ import { formatDateTime, formatINR, pct } from '../../utils/format.js';
 import { ORDER_STATUS } from '../../constants/index.js';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { waLink } from '../../utils/whatsapp.js';
+import OrderItemsEditor from './OrderItemsEditor.jsx';
 
 export function ProofModal({ payment, onClose }) {
   const [failed, setFailed] = useState(false);
@@ -110,6 +111,7 @@ export default function OrderDetail() {
   const [dialog, setDialog] = useState(null);
   const [statusForm, setStatusForm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   if (loading && !data) return <PageLoader />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
@@ -171,7 +173,19 @@ export default function OrderDetail() {
       <div className="adm-grid-main">
         <div className="stack" style={{ gap: 16 }}>
           <section className="card card-pad">
-            <h3 className="card-title">Order items (snapshot)</h3>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="card-title">{editing ? 'Edit items' : 'Order items (snapshot)'}</h3>
+              {!editing && data.actions.can_edit_items && <button type="button" className="btn btn-sm" onClick={() => setEditing(true)}><Pencil /> Edit items</button>}
+            </div>
+            {editing ? (
+              <OrderItemsEditor
+                order={order}
+                items={data.items}
+                paidVerified={data.amount_paid_verified}
+                onSaved={(res) => { setData(res); setEditing(false); }}
+                onCancel={() => setEditing(false)}
+              />
+            ) : (
             <div className="table-wrap">
               <table className="table">
                 <thead><tr><th>SKU</th><th>Product</th><th>Category</th><th>Size</th><th>Colour / Box</th><th className="right">Qty</th><th className="right">MRP</th><th className="right">Disc.</th><th className="right">Unit</th><th className="right">Line total</th></tr></thead>
@@ -193,7 +207,8 @@ export default function OrderDetail() {
                 </tbody>
               </table>
             </div>
-            {Object.keys(data.item_revisions).length > 1 && (
+            )}
+            {!editing && Object.keys(data.item_revisions).length > 1 && (
               <details className="mt-2"><summary className="small link">Show earlier revisions ({Object.keys(data.item_revisions).length - 1})</summary>
                 {Object.entries(data.item_revisions).filter(([rev]) => Number(rev) !== order.revision).map(([rev, items]) => (
                   <div key={rev} className="mt-1 small"><strong>Revision {rev}:</strong> {items.map((i) => `${i.product_name} ${[i.color, i.size, i.box].filter(Boolean).join('/')} × ${i.qty}`).join('; ')}</div>

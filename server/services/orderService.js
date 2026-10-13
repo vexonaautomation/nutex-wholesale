@@ -1,7 +1,9 @@
 import { sheetsService } from './sheetsService.js';
 import { auditOp } from './auditService.js';
-import { buildCatalog, getCatalog } from './catalogService.js';
-import { buildQuote } from './quoteService.js';
+import {
+  buildCatalog, getCatalog, isProductVisible, productImages,
+} from './catalogService.js';
+import { buildQuote, variantOptions } from './quoteService.js';
 import { inventoryDeltaOps } from './inventoryService.js';
 import { customerUpsertOps } from './customerService.js';
 import { getSettings, parseSettings } from './settingsService.js';
@@ -27,7 +29,8 @@ import {
   AppError, badRequest, conflict, notFound, unprocessable, MESSAGES,
 } from '../utils/errors.js';
 import { formatINR, round2 } from '../utils/money.js';
-import { piecesByInventory, encodeComponents } from '../utils/stockComponents.js';
+import { piecesByInventory, encodeComponents, componentsOf } from '../utils/stockComponents.js';
+import { pcsAllowedFor } from '../utils/sellMode.js';
 import { logger } from '../utils/logger.js';
 
 export const ORDER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_Status_History'];
@@ -569,6 +572,7 @@ export async function getOrderAdmin(idOrNumber) {
       allowed_statuses: allowedAdminTargets(order, { balanceDue: totals.balance_due }),
       can_reopen: canReopen(order).ok,
       can_cancel: canCancel(order).ok,
+      can_edit_items: canAdminEditItems(order),
     },
   };
 }
@@ -742,6 +746,139 @@ export async function reopenOrderAdmin(id, { reason }, { admin, ip }) {
         old_value: previous, new_value: { order_status: patch.order_status, payment_status: patch.payment_status, locked: false, stock_state: patch.stock_state },
       }),
     ]);
+    return getOrderAdmin(order.order_id);
+  });
+}
+
+// ------------------------------------------------------- admin item edit
+// The admin may change the items of any order that is not cancelled,
+// dispatched or handed over - also after payment. Items already in the order
+// keep their rate and packed pieces; new items use today's rate, and the
+// discount is worked out again on the new total. Loose pieces follow the
+// order's customer: existing customers always, new customers only where the
+// article is opened for them. The minimum order value is not checked.
+const ADMIN_EDIT_CLOSED = [ORDER_STATUS.CANCELLED, ORDER_STATUS.DISPATCHED, ORDER_STATUS.COMPLETED];
+
+export function canAdminEditItems(order) {
+  return Boolean(order) && !ADMIN_EDIT_CLOSED.includes(order.order_status)
+    && [STOCK_STATE.RESERVED, STOCK_STATE.DEDUCTED].includes(order.stock_state);
+}
+
+function assertAdminCanEditItems(order) {
+  if (!canAdminEditItems(order)) {
+    throw conflict('ORDER_LOCKED', `Items cannot be changed on a ${STATE_LABELS[order.order_status] || order.order_status} order.`);
+  }
+}
+
+// the order's own customer rules (as placed), not today's Existing Customers list
+const orderCustomerRules = (order) => (order.customer_type_snapshot === CUSTOMER_TYPE.EXISTING
+  ? { existing: true, minimum_order_value: Number(order.minimum_order_value_snapshot) || 0 }
+  : null);
+
+// what the order already has per variant: qty, rate (MRP per unit) and packed pieces
+function keptLines(items) {
+  const keep = {};
+  for (const i of items) {
+    keep[i.variant_id] ||= { qty: 0, unit_mrp: Number(i.mrp_unit_snapshot) || 0, components: componentsOf(i) };
+    keep[i.variant_id].qty += Number(i.qty) || 0;
+  }
+  return keep;
+}
+
+const adminEditQuote = ({ order, current, items, catalog }) => buildQuote({
+  items, catalog, heldByOrder: qtyMap(current), customer: orderCustomerRules(order), keep: keptLines(current),
+});
+
+/** Admin item edit preview (no writes; cached catalog - the save checks again). */
+export async function previewOrderItemsAdmin(id, { items } = {}) {
+  const [bundle, catalog] = await Promise.all([loadOrderBundle(id, { byId: true }), getCatalog()]);
+  const { order } = bundle;
+  assertAdminCanEditItems(order);
+  const current = activeItems(bundle.items, order.order_id);
+  const quote = adminEditQuote({
+    order, current, catalog, items: items ?? current.map((i) => ({ variant_id: i.variant_id, qty: i.qty })),
+  });
+  const deduction = Number(order.packing_deduction) || 0;
+  return {
+    quote,
+    packing_deduction: deduction,
+    current_final_payable: Number(order.final_payable) || 0,
+    new_final_payable: round2(Math.max(0, quote.final_payable - deduction)),
+    amount_paid_verified: paymentTotals(order, bundle.payments).amount_paid_verified,
+  };
+}
+
+/** Articles to add to an order (search by SKU or name) with this order's box / pieces options. */
+export async function orderProductOptionsAdmin(id, { q } = {}) {
+  const needle = String(q || '').trim().toLowerCase();
+  if (needle.length < 2) return { products: [] };
+  const [bundle, catalog] = await Promise.all([loadOrderBundle(id, { byId: true }), getCatalog()]);
+  const { order } = bundle;
+  const held = qtyMap(activeItems(bundle.items, order.order_id));
+  const customer = orderCustomerRules(order);
+  const sku = (p) => String(p.sku || '').toLowerCase();
+  const rank = (p) => (sku(p) === needle ? 0 : sku(p).startsWith(needle) ? 1 : 2);
+  const products = catalog.products
+    .filter((p) => isProductVisible(catalog, p) && [p.sku, p.product_name].some((v) => String(v || '').toLowerCase().includes(needle)))
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, 12);
+  return {
+    products: products.map((p) => ({
+      product_id: p.product_id,
+      product_name: p.product_name,
+      sku: p.sku,
+      image: productImages(catalog, p)[0]?.url || '',
+      pcs_allowed: pcsAllowedFor(customer, catalog.settings, p),
+      options: variantOptions(catalog, p, held, customer),
+    })),
+  };
+}
+
+export async function updateOrderItemsAdmin(id, { items, client_final_payable: clientFinal, note }, { admin, ip }) {
+  return withLock(COMMERCE_LOCK, async () => {
+    const data = await sheetsService.readMany([...CATALOG_SHEETS, ...ORDER_SHEETS], { fresh: true });
+    const order = data.Orders.find((o) => o.order_id === id || o.order_number === normalizeOrderNumber(id));
+    if (!order) throw notFound('Order not found.');
+    assertAdminCanEditItems(order);
+    const current = activeItems(data.Order_Items, order.order_id);
+    const catalog = buildCatalog(data);
+    const quote = adminEditQuote({ order, current, items, catalog });
+    if (!quote.lines.length) throw badRequest('An order needs at least one item. To remove everything, cancel the order.');
+    if (quote.has_issues) {
+      throw conflict('STOCK_CHANGED', MESSAGES.STOCK_CHANGED, {
+        lines: quote.lines.filter((l) => l.issue).map((l) => ({ variant_id: l.variant_id, product_name: l.product_name, issue: l.issue })),
+      });
+    }
+    if (clientFinal !== null && clientFinal !== undefined && Math.abs(Number(clientFinal) - quote.final_payable) > 0.009) {
+      throw conflict('PRICE_CHANGED', MESSAGES.PRICE_CHANGED, { final_payable: quote.final_payable });
+    }
+
+    const now = nowIso();
+    const revision = (Number(order.revision) || 1) + 1;
+    const held = qtyMap(current);
+    const newQty = qtyMap(quote.lines);
+    // unpaid order: change what it reserves; stock already deducted: change the stock
+    const deducted = order.stock_state === STOCK_STATE.DEDUCTED;
+    const deltas = new Map();
+    for (const v of new Set([...Object.keys(held), ...Object.keys(newQty)])) {
+      const d = (newQty[v] || 0) - (held[v] || 0);
+      if (d) deltas.set(v, deducted ? { stock: -d } : { reserved: d });
+    }
+    const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: admin.admin_id });
+    const totals = totalsFields(quote, order.packing_deduction);
+    await sheetsService.commit([
+      ...inventory.ops,
+      ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
+      { op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) },
+      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totals, revision, updated_at: now } },
+      auditOp({
+        admin, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_ADMIN, entity_type: 'Order', entity_id: order.order_id,
+        old_value: { revision: order.revision, final_payable: order.final_payable, items: current.length },
+        new_value: { revision, final_payable: totals.final_payable, items: quote.lines.length },
+        notes: `Items changed by admin${note ? ` - ${note}` : ''}`,
+      }),
+    ]);
+    logger.info(`Order ${order.order_number} items changed by admin (${formatINR(order.final_payable)} -> ${formatINR(totals.final_payable)})`);
     return getOrderAdmin(order.order_id);
   });
 }
