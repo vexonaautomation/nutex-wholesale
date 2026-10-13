@@ -113,6 +113,11 @@ export function buildBill({
     packing_deduction: round2(Number(order.packing_deduction) || 0),
     less_packing: order.less_packing === true,
     grand_total: round2(Number(order.final_payable) || subtotal),
+    // the grand total is a round figure: difference to subtotal - packing
+    round_off: (() => {
+      const off = round2((Number(order.final_payable) || subtotal) - Math.max(0, subtotal - (Number(order.packing_deduction) || 0)));
+      return Math.abs(off) < 1 ? off : 0;
+    })(),
     terms: String(settings.bill_terms || '').split('\n').map((t) => t.trim()).filter(Boolean),
   };
 }
@@ -162,16 +167,16 @@ export function renderBillPdf(bill) {
     doc.font(f).fontSize(fs).fillColor(color).text(str, x, y, opts);
   };
   const money = (amount, right, y, {
-    bold = true, size = 9, color = INK, minus = false,
+    bold = true, size = 9, color = INK, minus = false, plus = false,
   } = {}) => {
     const digits = Number(amount || 0).toFixed(2);
     doc.fontSize(size);
-    const sign = minus ? '- ' : '';
+    const sign = minus ? '- ' : plus ? '+ ' : '';
     const wS = doc.font(bold ? 'B' : 'R').widthOfString(sign);
     const wR = doc.font(bold ? 'BX' : 'RX').widthOfString('₹');
     const wD = doc.font(bold ? 'B' : 'R').widthOfString(digits);
     const x = right - wR - wD;
-    if (minus) doc.font(bold ? 'B' : 'R').fillColor(color).text(sign, x - wS, y, { lineBreak: false });
+    if (sign) doc.font(bold ? 'B' : 'R').fillColor(color).text(sign, x - wS, y, { lineBreak: false });
     doc.font(bold ? 'BX' : 'RX').fillColor(color).text('₹', x, y, { lineBreak: false });
     doc.font(bold ? 'B' : 'R').fillColor(color).text(digits, x + wR, y, { lineBreak: false });
   };
@@ -283,7 +288,7 @@ export function renderBillPdf(bill) {
   }
 
   // ---- totals, terms, signatures (kept together)
-  const FOOT_H = 306 + (bill.packing_deduction > 0 ? 28 : 0);
+  const FOOT_H = 306 + (bill.packing_deduction > 0 ? 28 : 0) + (bill.round_off ? 28 : 0);
   if (y + FOOT_H > bottom) {
     doc.addPage({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 0 });
     frame();
@@ -298,9 +303,9 @@ export function renderBillPdf(bill) {
     text(t, L, ty, { size: 8, width: termsW });
     ty += doc.font('R').fontSize(8).heightOfString(t, { width: termsW, lineGap: 1 }) + 3;
   }
-  const line = (label, yy, value, { money: isMoney = true, minus = false } = {}) => {
+  const line = (label, yy, value, { money: isMoney = true, minus = false, plus = false } = {}) => {
     text(label, tx, yy, { size: 10, width: (R - tx) * 0.6, align: 'right', color: '#374151' });
-    if (isMoney) money(value, R, yy, { size: 10.5, minus });
+    if (isMoney) money(value, R, yy, { size: 10.5, minus, plus });
     else text(value, tx, yy, { f: 'B', size: 10.5, width: R - tx, align: 'right' });
     doc.save().lineWidth(0.5).strokeColor('#e5e7eb').dash(2, { space: 2 }).moveTo(tx, yy + 20).lineTo(R, yy + 20).stroke().restore();
   };
@@ -311,6 +316,7 @@ export function renderBillPdf(bill) {
   next('Total Quantity (Dzn):', bill.total_dzn, { money: false });
   next('Subtotal:', bill.subtotal);
   if (bill.packing_deduction > 0) next('Less: Packing charges:', bill.packing_deduction, { minus: true });
+  if (bill.round_off) next('Round off:', Math.abs(bill.round_off), { minus: bill.round_off < 0, plus: bill.round_off > 0 });
   doc.save().lineWidth(0.8).strokeColor('#9ca3af').moveTo(tx, ly - 6).lineTo(R, ly - 6).stroke().restore();
   text('GRAND TOTAL:', tx, ly + 10, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
   money(bill.grand_total, R, ly + 8, { size: 16, color: NAVY });

@@ -28,7 +28,7 @@ import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../ut
 import {
   AppError, badRequest, conflict, notFound, unprocessable, MESSAGES,
 } from '../utils/errors.js';
-import { formatINR, round2 } from '../utils/money.js';
+import { formatINR, round2, roundRupee } from '../utils/money.js';
 import { piecesByInventory, encodeComponents, componentsOf } from '../utils/stockComponents.js';
 import { pcsAllowedFor } from '../utils/sellMode.js';
 import { logger } from '../utils/logger.js';
@@ -85,7 +85,9 @@ function itemRows(order, revision, quote, now) {
 }
 
 // `deduction` = "Less: Packing charges" the admin set on the order (kept when
-// the customer edits the order; the minimum order is checked before it)
+// the customer edits the order; the minimum order is checked before it).
+// The payable total is a round figure (nearest rupee); the bill and the
+// totals show the difference as "Round off".
 function totalsFields(quote, deduction = 0) {
   return {
     mrp_subtotal: quote.gross_mrp_subtotal,
@@ -95,7 +97,7 @@ function totalsFields(quote, deduction = 0) {
     discount_percent: quote.discount_percent,
     slab_id_snapshot: quote.current_slab?.slab_id || '',
     discount_amount: quote.discount_amount,
-    final_payable: round2(Math.max(0, quote.final_payable - (Number(deduction) || 0))),
+    final_payable: roundRupee(Math.max(0, quote.final_payable - (Number(deduction) || 0))),
     total_qty: quote.total_qty,
     minimum_order_value_snapshot: quote.minimum_order_value,
     minimum_order_met: quote.minimum_order_met,
@@ -196,8 +198,16 @@ const itemView = (i) => ({
   status: i.status,
 });
 
+// final payable before rounding = MRP subtotal - discount - packing charges
+function roundOffOf(o) {
+  const exact = round2((Number(o.mrp_subtotal) || 0) - (Number(o.discount_amount) || 0) - (Number(o.packing_deduction) || 0));
+  const off = round2((Number(o.final_payable) || 0) - Math.max(0, exact));
+  return Math.abs(off) < 1 ? off : 0; // older orders (not rounded) = 0
+}
+
 const totalsView = (o, settings = {}) => ({
   packing_deduction: Number(o.packing_deduction) || 0,
+  round_off: roundOffOf(o),
   less_packing: o.less_packing === true,
   gst_percent: Number(settings.gst_percent) || 0, // shown as "5% GST included", no amount
   mrp_subtotal: o.mrp_subtotal,
@@ -708,17 +718,19 @@ export async function setPackingDeduction(id, { amount, note }, { admin, ip }) {
       throw conflict('INVALID_TRANSITION', `Packing charges cannot be changed on a ${STATE_LABELS[order.order_status]} order.`);
     }
     const current = Number(order.packing_deduction) || 0;
-    const base = round2((Number(order.final_payable) || 0) + current); // total before the deduction
+    // total before the deduction (and before rounding): MRP subtotal - discount
+    const exact = round2((Number(order.mrp_subtotal) || 0) - (Number(order.discount_amount) || 0));
+    const base = exact > 0 ? exact : round2((Number(order.final_payable) || 0) + current);
     const value = round2(Number(amount) || 0);
     if (value < 0) throw badRequest('Enter 0 or more.');
     if (value > base) throw badRequest(`Packing charges cannot be more than the order total ${formatINR(base)}.`);
     const { amount_paid_verified: verified } = paymentTotals(order, data.Payments.filter((p) => p.order_id === order.order_id));
-    if (round2(base - value) < verified) {
+    if (roundRupee(base - value) < verified) {
       throw conflict('PAYMENT_ALREADY_VERIFIED', `${formatINR(verified)} is already verified for this order - the total cannot go below it.`);
     }
     if (value === current) return getOrderAdmin(order.order_id);
     const now = nowIso();
-    const patch = { packing_deduction: value || null, final_payable: round2(base - value), updated_at: now };
+    const patch = { packing_deduction: value || null, final_payable: roundRupee(base - value), updated_at: now };
     await sheetsService.commit([
       { op: 'update', sheet: 'Orders', id: order.order_id, patch },
       auditOp({
@@ -819,7 +831,7 @@ export async function previewOrderItemsAdmin(id, { items } = {}) {
     less_packing: order.less_packing === true,
     packing_deduction: deduction,
     current_final_payable: Number(order.final_payable) || 0,
-    new_final_payable: round2(Math.max(0, quote.final_payable - deduction)),
+    new_final_payable: roundRupee(Math.max(0, quote.final_payable - deduction)),
     amount_paid_verified: paymentTotals(order, bundle.payments).amount_paid_verified,
   };
 }

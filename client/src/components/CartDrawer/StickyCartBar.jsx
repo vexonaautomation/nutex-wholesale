@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useCart } from '../../context/CartContext.jsx';
-import { formatINR } from '../../utils/format.js';
+import { formatINR, roundRupee } from '../../utils/format.js';
 
 const HIDDEN_ON = [/^\/cart/, /^\/checkout/, /^\/order\//, /^\/admin/];
 
@@ -22,7 +22,7 @@ export function StickyCartBar() {
       <div className="sticky-cart-inner">
         <div className="grow">
           <div className="row-between small">
-            <span><strong>{cart.count}</strong> items · <strong className="num">{formatINR(q?.final_payable)}</strong></span>
+            <span><strong>{cart.count}</strong> items · <strong className="num">{q ? formatINR(roundRupee(q.final_payable)) : '…'}</strong></span>
             {q && (q.minimum_order_waived
               ? <span style={{ color: 'var(--success-700)', fontWeight: 600 }}>No minimum</span>
               : q.minimum_order_met
