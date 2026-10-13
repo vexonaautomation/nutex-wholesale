@@ -3,6 +3,8 @@
 export const toPaise = (rupees) => Math.round((Number(rupees) || 0) * 100);
 export const fromPaise = (paise) => Math.round(paise) / 100;
 export const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+// the amount the customer pays is a round figure: nearest rupee (11620.80 -> 11621)
+export const roundRupee = (n) => Math.round(round2(n));
 
 const inr = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 const inr2 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 });

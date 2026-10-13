@@ -1,9 +1,12 @@
-import { formatINR, pct } from '../../utils/format.js';
+import { formatINR, pct, roundRupee } from '../../utils/format.js';
 
 // lessPacking: amount the customer chose to take off at checkout (0 = not chosen)
 export function CartSummary({ quote, title = 'Order summary', lessPacking = 0 }) {
   if (!quote) return null;
   const blended = quote.effective_discount_percent !== quote.discount_percent && quote.discount_amount > 0;
+  const exact = Math.max(0, quote.final_payable - lessPacking);
+  const total = roundRupee(exact);
+  const roundOff = Math.round((total - exact) * 100) / 100;
   return (
     <div>
       {title && <h3 className="card-title">{title}</h3>}
@@ -24,7 +27,10 @@ export function CartSummary({ quote, title = 'Order summary', lessPacking = 0 })
       {lessPacking > 0 && (
         <div className="summary-row"><span>Less: Packing charges</span><strong style={{ color: 'var(--success-700)' }}>− {formatINR(lessPacking)}</strong></div>
       )}
-      <div className="summary-total"><span>Final wholesale total</span><strong>{formatINR(Math.max(0, quote.final_payable - lessPacking))}</strong></div>
+      {roundOff !== 0 && (
+        <div className="summary-row"><span>Round off</span><strong>{roundOff > 0 ? '+' : '−'} {formatINR(Math.abs(roundOff))}</strong></div>
+      )}
+      <div className="summary-total"><span>Final wholesale total</span><strong>{formatINR(total)}</strong></div>
       {quote.gst_percent > 0 && <div className="tiny soft right">{quote.gst_percent}% GST included</div>}
     </div>
   );

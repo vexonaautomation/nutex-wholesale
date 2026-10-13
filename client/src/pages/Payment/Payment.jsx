@@ -123,7 +123,11 @@ export default function Payment() {
           <h1 className="order-no">{order.order_number}</h1>
           <div className="row wrap mt-1"><StatusBadge status={order.order_status} /><StatusBadge kind="payment" status={order.payment_status} /></div>
         </div>
-        <Link to={`/order/${order.order_number}`} className="btn btn-sm">View order details</Link>
+        <div className="row wrap" style={{ gap: 8 }}>
+          {/* the bill is ready as soon as the order is placed (before payment too) */}
+          {order.permissions.can_download_bill && !(awaitingVerification || submitted) && <DownloadBillButton orderNumber={order.order_number} className="btn btn-sm" />}
+          <Link to={`/order/${order.order_number}`} className="btn btn-sm">View order details</Link>
+        </div>
       </div>
 
       {(awaitingVerification || submitted) && (

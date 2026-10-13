@@ -8,6 +8,9 @@ export function formatINR(value, { decimals = 'auto' } = {}) {
   return `₹${body}`;
 }
 
+// the amount to pay is a round figure: nearest rupee (11620.80 -> 11621)
+export const roundRupee = (v) => Math.round(Math.round((Number(v) || 0) * 100) / 100);
+
 export const pct = (v) => `${Number(Math.round(Number(v || 0) * 100) / 100)}%`;
 
 const dateFmt = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' });

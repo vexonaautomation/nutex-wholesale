@@ -4,7 +4,7 @@ import { orderApi } from '../../services/order.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { Spinner } from '../common/ui.jsx';
 
-// Downloads the order bill PDF (available once the payment is submitted).
+// Downloads the order bill PDF (available as soon as the order is placed; not for cancelled orders).
 export function DownloadBillButton({ orderNumber, className = 'btn', label = 'Download bill' }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);

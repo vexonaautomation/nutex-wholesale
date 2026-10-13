@@ -8,7 +8,7 @@ import { orderApi, saveOrderAccess, newIdempotencyKey } from '../../services/ord
 import { CartSummary } from '../../components/CartSummary/CartSummary.jsx';
 import { MinimumOrderProgress } from '../../components/MinimumOrderProgress/MinimumOrderProgress.jsx';
 import { Alert, Field, Messages, PageLoader, Spinner } from '../../components/common/ui.jsx';
-import { formatINR, pct } from '../../utils/format.js';
+import { formatINR, pct, roundRupee } from '../../utils/format.js';
 import { INDIAN_STATES } from '../../constants/index.js';
 import { useCustomer } from '../../context/CustomerContext.jsx';
 import { useStore } from '../../context/StoreContext.jsx';
@@ -266,7 +266,7 @@ export default function Checkout() {
             </Alert>
           )}
           <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={!quote.can_checkout || submitting || cart.quoting}>
-            {submitting ? <Spinner small /> : <Lock />} Place order · {formatINR(Math.max(0, quote.final_payable - packingOff))}
+            {submitting ? <Spinner small /> : <Lock />} Place order · {formatINR(roundRupee(Math.max(0, quote.final_payable - packingOff)))}
           </button>
           <div className="info-tile"><ShieldCheck /> {onlinePay
             ? 'Your order number is created now. You can still edit the order until you submit payment confirmation.'
