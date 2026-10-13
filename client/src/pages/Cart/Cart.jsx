@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ShoppingBag, Trash2, RefreshCw } from 'lucide-react';
+import { ArrowRight, ShoppingBag, Trash2, RefreshCw, XCircle } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useSeo } from '../../hooks/index.js';
@@ -86,10 +86,19 @@ export default function Cart() {
   }
   if (!quote && cart.quoting) return <PageLoader label="Calculating wholesale prices…" />;
 
+  const clearCart = () => {
+    if (!window.confirm(`Remove all ${cart.items.length} ${cart.items.length === 1 ? 'item' : 'items'} from your cart?`)) return;
+    cart.clear();
+    toast.success('Cart cleared.');
+  };
+
   return (
     <div className="container page">
       {!cart.editing && <ActiveOrders />}
-      <h1 className="page-title">{cart.editing ? `Edit order ${cart.editing.order_number}` : 'Your cart'}</h1>
+      <div className="row-between wrap">
+        <h1 className="page-title mb-0">{cart.editing ? `Edit order ${cart.editing.order_number}` : `Your cart (${cart.items.length} ${cart.items.length === 1 ? 'item' : 'items'})`}</h1>
+        {!cart.editing && <button type="button" className="btn btn-sm btn-danger" onClick={clearCart}><XCircle /> Clear cart</button>}
+      </div>
       <p className="muted">Prices, discounts and stock are calculated live by our system.</p>
       {cart.quoteError && <Alert type="error" className="mb-2">{cart.quoteError.message}</Alert>}
       <div className="two-col mt-2">
@@ -110,6 +119,7 @@ export default function Cart() {
                   {l.color_name && <span className="badge badge-outline"><i className="swatch-dot swatch-dot-sm" style={{ background: l.hex_code }} />{l.color_name}</span>}
                   {l.size_name && <span className="badge badge-outline">Size {l.size_name}</span>}
                   {l.box_label && <span className="badge badge-gold">{l.box_label}</span>}
+                  <span className="badge badge-outline">{l.units_per_box ? `${l.qty} ${l.qty === 1 ? 'box' : 'boxes'} = ${l.qty * l.units_per_box} pcs` : `${l.qty} pcs`}</span>
                 </div>
                 <VariantPicker line={l} options={quote.variant_options?.[l.product_id]} onChange={(to) => cart.changeVariant(l.variant_id, to)} />
                 {l.issue && <div className="field-error mt-1">{l.issue.message}</div>}

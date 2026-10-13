@@ -138,11 +138,9 @@ export function assertQuoteOrderable(quote, clientFinal) {
   }
 }
 
-/** The customer may download the bill once the payment is submitted (never for cancelled orders). */
+/** The customer may download the bill as soon as the order is placed - also before payment / confirmation (never for cancelled orders). */
 export function billAvailable(order) {
-  if (order.order_status === ORDER_STATUS.CANCELLED) return false;
-  if (isOfflineOrder(order)) return ![ORDER_STATUS.DRAFT, ORDER_STATUS.PAYMENT_PENDING].includes(order.order_status);
-  return [PAYMENT_STATUS.SUBMITTED, PAYMENT_STATUS.VERIFIED].includes(order.payment_status);
+  return Boolean(order) && order.order_status !== ORDER_STATUS.CANCELLED;
 }
 
 // what the customer sees for an order waiting for the team (no online payment)

@@ -102,10 +102,10 @@ export function Header() {
                 <WhatsAppIcon size={20} />
               </a>
             )}
-            <button type="button" className="btn btn-ghost btn-icon cart-btn" onClick={cart.openDrawer} aria-label={`Cart, ${cart.count} items`}>
+            <Link to="/cart" className="btn btn-ghost btn-icon cart-btn" aria-label={`Cart, ${cart.count} items`}>
               <ShoppingBag />
               {cart.count > 0 && <span className="cart-count">{cart.count > 999 ? '999+' : cart.count}</span>}
-            </button>
+            </Link>
           </div>
         </div>
       </header>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   BadgeCheck, Boxes, CheckCircle2, Info, Lock, PackageX, Ruler, ShoppingBag, Target,
 } from 'lucide-react';
@@ -28,6 +28,7 @@ export default function Product() {
   const { settings } = useStore();
   const cart = useCart();
   const customer = useCustomer();
+  const navigate = useNavigate();
   const [color, setColor] = useState(null);
   const [buyAs, setBuyAs] = useState('BOX');
   const [sizeChart, setSizeChart] = useState(false);
@@ -215,8 +216,8 @@ export default function Product() {
                 </div>
               </div>
               <div className="row" style={{ gap: 8 }}>
-                <button type="button" className="btn" onClick={cart.openDrawer}><ShoppingBag /> View {cart.editing ? 'order' : 'cart'}</button>
-                {!cart.editing && <Link to="/checkout" className={`btn btn-primary ${cart.quote?.can_checkout ? '' : 'is-disabled'}`} aria-disabled={!cart.quote?.can_checkout} onClick={(e) => { if (!cart.quote?.can_checkout) { e.preventDefault(); cart.openDrawer(); } }}>Checkout</Link>}
+                <Link to="/cart" className="btn"><ShoppingBag /> View {cart.editing ? 'order' : 'cart'}</Link>
+                {!cart.editing && <Link to="/checkout" className={`btn btn-primary ${cart.quote?.can_checkout ? '' : 'is-disabled'}`} aria-disabled={!cart.quote?.can_checkout} onClick={(e) => { if (!cart.quote?.can_checkout) { e.preventDefault(); navigate('/cart'); } }}>Checkout</Link>}
               </div>
             </div>
           )}

@@ -349,7 +349,7 @@ export async function customerBill(orderNumber, token) {
   const bundle = await loadOrderBundle(orderNumber);
   authorizeOrder(bundle.order, token);
   if (!billAvailable(bundle.order)) {
-    throw conflict('BILL_NOT_READY', 'The bill can be downloaded after you submit the payment.');
+    throw conflict('BILL_NOT_READY', 'There is no bill for a cancelled order.');
   }
   return billFor(bundle);
 }

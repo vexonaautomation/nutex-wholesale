@@ -33,7 +33,7 @@ test('online payment OFF: order awaits confirmation, no QR payment, never auto-c
   assert.equal(view.status_label, 'Awaiting confirmation');
   assert.equal(view.permissions.can_submit_payment, false, 'no QR payment step');
   assert.equal(view.permissions.can_edit, true, 'customer may still edit until the team confirms');
-  assert.equal(view.permissions.can_download_bill, false);
+  assert.equal(view.permissions.can_download_bill, true, 'bill before the team confirms');
   assert.equal(view.payment_window_hours, null);
   const [card] = await activeOrderSummaries([{ order_number: o.order_number, token: o.access_token }]);
   assert.equal(card.payment_mode, 'OFFLINE');

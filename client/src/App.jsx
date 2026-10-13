@@ -6,7 +6,6 @@ import { CustomerProvider } from './context/CustomerContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { Header } from './components/Header/Header.jsx';
 import { Footer } from './components/Footer/Footer.jsx';
-import { CartDrawer } from './components/CartDrawer/CartDrawer.jsx';
 import { StickyCartBar } from './components/CartDrawer/StickyCartBar.jsx';
 import { ErrorBoundary, PageLoader } from './components/common/ui.jsx';
 import './styles/shop.css';
@@ -46,7 +45,6 @@ function StoreLayout() {
         </ErrorBoundary>
       </main>
       <Footer />
-      <CartDrawer />
       <StickyCartBar />
     </>
   );
