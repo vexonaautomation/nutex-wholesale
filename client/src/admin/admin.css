@@ -279,6 +279,13 @@ a.stat:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
 .ml-1 { margin-left: 8px; }
 
 /* order detail: Less: Packing charges */
+/* Pack of (pieces in one box) */
+.pack-input { width: 90px; text-align: center; }
+.pack-dirty td { background: #fff8e6; }
+.pack-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-muted); }
+.pack-savebar { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: 0 6px 20px rgba(0, 0, 0, .12); }
+.pack-savebar > span { margin-right: auto; }
+
 /* customer chose "less packing charges" */
 .packing-flag { background: #fff4d6; color: #8a5a00; border-color: #f5c451; font-weight: 700; }
 .packing-note { color: #8a5a00; background: #fff4d6; border-radius: 6px; padding: 6px 8px; }

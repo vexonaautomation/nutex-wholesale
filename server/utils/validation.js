@@ -290,6 +290,14 @@ export const productSchema = z.object({
   return { ...p, sell_mode: mode, inventory_mode: primaryInventoryMode(mode) };
 });
 
+// "Pack of": pieces in one box per article (null = no box)
+export const packSizesSchema = z.object({
+  items: z.array(z.object({
+    product_id: id,
+    units_per_box: nullableNumber(z.coerce.number().int('Pieces per box must be a whole number').min(1, 'At least 1 piece').max(10000)).optional().default(null),
+  })).min(1, 'Change at least one article').max(500),
+});
+
 export const bulkSellingSchema = z.object({
   product_ids: z.array(id).min(1, 'Select at least one product').max(500),
   // null = no box for these products (loose pieces only)

@@ -7,6 +7,7 @@ import AdminLayout from './AdminLayout.jsx';
 import Login from './Login/Login.jsx';
 import Dashboard from './Dashboard/Dashboard.jsx';
 import ProductList from './Products/ProductList.jsx';
+import PackSizes from './Products/PackSizes.jsx';
 import ProductWizard from './Products/ProductWizard.jsx';
 import Categories from './Categories/Categories.jsx';
 import Colors from './Colors/Colors.jsx';
@@ -73,6 +74,7 @@ export default function AdminApp() {
         <Route element={state.admin ? <AdminLayout /> : <Navigate to="/admin" replace state={{ from: location.pathname }} />}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="products" element={<ProductList />} />
+          <Route path="pack-sizes" element={<PackSizes />} />
           <Route path="products/new" element={<ProductWizard />} />
           <Route path="products/:id" element={<ProductWizard />} />
           <Route path="catalog-import" element={<CatalogImport />} />

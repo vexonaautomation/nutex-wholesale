@@ -2,7 +2,7 @@ import {
   getCatalog, queryProducts, findProduct, isProductVisible, serializeProduct,
 } from '../services/catalogService.js';
 import {
-  listProductsAdmin, getProductAdmin, saveProduct, setProductStatus, setProductOutOfStock, duplicateProduct, bulkSetSelling, bulkSetSizes,
+  listProductsAdmin, getProductAdmin, saveProduct, setProductStatus, setProductOutOfStock, duplicateProduct, bulkSetSelling, bulkSetSizes, setPackSizes,
 } from '../services/productService.js';
 import { RECORD_STATUS } from '../config/constants.js';
 import { notFound, badRequest } from '../utils/errors.js';
@@ -72,6 +72,7 @@ export async function adminDuplicate(req, res) {
 }
 
 export const adminBulkSelling = async (req, res) => res.json(await bulkSetSelling(req.body, ctx(req)));
+export const adminPackSizes = async (req, res) => res.json(await setPackSizes(req.body, ctx(req)));
 export const adminBulkSizes = async (req, res) => res.json(await bulkSetSizes(req.body, ctx(req)));
 
 export async function adminBulkEditDownload(req, res) {

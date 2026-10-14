@@ -79,6 +79,8 @@ function adminSummary(catalog, p) {
     sell_mode: sellModeOf(p),
     units_per_box: unitsPerBoxOf(p, catalog.variantsByProduct.get(p.product_id)),
     pcs_for_new_customers: p.pcs_for_new_customers === true,
+    size_count: splitIds(p.size_ids).filter((x) => catalog.sizesById.has(x)).length,
+    colour_count: splitIds(p.color_ids).filter((x) => catalog.colorsById.has(x)).length,
     pcs_variants: variants.length - boxes.length,
     box_variants: boxes.length,
     status: p.status,
@@ -506,7 +508,7 @@ export function hasLegacyBoxes(product, variants = []) {
  * product needs colours to get a box (stock is entered in pieces only).
  */
 export async function bulkSetSelling({
-  product_ids: productIds, units_per_box: units = null, pcs_for_new_customers: pcsNew, sell_mode: requested,
+  product_ids: productIds, units_per_box: units = null, pcs_for_new_customers: pcsNew, sell_mode: requested, via = 'bulk box / pieces',
 }, { admin, ip }) {
   const ids = [...new Set(productIds)];
   const result = { updated: [], unchanged: [], skipped: [] };
@@ -554,13 +556,35 @@ export async function bulkSetSelling({
           admin, ip, action: AUDIT_ACTION.PRODUCT_UPDATED, entity_type: 'Product', entity_id: id,
           old_value: { units_per_box: unitsPerBoxOf(p, existingVariants), pcs_for_new_customers: p.pcs_for_new_customers === true },
           new_value: {
-            units_per_box: unitsPerBox, pcs_for_new_customers: fields.pcs_for_new_customers ?? (p.pcs_for_new_customers === true), new_boxes: applied.newVariants.filter(isBoxVariant).length, via: 'bulk box / pieces',
+            units_per_box: unitsPerBox, pcs_for_new_customers: fields.pcs_for_new_customers ?? (p.pcs_for_new_customers === true), new_boxes: applied.newVariants.filter(isBoxVariant).length, via,
           },
         }));
         result.updated.push(p.sku);
       }
       if (ops.length) await sheetsService.commit(ops);
     });
+  }
+  return result;
+}
+
+/**
+ * "Pack of": pieces in one box per article, a different number for each
+ * (null = no box). Same rules as bulk "Box / pieces" - loose pieces for new
+ * customers stay as they are.
+ */
+export async function setPackSizes({ items }, ctx) {
+  const groups = new Map();
+  for (const { product_id: id, units_per_box: units } of items) {
+    const key = units >= 1 ? Number(units) : null;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(id);
+  }
+  const result = { updated: [], unchanged: [], skipped: [] };
+  for (const [units, ids] of groups) {
+    const r = await bulkSetSelling({ product_ids: ids, units_per_box: units, via: 'pack of' }, ctx);
+    result.updated.push(...r.updated);
+    result.unchanged.push(...r.unchanged);
+    result.skipped.push(...r.skipped);
   }
   return result;
 }

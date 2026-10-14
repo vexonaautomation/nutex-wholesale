@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  BadgeCheck, BadgePercent, BookOpen, Boxes, ClipboardList, CreditCard, FolderTree, LayoutDashboard, LogOut, Menu, Palette, Ruler,
+  BadgeCheck, BadgePercent, BookOpen, Boxes, ClipboardList, CreditCard, FolderTree, LayoutDashboard, LogOut, Menu, Package, Palette, Ruler,
   ScrollText, Settings as SettingsIcon, Shirt, Store, Users,
 } from 'lucide-react';
 import { useAdmin } from './AdminApp.jsx';
@@ -12,6 +12,7 @@ const NAV = [
   ['Overview', [['/admin/dashboard', 'Dashboard', LayoutDashboard]]],
   ['Catalog', [
     ['/admin/products', 'Products', Shirt],
+    ['/admin/pack-sizes', 'Pack of (pcs / box)', Package],
     ['/admin/catalog-import', 'Catalogue Import', BookOpen],
     ['/admin/categories', 'Categories', FolderTree],
     ['/admin/colors', 'Colors', Palette],

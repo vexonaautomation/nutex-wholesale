@@ -148,7 +148,7 @@ export default function ProductList() {
       <PageHeader
         title="Products"
         subtitle="Products are never deleted - deactivate or archive them to hide from the store."
-        actions={<><button type="button" className="btn" onClick={() => setEditOpen(true)}><FileSpreadsheet /> Bulk edit (Excel)</button><Link to="/admin/catalog-import" className="btn">Import Nutex catalogue</Link><Link to="/admin/products/new" className="btn btn-primary"><Plus /> Add product</Link></>}
+        actions={<><Link to="/admin/pack-sizes" className="btn"><Boxes /> Pack of (pcs / box)</Link><button type="button" className="btn" onClick={() => setEditOpen(true)}><FileSpreadsheet /> Bulk edit (Excel)</button><Link to="/admin/catalog-import" className="btn">Import Nutex catalogue</Link><Link to="/admin/products/new" className="btn btn-primary"><Plus /> Add product</Link></>}
       />
       <div className="filter-bar">
         <SearchBox value={q} onChange={setQ} placeholder="Search name, SKU or ID" />
