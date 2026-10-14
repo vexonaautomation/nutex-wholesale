@@ -16,7 +16,7 @@ import { PriceTag } from '../../components/common/PriceTag.jsx';
 import { Modal } from '../../components/common/Modal.jsx';
 import { EmptyState, ErrorState, PageLoader } from '../../components/common/ui.jsx';
 import { formatINR, pct } from '../../utils/format.js';
-import { displayDiscountPercent, wholesaleOf } from '../../utils/pricing.js';
+import { displayDiscountPercent, priceModeFor, wholesaleOf } from '../../utils/pricing.js';
 import { useCustomer } from '../../context/CustomerContext.jsx';
 import { ExistingCustomerPrompt } from '../../components/ExistingCustomerLogin/ExistingCustomerLogin.jsx';
 
@@ -35,6 +35,9 @@ export default function Product() {
 
   const product = data?.product;
   const percent = displayDiscountPercent(product, settings, cart.quote);
+  // before the login: full MRP only (the cart shows the wholesale price)
+  const priceMode = priceModeFor(settings, customer.isExisting);
+  const mrpOnly = priceMode === 'SHOW_MRP';
   // Existing customers always choose box or loose pieces. New customers buy full
   // boxes - loose pieces only where Nutex opened them for this article.
   const pcsAllowed = customer.isExisting || settings?.pcs_for_existing_customers_only === false || product?.pcs_for_new_customers === true;
@@ -95,7 +98,7 @@ export default function Product() {
   const selectedPieces = selected.reduce((s, [vid, n]) => s + n * (product.variants.find((x) => x.variant_id === vid)?.units_per_box || 1), 0);
   const selectedValue = selected.reduce((s, [vid, n]) => {
     const v = product.variants.find((x) => x.variant_id === vid);
-    return s + wholesaleOf(v?.unit_mrp || 0, percent) * n;
+    return s + (mrpOnly ? v?.unit_mrp || 0 : wholesaleOf(v?.unit_mrp || 0, percent)) * n;
   }, 0);
   const switchTo = (m) => setBuyAs(m);
 
@@ -115,7 +118,8 @@ export default function Product() {
           <h1>{product.name}</h1>
           <div className="pdp-sku">SKU {product.sku}</div>
           <div className="mt-2">
-            <PriceTag mrp={priceVaries ? product.mrp_min : product.mrp} percent={percent} mode={settings?.price_display_mode} size="lg" unit={canBox ? 'pc' : ''} from={priceVaries} />
+            <PriceTag mrp={priceVaries ? product.mrp_min : product.mrp} percent={percent} mode={priceMode} size="lg" unit={canBox ? 'pc' : ''} from={priceVaries} />
+            {mrpOnly && <p className="small muted mt-1 mb-0">Your wholesale price is shown in the cart.</p>}
             {canBox && <p className="small muted mt-1 mb-0">Price per piece. {units ? `One box = ${units} pcs, so a box costs ${units} × the piece price.` : 'Box price = pieces in the box × piece price.'}</p>}
             {priceVaries && <p className="small muted mt-1 mb-0">Price depends on size - see the price next to each size below.</p>}
             {settings?.discount_mode === 'SLAB' && product.discount.mode !== 'CUSTOM' && (
@@ -169,7 +173,7 @@ export default function Product() {
                 <span>Sizes &amp; quantity <span className="soft small" style={sub}>pieces</span></span>
                 {sizeChartLink}
               </h3>
-              <SizeSelector variants={colorVariants} quantities={inCart} onChange={setLine} showPrice={priceVaries} percent={percent} mode={settings?.price_display_mode} />
+              <SizeSelector variants={colorVariants} quantities={inCart} onChange={setLine} showPrice={priceVaries} percent={percent} mode={priceMode} />
             </div>
           )}
 
@@ -186,10 +190,10 @@ export default function Product() {
                       <div>
                         <div style={{ fontWeight: 700 }}>{v.size_name ? `Size ${v.size_name} · ` : ''}Box of {v.units_per_box} pcs</div>
                         <div className="small mt-1">
-                          <PriceTag mrp={v.unit_mrp} percent={percent} mode={settings?.price_display_mode} unit="box" />
+                          <PriceTag mrp={v.unit_mrp} percent={percent} mode={priceMode} unit="box" />
                         </div>
                         <div className="small soft">
-                          {formatINR(wholesaleOf(v.piece_mrp, percent))} per piece · {v.mixed_color_description || 'Assorted colours'}
+                          {mrpOnly ? `MRP ${formatINR(v.piece_mrp)}` : formatINR(wholesaleOf(v.piece_mrp, percent))} per piece · {v.mixed_color_description || 'Assorted colours'}
                         </div>
                         <div className="small soft">{v.purchasable ? `${v.available_qty} boxes available${inCartQty ? ' · in cart' : ''}` : 'Out of stock'}</div>
                       </div>
@@ -211,7 +215,7 @@ export default function Product() {
                 </div>
                 <div className="small muted">
                   {selectedUnits
-                    ? `Approx. ${formatINR(selectedValue)} at ${pct(percent)} off · saved automatically - search the next product`
+                    ? `${mrpOnly ? `MRP value ${formatINR(selectedValue)} · wholesale price in the cart` : `Approx. ${formatINR(selectedValue)} at ${pct(percent)} off`} · saved automatically - search the next product`
                     : `Quantities go straight into your ${cart.editing ? 'order' : 'cart'} - no need to press Add.`}
                 </div>
               </div>
