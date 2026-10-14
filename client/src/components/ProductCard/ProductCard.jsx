@@ -2,9 +2,10 @@ import { Link } from 'react-router-dom';
 import { Boxes } from 'lucide-react';
 import { useStore } from '../../context/StoreContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
+import { useCustomer } from '../../context/CustomerContext.jsx';
 import { PriceTag } from '../common/PriceTag.jsx';
 import { Img } from '../common/ui.jsx';
-import { displayDiscountPercent } from '../../utils/pricing.js';
+import { displayDiscountPercent, priceModeFor } from '../../utils/pricing.js';
 
 // "30–40", "80-90 / 95-100", "45-55 to 95-100" (size names may contain hyphens)
 function sizeRange(sizes) {
@@ -16,6 +17,7 @@ function sizeRange(sizes) {
 export function ProductCard({ product }) {
   const { settings } = useStore();
   const { quote } = useCart();
+  const { isExisting } = useCustomer();
   const percent = displayDiscountPercent(product, settings, quote);
   const canBox = product.can_box ?? product.inventory_mode === 'BOX_WISE';
   const canPcs = product.can_pcs ?? product.inventory_mode !== 'BOX_WISE';
@@ -36,7 +38,7 @@ export function ProductCard({ product }) {
       <div className="p-card-body">
         <span className="p-card-cat">{product.category_name}</span>
         <Link to={`/product/${product.slug}`} className="p-card-name">{product.name}</Link>
-        <PriceTag mrp={product.mrp_min ?? product.mrp} percent={percent} mode={settings?.price_display_mode} unit={canBox ? 'pc' : ''} from={product.mrp_max > product.mrp_min} />
+        <PriceTag mrp={product.mrp_min ?? product.mrp} percent={percent} mode={priceModeFor(settings, isExisting)} unit={canBox ? 'pc' : ''} from={product.mrp_max > product.mrp_min} />
         <div className="p-card-meta">
           {!canPcs ? (
             <span>Assorted colours</span>

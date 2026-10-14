@@ -11,6 +11,16 @@ export function displayDiscountPercent(product, settings, cartQuote) {
   return Number(settings.default_discount_percent) || 0;
 }
 
+/**
+ * Price display on product cards / pages: before the existing-customer login
+ * only the full MRP is shown; after the login the Settings "price display
+ * mode". (The cart and checkout always show the real wholesale calculation -
+ * new customers need the minimum order after discount.)
+ */
+export function priceModeFor(settings, loggedIn) {
+  return loggedIn ? settings?.price_display_mode || 'SHOW_BOTH' : 'SHOW_MRP';
+}
+
 export function wholesaleOf(mrp, percent) {
   return Math.round(Number(mrp) * (100 - Number(percent))) / 100;
 }
