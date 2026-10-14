@@ -7,5 +7,8 @@ if (process.env.NODE_ENV === 'production') {
 }
 process.env.DATA_BACKEND = 'memory';
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+// never send real WhatsApp messages from the demo (even when .env has the
+// live WhatsApp API): OTPs are printed in the server log instead
+process.env.WHATSAPP_PROVIDER = 'console';
 process.env.PORT = process.env.PORT || '4000';
 await import('../server/server.js');

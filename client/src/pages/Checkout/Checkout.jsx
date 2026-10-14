@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Lock, ShieldCheck } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
@@ -12,6 +12,8 @@ import { formatINR, pct, roundRupee } from '../../utils/format.js';
 import { INDIAN_STATES } from '../../constants/index.js';
 import { useCustomer } from '../../context/CustomerContext.jsx';
 import { useStore } from '../../context/StoreContext.jsx';
+import { customerApi } from '../../services/customer.js';
+import { CustomerFinder } from './CustomerFinder.jsx';
 
 const SAVED_KEY = 'nutex_customer_v1';
 const IDEM_KEY = 'nutex_checkout_key';
@@ -27,6 +29,9 @@ function loadSaved() {
     return EMPTY;
   }
 }
+
+const digitsOf = (v) => String(v || '').replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
+const stateOption = (v) => INDIAN_STATES.find((s) => s.toLowerCase() === String(v || '').trim().toLowerCase()) || '';
 
 function validate(f, { mobileOptional = false } = {}) {
   const e = {};
@@ -73,6 +78,46 @@ export default function Checkout() {
   useEffect(() => {
     if (verifiedMobile && !isAdmin) setForm((f) => (f.mobile === verifiedMobile ? f : { ...f, mobile: verifiedMobile }));
   }, [verifiedMobile, isAdmin]);
+
+  // Admin number: a customer picked in "Find customer" (or found by the
+  // mobile number typed) fills all the order details.
+  const [filledFor, setFilledFor] = useState('');
+  const fillFrom = useCallback((c) => {
+    const same = !c.shipping_address || c.shipping_address === c.billing_address;
+    setForm((f) => ({
+      ...f,
+      customer_name: c.customer_name || '',
+      business_name: c.business_name || '',
+      mobile: c.mobile,
+      whatsapp: c.whatsapp && c.whatsapp !== c.mobile ? c.whatsapp : '',
+      alternate_mobile: c.alternate_mobile || '',
+      email: c.email || '',
+      billing_address: c.billing_address || '',
+      same_as_billing: same,
+      shipping_address: same ? '' : c.shipping_address,
+      city: c.city || '',
+      state: stateOption(c.state),
+      pincode: c.pincode || '',
+      gstin: c.gstin || '',
+    }));
+    setFilledFor(c.mobile);
+    setErrors({});
+    toast.success(`Details filled for ${c.business_name || c.customer_name || c.mobile}.`);
+  }, [toast]);
+  useEffect(() => {
+    const m = digitsOf(form.mobile);
+    if (!isAdmin || !/^[6-9]\d{9}$/.test(m) || m === filledFor) return undefined;
+    let live = true;
+    customerApi.lookup(m)
+      .then((res) => {
+        if (!live) return;
+        const hit = res.results.find((r) => r.mobile === m);
+        if (hit) fillFrom(hit);
+        else setFilledFor(m);
+      })
+      .catch(() => { if (live) setFilledFor(m); });
+    return () => { live = false; };
+  }, [isAdmin, form.mobile, filledFor, fillFrom]);
 
   // One idempotency key per checkout attempt: double-clicks / refreshes never create two orders.
   const idemKey = useMemo(() => {
@@ -160,13 +205,14 @@ export default function Checkout() {
           <section className="card card-pad">
             <h2 className="card-title">Business &amp; contact details</h2>
             <div className="form-grid">
+              {isAdmin && <CustomerFinder onPick={fillFrom} />}
               <Field label="Customer name" required error={errors.customer_name}><input className="input" value={form.customer_name} onChange={set('customer_name')} autoComplete="name" aria-invalid={!!errors.customer_name} /></Field>
               <Field label="Business / shop name" required error={errors.business_name}><input className="input" value={form.business_name} onChange={set('business_name')} autoComplete="organization" aria-invalid={!!errors.business_name} /></Field>
               {isAdmin ? (
                 <Field
                   label="Customer's mobile number"
                   error={errors.mobile}
-                  hint={<>Logged in with admin number +91 {customer.auth.mobile_masked} ✓ · the order and bill show this number. Blank = your admin number.</>}
+                  hint={<>Logged in with admin number +91 {customer.auth.mobile_masked} ✓ · a known customer's details fill in automatically. The order and bill show this number. Blank = your admin number.</>}
                 >
                   <input className="input" value={form.mobile} onChange={set('mobile')} inputMode="tel" autoComplete="off" placeholder="Customer's 10-digit mobile" aria-invalid={!!errors.mobile} />
                 </Field>

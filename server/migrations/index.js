@@ -97,4 +97,10 @@ export const MIGRATIONS = [
     version: 12,
     description: 'Customer can choose to less packing charges; prices include GST',
   },
+  {
+    // Additive only: Existing_Customers.address / state / pincode (blank for
+    // older rows) - bulk upload with address, admin-number checkout fills them.
+    version: 13,
+    description: 'Existing customers: address, state, pincode',
+  },
 ];

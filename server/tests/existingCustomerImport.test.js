@@ -11,7 +11,7 @@ const TEMPLATE = fileURLToPath(new URL('../../client/public/templates/existing-c
 
 test('template file: header columns, example rows are never imported', () => {
   const text = fs.readFileSync(TEMPLATE, 'utf8');
-  assert.match(text.replace(/^﻿/, ''), /^mobile,customer_name,business_name,city,alternate_mobiles,gstin,minimum_order_value,notes\r?\n/);
+  assert.match(text.replace(/^﻿/, ''), /^mobile,customer_name,business_name,city,address,state,pincode,alternate_mobiles,gstin,minimum_order_value,notes\r?\n/);
   assert.deepEqual(parseBulkText(text), [], 'untouched template adds nobody');
 });
 
@@ -50,9 +50,9 @@ test('old one-line format without header still works', () => {
 test('importing the filled template adds customers with GSTIN, minimum order and alternates', async () => {
   const { adminCtx } = await freshStore();
   const text = fs.readFileSync(TEMPLATE, 'utf8')
-    + '9876500001,Sunita Devi,Sunita Garments,Delhi,9876500002,07ABCDE1234F1Z5,1500,from Excel\r\n'
-    + '9876500003,Ravi,Ravi Stores,Jaipur,,,,\r\n'
-    + '12345,Bad Number,,,,,,\r\n';
+    + '9876500001,Sunita Devi,Sunita Garments,Delhi,"14 Chandni Chowk, Shop 2",Delhi,110006,9876500002,07ABCDE1234F1Z5,1500,from Excel\r\n'
+    + '9876500003,Ravi,Ravi Stores,Jaipur,,,,,,,\r\n'
+    + '12345,Bad Number,,,,,,,,,\r\n';
   const res = await addExistingCustomers(parseBulkText(text), adminCtx);
   assert.equal(res.added, 2);
   assert.equal(res.skipped.length, 1, 'invalid mobile reported, not added');
@@ -61,6 +61,8 @@ test('importing the filled template adds customers with GSTIN, minimum order and
   assert.equal(sunita.gstin, '07ABCDE1234F1Z5');
   assert.equal(sunita.minimum_order_value, 1500);
   assert.equal(sunita.alternate_mobiles, '9876500002');
+  assert.equal(sunita.address, '14 Chandni Chowk, Shop 2');
+  assert.equal(sunita.pincode, '110006');
   assert.equal(rows.find((r) => r.mobile === '9876500003').minimum_order_value, null, 'blank = default minimum');
   assert.ok(!rows.some((r) => r.mobile === '9876543210'), 'example row not imported');
 });

@@ -3,7 +3,7 @@ import {
   startVerification, confirmVerification, customerStatus, startAlternate, confirmAlternate,
 } from '../services/customerVerificationService.js';
 import {
-  listExistingCustomers, addExistingCustomers, parseBulkText, updateExistingCustomer,
+  listExistingCustomers, addExistingCustomers, parseBulkText, updateExistingCustomer, lookupCustomersForAdmin,
 } from '../services/existingCustomerService.js';
 import { customerOrderHistory } from '../services/orderService.js';
 import { badRequest } from '../utils/errors.js';
@@ -23,6 +23,12 @@ export async function verifyConfirm(req, res) {
 export async function status(req, res) {
   noStore(res);
   res.json(await customerStatus(req.customerToken));
+}
+
+// admin number at checkout: find the customer to fill the order details
+export async function lookup(req, res) {
+  noStore(res);
+  res.json(await lookupCustomersForAdmin(req.customerToken, req.query.q));
 }
 
 // "My orders" from any device (existing customers logged in with the OTP)

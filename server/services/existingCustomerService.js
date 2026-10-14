@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sheetsService } from './sheetsService.js';
 import { auditOp } from './auditService.js';
-import { getSettings } from './settingsService.js';
+import { getSettings, parseSettings } from './settingsService.js';
 import { config } from '../config/env.js';
 import { ACTOR, AUDIT_ACTION, CUSTOMER_TYPE, RECORD_STATUS } from '../config/constants.js';
 import { normalizeMobile } from '../utils/orderToken.js';
@@ -100,6 +100,9 @@ export function autoExistingOps({
     customer_name: String(order.customer_name_snapshot || '').slice(0, 100),
     business_name: String(order.business_name_snapshot || '').slice(0, 150),
     city: String(order.city_snapshot || '').slice(0, 80),
+    address: String(order.billing_address_snapshot || '').slice(0, 300),
+    state: String(order.state_snapshot || '').slice(0, 60),
+    pincode: String(order.pincode_snapshot || '').slice(0, 10),
     gstin: String(order.gstin_snapshot || '').toUpperCase(),
     minimum_order_value: null,
     status: RECORD_STATUS.ACTIVE,
@@ -170,6 +173,9 @@ function rowView(r, websiteCustomers, orders) {
     customer_name: r.customer_name,
     business_name: r.business_name,
     city: r.city,
+    address: r.address || '',
+    state: r.state || '',
+    pincode: r.pincode || '',
     gstin: r.gstin,
     minimum_order_value: r.minimum_order_value,
     status: isActive(r) ? RECORD_STATUS.ACTIVE : RECORD_STATUS.INACTIVE,
@@ -192,7 +198,7 @@ export async function listExistingCustomers({ q } = {}) {
   const counts = new Map();
   for (const r of data[SHEET]) for (const m of numbersOf(r)) counts.set(m, (counts.get(m) || 0) + 1);
   const items = all
-    .filter((r) => !needle || [r.mobile, ...r.alternate_mobiles, r.customer_name, r.business_name, r.city, r.gstin].some((v) => String(v || '').toLowerCase().includes(needle)))
+    .filter((r) => !needle || [r.mobile, ...r.alternate_mobiles, r.customer_name, r.business_name, r.city, r.pincode, r.gstin].some((v) => String(v || '').toLowerCase().includes(needle)))
     .sort((a, b) => String(b.added_at).localeCompare(String(a.added_at)));
   return {
     items,
@@ -217,12 +223,17 @@ function cleanRow(input) {
   }
   if (alternates.length > MAX_ALTERNATES) throw badRequest(`Maximum ${MAX_ALTERNATES} alternate numbers per customer.`);
   const min = input.minimum_order_value;
+  const pincode = String(input.pincode ?? '').replace(/\s+/g, '');
+  if (pincode && !/^[1-9]\d{5}$/.test(pincode)) throw badRequest(`Invalid pincode ${input.pincode} for ${mobile} (6 digits)`);
   return {
     mobile,
     alternate_mobiles: alternates.join(', '),
     customer_name: String(input.customer_name || '').trim().slice(0, 100),
     business_name: String(input.business_name || '').trim().slice(0, 150),
     city: String(input.city || '').trim().slice(0, 80),
+    address: String(input.address || '').trim().replace(/\s*\n\s*/g, ', ').slice(0, 300),
+    state: String(input.state || '').trim().slice(0, 60),
+    pincode,
     gstin,
     minimum_order_value: min === '' || min === null || min === undefined ? null : Math.max(0, Number(min) || 0),
     notes: String(input.notes || '').trim().slice(0, 500),
@@ -231,11 +242,19 @@ function cleanRow(input) {
 
 const ownerLabel = (r) => `${r.business_name || r.customer_name || 'another customer'} (${maskMobile(normalizeMobile(r.mobile))})`;
 
-/** Additive: appends new customers; numbers already listed are skipped (or reactivated). */
+// details a bulk upload may fill in for a number that is already listed
+const DETAIL_FIELDS = ['customer_name', 'business_name', 'city', 'address', 'state', 'pincode', 'gstin'];
+
+/**
+ * Appends new customers. A number already listed gets the details filled in
+ * the upload (name, business, city, address, state, pincode, GSTIN - empty
+ * columns keep what is there); an inactive one is reactivated.
+ */
 export async function addExistingCustomers(inputs, { admin, ip }) {
   const rows = await sheetsService.read(SHEET, { fresh: true });
   const now = nowIso();
   const appended = [];
+  const updated = [];
   const ops = [];
   const skipped = [];
   const seen = new Set();
@@ -255,11 +274,14 @@ export async function addExistingCustomers(inputs, { admin, ip }) {
     const existing = rows.find((r) => normalizeMobile(r.mobile) === row.mobile);
     if (existing) {
       nums.forEach((m) => seen.add(m));
-      if (!isActive(existing)) {
-        ops.push({ op: 'update', sheet: SHEET, id: existing.mobile, patch: { status: RECORD_STATUS.ACTIVE, updated_at: now } });
-        skipped.push({ mobile: row.mobile, reason: 'Already listed - reactivated' });
+      const patch = {};
+      for (const k of DETAIL_FIELDS) if (row[k] && String(existing[k] ?? '') !== String(row[k])) patch[k] = row[k];
+      if (!isActive(existing)) patch.status = RECORD_STATUS.ACTIVE;
+      if (Object.keys(patch).length) {
+        ops.push({ op: 'update', sheet: SHEET, id: existing.mobile, patch: { ...patch, updated_at: now } });
+        updated.push(row.mobile);
       } else {
-        skipped.push({ mobile: row.mobile, reason: 'Already listed' });
+        skipped.push({ mobile: row.mobile, reason: 'Already listed - no new details' });
       }
       continue;
     }
@@ -275,11 +297,11 @@ export async function addExistingCustomers(inputs, { admin, ip }) {
   if (ops.length) {
     ops.push(auditOp({
       admin, ip, action: AUDIT_ACTION.EXISTING_CUSTOMER_ADDED, entity_type: 'Existing_Customer',
-      entity_id: appended.map((r) => r.mobile).slice(0, 20).join(','), new_value: { added: appended.length, skipped: skipped.length },
+      entity_id: [...appended.map((r) => r.mobile), ...updated].slice(0, 20).join(','), new_value: { added: appended.length, updated: updated.length, skipped: skipped.length },
     }));
     await sheetsService.commit(ops);
   }
-  return { added: appended.length, skipped };
+  return { added: appended.length, updated: updated.length, skipped };
 }
 
 /**
@@ -292,6 +314,9 @@ const BULK_COLUMNS = {
   customer_name: ['customer name', 'name', 'owner', 'owner name', 'contact name'],
   business_name: ['business name', 'business', 'shop', 'shop name', 'firm', 'firm name', 'company'],
   city: ['city', 'town', 'location'],
+  address: ['address', 'billing address', 'full address', 'shop address', 'address line'],
+  state: ['state', 'state name'],
+  pincode: ['pincode', 'pin code', 'pin', 'zip', 'zip code', 'postal code', 'postcode'],
   alternate_mobiles: ['alternate mobiles', 'alternate mobile', 'alternate numbers', 'alternate number', 'alternate', 'other numbers', 'alt mobile'],
   gstin: ['gstin', 'gst', 'gst number', 'gst no'],
   minimum_order_value: ['minimum order value', 'minimum order', 'min order', 'minimum'],
@@ -305,7 +330,7 @@ export const EXAMPLE_ROW_MARK = 'EXAMPLE ROW';
  * Reads pasted text / a CSV file of existing customers.
  *  - With a header row (template, Excel copy-paste, CSV): columns are matched
  *    by name, in any order: mobile, customer_name, business_name, city,
- *    alternate_mobiles, gstin, minimum_order_value, notes.
+ *    address, state, pincode, alternate_mobiles, gstin, minimum_order_value, notes.
  *  - Without a header: one customer per line
  *      mobile, name, business, city, alternate numbers (separated by / or more commas)
  * Blank lines, # comments and template example rows are ignored.
@@ -349,7 +374,7 @@ export async function updateExistingCustomer(key, input, { admin, ip }) {
   }
   const patch = {};
   const old = {};
-  for (const k of ['customer_name', 'business_name', 'city', 'gstin', 'minimum_order_value', 'notes', 'alternate_mobiles']) {
+  for (const k of ['customer_name', 'business_name', 'city', 'address', 'state', 'pincode', 'gstin', 'minimum_order_value', 'notes', 'alternate_mobiles']) {
     const before = k === 'alternate_mobiles' ? splitMobiles(row[k]).join(', ') : row[k];
     if (String(before ?? '') !== String(next[k] ?? '')) {
       patch[k] = next[k];
@@ -370,6 +395,60 @@ export async function updateExistingCustomer(key, input, { admin, ip }) {
     auditOp({ admin, ip, action, entity_type: 'Existing_Customer', entity_id: normalizeMobile(row.mobile), old_value: old, new_value: patch }),
   ]);
   return { updated: true };
+}
+
+/**
+ * Admin number at checkout: find a customer by mobile or by name / business /
+ * city to fill the order details. Only for an admin number logged in with the
+ * WhatsApp OTP. Details from the Existing Customers list come first, missing
+ * ones are filled from the customer's latest website order.
+ */
+export async function lookupCustomersForAdmin(token, rawQuery) {
+  const denied = () => new AppError(403, 'ADMIN_LOGIN_REQUIRED', 'Customer search works after logging in with your admin number and the WhatsApp OTP.');
+  const t = readCustomerToken(token);
+  if (!t?.otp) throw denied();
+  const data = await sheetsService.readMany([SHEET, 'Customers', 'Settings'], { fresh: false });
+  const status = resolveExistingCustomer(data[SHEET], parseSettings(data.Settings), t.mobile);
+  if (!status.admin) throw denied();
+
+  const q = String(rawQuery || '').trim();
+  const digits = q.replace(/\D/g, '');
+  const byNumber = digits.length >= 4 && /^[\d\s+-]+$/.test(q);
+  const needle = q.toLowerCase();
+  if (!byNumber && needle.length < 2) return { results: [] };
+
+  const people = new Map();
+  const add = (mobile, fields, numbers) => {
+    if (!MOBILE_RE.test(mobile)) return;
+    const p = people.get(mobile) || { mobile, numbers: new Set([mobile]) };
+    for (const [k, v] of Object.entries(fields)) if (v && !p[k]) p[k] = String(v);
+    for (const n of numbers) if (MOBILE_RE.test(n)) p.numbers.add(n);
+    people.set(mobile, p);
+  };
+  for (const r of data[SHEET]) {
+    add(normalizeMobile(r.mobile), {
+      customer_name: r.customer_name, business_name: r.business_name, city: r.city, billing_address: r.address,
+      state: r.state, pincode: r.pincode, gstin: r.gstin, alternate_mobile: splitMobiles(r.alternate_mobiles)[0],
+    }, numbersOf(r));
+  }
+  const latestFirst = [...data.Customers].sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+  for (const c of latestFirst) {
+    add(normalizeMobile(c.mobile), {
+      customer_name: c.customer_name, business_name: c.business_name, whatsapp: c.whatsapp, email: c.email,
+      billing_address: c.billing_address, shipping_address: c.shipping_address, city: c.city, state: c.state,
+      pincode: c.pincode, gstin: c.gstin, alternate_mobile: c.alternate_mobile,
+    }, [normalizeMobile(c.whatsapp), normalizeMobile(c.alternate_mobile)]);
+  }
+  const rank = (p) => (byNumber ? (p.numbers.has(digits) ? 0 : 1)
+    : String(p.business_name || p.customer_name || '').toLowerCase().startsWith(needle) ? 0 : 1);
+  const results = [...people.values()]
+    .filter((p) => (byNumber
+      ? [...p.numbers].some((n) => n.includes(digits))
+      : [p.customer_name, p.business_name, p.city].some((v) => String(v || '').toLowerCase().includes(needle))))
+    .sort((a, b) => rank(a) - rank(b) || String(a.business_name || a.customer_name || '').localeCompare(String(b.business_name || b.customer_name || '')))
+    .slice(0, 10)
+    .map(({ numbers, ...p }) => ({ ...p, alternate_mobile: p.alternate_mobile && p.alternate_mobile !== p.mobile ? p.alternate_mobile : '' }));
+  return { results };
 }
 
 /**
