@@ -563,6 +563,17 @@ body.has-sticky-cart { padding-bottom: 84px; }
 /* ============================================================ BUY AS (box / pieces) */
 .buy-as { display: grid; grid-template-columns: 1fr; gap: 10px; }
 @media (min-width: 480px) { .buy-as { grid-template-columns: 1fr 1fr; } }
+/* checkout (admin number): "Find customer" */
+.customer-finder { display: grid; gap: 6px; padding: 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius); background: var(--brand-50); }
+.finder-search { position: relative; display: flex; align-items: center; gap: 8px; }
+.finder-search > svg { position: absolute; left: 12px; width: 16px; height: 16px; color: var(--ink-500); }
+.finder-search .input { padding-left: 36px; }
+.finder-results { display: grid; gap: 6px; max-height: 300px; overflow-y: auto; }
+.finder-result { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--white); text-align: left; cursor: pointer; }
+.finder-result:hover { border-color: var(--brand-600); }
+.finder-result > svg { flex: 0 0 auto; width: 18px; height: 18px; color: var(--brand-700); }
+.finder-result > span { display: flex; flex-direction: column; gap: 2px; }
+
 /* checkout: "Do you wish to less packing charges?" */
 .packing-choice { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--white); cursor: pointer; }
 .packing-choice input { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; accent-color: var(--brand-600); }

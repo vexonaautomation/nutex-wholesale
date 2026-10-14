@@ -11,8 +11,11 @@ import { PageHeader, SearchBox } from '../components.jsx';
 import { Modal } from '../../components/common/Modal.jsx';
 import { Alert, EmptyState, ErrorState, Field, PageLoader, Spinner, StatusBadge } from '../../components/common/ui.jsx';
 import { formatDate, formatINR } from '../../utils/format.js';
+import { INDIAN_STATES } from '../../constants/index.js';
 
-const EMPTY = { mobile: '', alternate_mobiles: '', customer_name: '', business_name: '', city: '', gstin: '', minimum_order_value: '', notes: '' };
+const EMPTY = {
+  mobile: '', alternate_mobiles: '', customer_name: '', business_name: '', city: '', address: '', state: '', pincode: '', gstin: '', minimum_order_value: '', notes: '',
+};
 
 export default function ExistingCustomers() {
   const toast = useToast();
@@ -35,7 +38,7 @@ export default function ExistingCustomers() {
     if (!file) return;
     if (file.size > 500000) { toast.error('File is too large (max 500 KB, about 3000 customers).'); return; }
     const reader = new FileReader();
-    reader.onload = () => { setBulkText(String(reader.result || '')); setBulkResult(null); toast.success(`${file.name} loaded - check the lines, then press "Add numbers".`); };
+    reader.onload = () => { setBulkText(String(reader.result || '')); setBulkResult(null); toast.success(`${file.name} loaded - check the lines, then press "Add / update customers".`); };
     reader.onerror = () => toast.error('Could not read the file. Save it as CSV and try again.');
     reader.readAsText(file);
   };
@@ -78,8 +81,8 @@ export default function ExistingCustomers() {
     try {
       const res = await adminApi.post('/existing-customers/bulk', { text: bulkText });
       setBulkResult(res);
-      toast.success(`${res.added} customer(s) added.`);
-      if (res.added) setBulkText('');
+      toast.success(`${res.added} added · ${res.updated || 0} updated.`);
+      if (res.added || res.updated) setBulkText('');
       reload();
     } catch (err) {
       toast.error(err.message);
@@ -115,7 +118,7 @@ export default function ExistingCustomers() {
       ) : (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Mobile numbers</th><th>Customer</th><th>City</th><th className="right">Minimum</th><th className="right">Website orders</th><th>Status</th><th>Added</th><th className="right">Actions</th></tr></thead>
+            <thead><tr><th>Mobile numbers</th><th>Customer</th><th>City / address</th><th className="right">Minimum</th><th className="right">Website orders</th><th>Status</th><th>Added</th><th className="right">Actions</th></tr></thead>
             <tbody>
               {data.items.map((r) => (
                 <tr key={r.key}>
@@ -124,7 +127,7 @@ export default function ExistingCustomers() {
                     {r.alternate_mobiles?.length > 0 && <div className="cell-sub">Alt: {r.alternate_mobiles.join(', ')}</div>}
                   </td>
                   <td><div className="cell-main">{r.business_name || r.customer_name || '—'}</div>{r.business_name && <div className="cell-sub">{r.customer_name}</div>}</td>
-                  <td className="small">{r.city || '—'}</td>
+                  <td className="small">{r.city || '—'}{r.pincode && <div className="cell-sub">{r.pincode}{r.state ? ` · ${r.state}` : ''}</div>}{r.address && <div className="cell-sub" title={r.address}>{r.address.length > 40 ? `${r.address.slice(0, 40)}…` : r.address}</div>}</td>
                   <td className="right">{r.minimum_order_value === null || r.minimum_order_value === undefined ? <span className="soft small">default</span> : formatINR(r.minimum_order_value)}</td>
                   <td className="right num">{r.order_count}<div className="cell-sub">{r.last_order_at ? formatDate(r.last_order_at) : ''}</div></td>
                   <td><StatusBadge kind="record" status={r.status} /></td>
@@ -157,7 +160,16 @@ export default function ExistingCustomers() {
           <Field label="Alternate numbers (optional)" hint="Other WhatsApp numbers of the same customer, separated by commas. Any of them can be used to log in."><input className="input" inputMode="tel" value={form.alternate_mobiles} onChange={(e) => setForm({ ...form, alternate_mobiles: e.target.value })} placeholder="9123456789, 9988776655" /></Field>
           <Field label="Customer name"><input className="input" value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} /></Field>
           <Field label="Business / shop name"><input className="input" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} /></Field>
+          <Field label="Address" className="span-2" hint="Filled in automatically when an admin number orders for this customer"><textarea className="textarea" rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></Field>
           <Field label="City"><input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></Field>
+          <Field label="State">
+            <select className="select" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })}>
+              <option value="">Select state</option>
+              {form.state && !INDIAN_STATES.includes(form.state) && <option value={form.state}>{form.state}</option>}
+              {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="Pincode"><input className="input" inputMode="numeric" maxLength={6} value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, '') })} /></Field>
           <Field label="GSTIN (optional)"><input className="input" value={form.gstin} maxLength={15} onChange={(e) => setForm({ ...form, gstin: e.target.value.toUpperCase() })} /></Field>
           <Field label="Own minimum order ₹ (optional)" hint="Blank = default for existing customers"><input className="input" inputMode="numeric" value={form.minimum_order_value ?? ''} onChange={(e) => setForm({ ...form, minimum_order_value: e.target.value.replace(/[^\d.]/g, '') })} /></Field>
           <Field label="Notes" className="span-2"><input className="input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
@@ -170,24 +182,24 @@ export default function ExistingCustomers() {
         title="Bulk add existing customers"
         size="lg"
         onClose={() => setBulkOpen(false)}
-        footer={<><button type="button" className="btn" onClick={() => setBulkOpen(false)}>Close</button><button type="button" className="btn btn-primary" onClick={bulk} disabled={busy || !bulkText.trim()}>{busy && <Spinner small />} Add numbers</button></>}
+        footer={<><button type="button" className="btn" onClick={() => setBulkOpen(false)}>Close</button><button type="button" className="btn btn-primary" onClick={bulk} disabled={busy || !bulkText.trim()}>{busy && <Spinner small />} Add / update customers</button></>}
       >
         <div className="stack">
           <div className="card card-pad" style={{ background: 'var(--ink-50)' }}>
             <strong>Import from Excel - 3 steps</strong>
             <ol className="small mb-0" style={{ paddingLeft: 18, lineHeight: 1.7 }}>
               <li><a className="link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} href="/templates/existing-customers-template.csv" download="nutex-existing-customers-template.csv"><Download size={14} /> Download the template</a> and open it in Excel.</li>
-              <li>Fill one customer per row (only <strong>mobile</strong> is required) and delete the 2 example rows. Columns: mobile, customer_name, business_name, city, alternate_mobiles (several: <code>/</code>), gstin, minimum_order_value (blank = default), notes.</li>
+              <li>Fill one customer per row (only <strong>mobile</strong> is required) and delete the 2 example rows. Columns: mobile, customer_name, business_name, city, <strong>address, state, pincode</strong>, alternate_mobiles (several: <code>/</code>), gstin, minimum_order_value (blank = default), notes.</li>
               <li>Select the whole table incl. the header row → copy → paste below. Or save as CSV and <button type="button" className="link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => fileRef.current?.click()}><Upload size={14} /> upload the CSV file</button>.</li>
             </ol>
             <input ref={fileRef} type="file" accept=".csv,text/csv,.txt,text/plain" className="sr-only" onChange={readFile} />
           </div>
-          <p className="small muted mb-0">Without a header row each line is read as <code>mobile, name, business, city, alternate numbers</code>. Numbers already in the list are skipped - nothing is overwritten.</p>
+          <p className="small muted mb-0">Without a header row each line is read as <code>mobile, name, business, city, alternate numbers</code>. Numbers already in the list get the details you filled (name, business, city, address, state, pincode, GSTIN) - empty columns keep what is there. Addresses with commas need the template (header row).</p>
           <textarea className="textarea" rows={10} value={bulkText} onChange={(e) => setBulkText(e.target.value)} placeholder={'mobile\tcustomer_name\tbusiness_name\tcity\n9876543210\tRiya Sharma\tRiya Fashion\tPune\n\n- or -\n9876543210, Riya Sharma, Riya Fashion, Pune, 9123456789'} />
           {bulkText.trim() && <p className="tiny soft mb-0">{bulkText.trim().split(/\r?\n/).filter((l) => l.trim()).length} line(s) ready</p>}
           {bulkResult && (
             <Alert type={bulkResult.skipped.length ? 'warning' : 'success'}>
-              Added {bulkResult.added}. {bulkResult.skipped.length > 0 && `Skipped ${bulkResult.skipped.length}: ${bulkResult.skipped.slice(0, 8).map((s) => `${s.mobile || '?'} (${s.reason})`).join(', ')}${bulkResult.skipped.length > 8 ? '…' : ''}`}
+              Added {bulkResult.added} · details updated {bulkResult.updated || 0}. {bulkResult.skipped.length > 0 && `Skipped ${bulkResult.skipped.length}: ${bulkResult.skipped.slice(0, 8).map((s) => `${s.mobile || '?'} (${s.reason})`).join(', ')}${bulkResult.skipped.length > 8 ? '…' : ''}`}
             </Alert>
           )}
         </div>

@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 const n = 'number';
 const b = 'boolean';
@@ -107,6 +107,8 @@ export const SCHEMA = {
       'status', 'notes', 'added_at', 'updated_at', 'added_by',
       // v3: other WhatsApp numbers of the same customer (comma separated)
       'alternate_mobiles',
+      // v13: address for orders the team places for the customer (admin number)
+      'address', 'state', 'pincode',
     ],
     types: { minimum_order_value: n },
   },

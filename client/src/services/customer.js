@@ -45,4 +45,6 @@ export const customerApi = {
   alternateConfirm: (mobile, otp) => api.post('/api/customer/alternate/confirm', { mobile, otp }, { headers: customerHeader() }),
   // "My orders" from any device (logged in with the WhatsApp OTP)
   orders: () => api.get('/api/customer/orders', { headers: customerHeader() }),
+  // admin number at checkout: find a customer by mobile or name
+  lookup: (q) => api.get(`/api/customer/lookup?q=${encodeURIComponent(q)}`, { headers: customerHeader() }),
 };
