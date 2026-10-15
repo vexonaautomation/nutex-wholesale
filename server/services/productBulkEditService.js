@@ -28,7 +28,9 @@ import { listInventory } from './inventoryService.js';
 import { importStockRows } from './stockImportService.js';
 import { CATALOG_SHEETS } from '../config/schema.js';
 import { AUDIT_ACTION, PRODUCT_DISCOUNT_MODE, RECORD_STATUS } from '../config/constants.js';
-import { deriveSellMode, primaryInventoryMode } from '../utils/sellMode.js';
+import {
+  SELL_MODE, deriveSellMode, primaryInventoryMode, sellModeOf,
+} from '../utils/sellMode.js';
 import { withLock, COMMERCE_LOCK } from '../utils/lockManager.js';
 import { badRequest } from '../utils/errors.js';
 import { nowIso, istDate } from '../utils/dates.js';
@@ -326,7 +328,10 @@ function planProduct(catalog, row, skuOwners) {
     if (!orderedColours.length) errors.push('Give the product at least one colour (stock is entered in pieces).');
   }
 
-  const sellMode = legacy ? p.sell_mode : deriveSellMode({ hasBox: units >= 1, hasPcs: orderedColours.length > 0 });
+  // a "box only" article stays box only (its pieces per box can change)
+  const boxOnly = !legacy && sellModeOf(p) === SELL_MODE.BOX;
+  if (boxOnly && !(units >= 1)) errors.push('This article is sold in boxes only - keep its pieces per box (or tick "Pcs" in the product form).');
+  const sellMode = legacy ? p.sell_mode : boxOnly ? SELL_MODE.BOX : deriveSellMode({ hasBox: units >= 1, hasPcs: orderedColours.length > 0 });
   const fields = {
     sku,
     product_name: name,

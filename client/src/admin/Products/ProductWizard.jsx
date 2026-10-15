@@ -20,15 +20,18 @@ import { wholesaleOf } from '../../utils/pricing.js';
 
 const STEPS = ['Basic information', 'Category', 'Pricing', 'Sizes', 'Box / pieces', 'Colours / Boxes', 'Inventory', 'Images', 'Status', 'Preview & publish'];
 
-// a box exists when pieces-per-box is set (or older custom boxes);
-// loose pieces exist when colours are chosen
-const hasBox = (f) => f.legacy_boxes || Number(f.units_per_box) >= 1;
+// "Sell in": Box and/or Pcs, ticked per article. A box needs pieces-per-box
+// (or older custom boxes). Stock is always entered in pieces per colour -
+// a "box only" article packs its boxes from it but does not sell loose pieces.
+const hasBox = (f) => f.legacy_boxes || (f.sell_box && Number(f.units_per_box) >= 1);
 const hasPcs = (f) => f.color_ids.length > 0;
+const sellsPcs = (f) => hasPcs(f) && (f.legacy_boxes || f.sell_pcs);
+const sellModeOf = (f) => (f.sell_box && f.sell_pcs ? 'BOTH' : f.sell_box ? 'BOX' : 'PCS');
 
 const EMPTY = {
   product_name: '', sku: '', slug: '', description: '', subcategory: '', category_id: '',
   mrp: '', discount_mode: 'GLOBAL', fixed_discount_percent: '',
-  size_ids: [], size_mrps: {}, units_per_box: '', pcs_for_new_customers: false, box_extra_color: '', legacy_boxes: false, color_ids: [], boxes: [],
+  size_ids: [], size_mrps: {}, units_per_box: '', sell_box: true, sell_pcs: true, pcs_for_new_customers: false, box_extra_color: '', legacy_boxes: false, color_ids: [], boxes: [],
   stock: {}, images: [], status: 'ACTIVE', out_of_stock: false, featured: false, sort_order: 1000,
   seo_title: '', seo_description: '',
 };
@@ -54,6 +57,9 @@ function fromServer(res) {
     fixed_discount_percent: p.fixed_discount_percent ?? '',
     discount_mode: p.discount_mode || 'GLOBAL',
     pcs_for_new_customers: p.pcs_for_new_customers === true,
+    // PCS = no box, BOX = box only, BOTH = box + loose pieces
+    sell_box: p.sell_mode !== 'PCS',
+    sell_pcs: p.sell_mode !== 'BOX',
     box_extra_color: p.box_extra_color || '',
     online: String(p.collections || '').split(',').includes('online'),
     units_per_box: p.units_per_box ? String(p.units_per_box) : '',
@@ -83,8 +89,10 @@ function stepErrors(f) {
   if (f.legacy_boxes) {
     if (!f.boxes.length) e.boxes = [5, 'Add at least one box configuration'];
     if (f.boxes.some((b) => !(Number(b.units_per_box) >= 1))) e.boxes = [5, 'Units per box must be at least 1'];
-  } else if (String(f.units_per_box).trim() !== '' && !(Number(f.units_per_box) >= 1 && Number.isInteger(Number(f.units_per_box)))) {
-    e.units_per_box = [4, 'Pieces per box must be a whole number (or blank for no box)'];
+  } else if (!f.sell_box && !f.sell_pcs) {
+    e.sell_in = [4, 'Tick Box, Pcs or both - how this article is sold'];
+  } else if (f.sell_box && !(Number(f.units_per_box) >= 1 && Number.isInteger(Number(f.units_per_box)))) {
+    e.units_per_box = [4, 'Enter the pieces in one box (a whole number) - or untick Box'];
   }
   return e;
 }
@@ -242,6 +250,7 @@ export default function ProductWizard() {
       pcs_for_new_customers: form.pcs_for_new_customers,
       box_extra_color: form.box_extra_color,
       units_per_box: hasBox(form) && !form.legacy_boxes ? Number(form.units_per_box) : null,
+      ...(form.legacy_boxes ? {} : { sell_mode: sellModeOf(form) }),
       size_ids: form.size_ids,
       size_mrps: form.size_ids.filter((sid) => Number(form.size_mrps[sid]) > 0).map((sid) => ({ size_id: sid, mrp: Number(form.size_mrps[sid]) })),
       color_ids: form.color_ids,
@@ -376,10 +385,30 @@ export default function ProductWizard() {
     </div>,
     // 5 box / pieces
     <div className="stack" key="s4">
-      <Alert type="info">Existing customers can always choose: <strong>full box</strong> or <strong>loose pieces</strong>. New customers buy full boxes - unless you open loose pieces for this article below.</Alert>
       {!form.legacy_boxes && (
+        <>
+          <h4 className="mb-0">Sell this article in</h4>
+          <div className="choice-grid">
+            <label className={`choice ${form.sell_box ? 'is-on' : ''}`}>
+              <input type="checkbox" checked={form.sell_box} onChange={(e) => set('sell_box', e.target.checked)} />
+              <Boxes /><span><strong>Box</strong><span className="small muted">Full boxes - one box per size, assorted colours.</span></span>
+            </label>
+            <label className={`choice ${form.sell_pcs ? 'is-on' : ''}`}>
+              <input type="checkbox" checked={form.sell_pcs} onChange={(e) => set('sell_pcs', e.target.checked)} />
+              <Palette /><span><strong>Pcs</strong><span className="small muted">Loose pieces - the customer picks colour, size and quantity.</span></span>
+            </label>
+          </div>
+          {err('sell_in') && <Alert type="error">{err('sell_in')}</Alert>}
+          <p className="small muted mb-0">
+            {form.sell_box && form.sell_pcs && 'Box + Pcs: existing customers choose a full box or loose pieces; new customers buy full boxes (unless you open loose pieces for them below).'}
+            {form.sell_box && !form.sell_pcs && <><strong>Box only:</strong> everybody buys full boxes - loose pieces are not sold, not even to existing customers. Stock is still entered in pieces per colour (boxes are packed from it).</>}
+            {!form.sell_box && form.sell_pcs && <><strong>Pcs only:</strong> no box - this article is sold in loose pieces only.</>}
+          </p>
+        </>
+      )}
+      {!form.legacy_boxes && form.sell_box && (
         <div className="form-grid">
-          <Field label="Pieces in one box" error={err('units_per_box')} hint="Same for every size; one box per size, assorted colours. Box price = pieces × piece MRP. Blank = no box for this article.">
+          <Field label="Pieces in one box" required error={err('units_per_box')} hint="Same for every size; one box per size, assorted colours. Box price = pieces × piece MRP.">
             <input className="input" type="number" min={1} step={1} placeholder="e.g. 6" value={form.units_per_box} onChange={(e) => setUnits(e.target.value.replace(/[^\d]/g, ''))} />
           </Field>
           {units > 0 && Number(form.mrp) > 0 && (
@@ -390,11 +419,14 @@ export default function ProductWizard() {
           )}
         </div>
       )}
-      {unitsChanged && <Alert type="warning">Pieces per box changed from {form.loaded_units} to {form.units_per_box || 'no box'}: new boxes are created (old boxes are kept inactive for order history). Boxes are packed from the loose pieces, so there is no box stock to enter.</Alert>}
+      {unitsChanged && form.sell_box && <Alert type="warning">Pieces per box changed from {form.loaded_units} to {form.units_per_box || 'no box'}: new boxes are created (old boxes are kept inactive for order history). Boxes are packed from the loose pieces, so there is no box stock to enter.</Alert>}
       {form.legacy_boxes && (
         <Alert type="info">This product has older custom box configurations (step 6). <button type="button" className="link" onClick={() => setForm((f) => ({ ...f, legacy_boxes: false }))}>Switch to one box per size</button></Alert>
       )}
+      {sellsPcs(form) || form.legacy_boxes || !hasPcs(form) ? (
+      <>
       <h4 className="mb-0">Loose pieces for NEW customers</h4>
+      <p className="small muted mb-0">Existing customers can always buy loose pieces of this article.</p>
       <div className="choice-grid">
         <button type="button" className="choice" aria-pressed={!form.pcs_for_new_customers} onClick={() => set('pcs_for_new_customers', false)}>
           <Boxes /><span><strong>Not allowed</strong><span className="small muted">New customers buy full boxes only (normal rule).</span></span>
@@ -403,15 +435,19 @@ export default function ProductWizard() {
           <Palette /><span><strong>Allowed for this article</strong><span className="small muted">E.g. when the stock left cannot make a full box - new customers may buy loose pieces too.</span></span>
         </button>
       </div>
-      {!hasBox(form) && !form.pcs_for_new_customers && <Alert type="warning">No box and loose pieces not allowed for new customers: only existing customers can buy this article.</Alert>}
+      {(form.legacy_boxes ? !hasBox(form) : !form.sell_box) && !form.pcs_for_new_customers && <Alert type="warning">Pcs only and loose pieces not allowed for new customers: only existing customers can buy this article. Choose "Allowed for this article" if new customers should buy it too.</Alert>}
+      </>
+      ) : null}
       {!isNew && <Alert type="info">Changes keep old variants and stock (set inactive), so past orders remain intact and you can switch back.</Alert>}
     </div>,
     // 6 colours / boxes
     <div className="stack" key="s5">
       {(
         <>
-          <h4 className="mb-0">Colours for loose pieces</h4>
-          <p className="muted mb-0">Customers buying loose pieces choose from these colours (existing customers always can; new customers only if allowed in step 5). Boxes come in assorted colours.</p>
+          <h4 className="mb-0">{sellsPcs(form) || !form.color_ids.length ? 'Colours for loose pieces' : 'Colours (boxes are packed from these)'}</h4>
+          <p className="muted mb-0">{form.sell_pcs || form.legacy_boxes
+            ? 'Customers buying loose pieces choose from these colours (existing customers always can; new customers only if allowed in step 5). Boxes come in assorted colours.'
+            : 'Box only: stock is entered per colour and every box is packed in assorted colours from it. Customers do not pick a colour.'}</p>
           {err('color_ids') && <Alert type="error">{err('color_ids')}</Alert>}
           <div className="pick-grid">
             {masters.colors.map((c) => (
@@ -480,7 +516,7 @@ export default function ProductWizard() {
       {hasPcs(form) && (
         !colorsSel.length || !sizesSel.length ? <Alert type="warning">Select sizes (step 4) and colours (step 6) first.</Alert> : (
           <>
-            <h4 className="mb-0">Loose pieces stock</h4>
+            <h4 className="mb-0">{sellsPcs(form) ? 'Loose pieces stock' : 'Pieces stock (boxes are packed from it)'}</h4>
             <p className="muted mb-0">Available pieces for each colour + size. 0 = out of stock for that combination only.</p>
             <div className="matrix-wrap">
               <table className="matrix">
@@ -620,8 +656,8 @@ export default function ProductWizard() {
           <dt>Category</dt><dd>{category?.category_name || '—'}</dd>
           <dt>MRP</dt><dd>{formatINR(form.mrp)}{sizesSel.some((s) => Number(form.size_mrps[s.size_id]) > 0) && ` (size-wise: ${sizesSel.map((s) => `${s.size_name} ${formatINR(Number(form.size_mrps[s.size_id]) || form.mrp)}`).join(', ')})`}</dd>
           <dt>Discount</dt><dd>{form.discount_mode === 'CUSTOM' ? `Product-specific ${pct(form.fixed_discount_percent)}` : 'Global'}</dd>
-          <dt>Selling</dt><dd>{[hasBox(form) && (form.legacy_boxes ? `${form.boxes.length} box configs` : `Boxes of ${form.units_per_box} pcs × ${sizesSel.length} sizes`), hasPcs(form) && `Loose pieces (${colorsSel.length} colours × ${sizesSel.length} sizes)`].filter(Boolean).join(' + ') || '—'}</dd>
-          <dt>New customers</dt><dd>{form.pcs_for_new_customers ? 'Boxes and loose pieces' : hasBox(form) ? 'Boxes only' : 'Cannot buy (no box)'}</dd>
+          <dt>Selling</dt><dd>{[hasBox(form) && (form.legacy_boxes ? `${form.boxes.length} box configs` : `Boxes of ${form.units_per_box} pcs × ${sizesSel.length} sizes`), sellsPcs(form) && `Loose pieces (${colorsSel.length} colours × ${sizesSel.length} sizes)`].filter(Boolean).join(' + ') || '—'}{!form.legacy_boxes && (form.sell_box !== form.sell_pcs) && <strong>{form.sell_box ? ' · Box only' : ' · Pcs only'}</strong>}</dd>
+          <dt>New customers</dt><dd>{!sellsPcs(form) ? (hasBox(form) ? 'Boxes only' : '—') : form.pcs_for_new_customers ? (hasBox(form) ? 'Boxes and loose pieces' : 'Loose pieces') : hasBox(form) ? 'Boxes only' : 'Cannot buy (pcs only, not opened for new customers)'}</dd>
           <dt>Images</dt><dd>{form.images.length}</dd>
           <dt>Status</dt><dd><StatusBadge kind="record" status={form.status} /> {form.out_of_stock && <StatusBadge kind="record" status="OUT_OF_STOCK" />}</dd>
         </dl>

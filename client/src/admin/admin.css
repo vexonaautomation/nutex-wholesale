@@ -178,7 +178,11 @@ a.stat:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
   cursor: pointer;
 }
 .choice:hover { border-color: var(--ink-400); }
-.choice[aria-pressed='true'] { border-color: var(--brand-700); background: var(--brand-50); box-shadow: 0 0 0 3px var(--brand-100); }
+.choice[aria-pressed='true'], .choice.is-on { border-color: var(--brand-700); background: var(--brand-50); box-shadow: 0 0 0 3px var(--brand-100); }
+/* tick-box cards (e.g. Sell in: Box / Pcs) */
+.choice > input[type='checkbox'] { width: 20px; height: 20px; margin: 3px 0 0; flex: none; accent-color: var(--brand-700); cursor: pointer; }
+label.choice { cursor: pointer; }
+.choice:has(input:focus-visible) { outline: 2px solid var(--brand-700); outline-offset: 2px; }
 .choice svg { width: 26px; height: 26px; color: var(--brand-700); flex: none; }
 .choice strong { display: block; margin-bottom: 2px; }
 .pick-grid { display: flex; flex-wrap: wrap; gap: 8px; }

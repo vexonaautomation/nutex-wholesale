@@ -1,12 +1,14 @@
 import { INVENTORY_MODE, RECORD_STATUS } from '../config/constants.js';
 
-// What a product offers (set automatically when it is saved):
-//   PCS  - loose pieces only: customer picks colour + size + quantity
+// What a product is sold as - ticked per article by the admin ("Sell in"):
+//   PCS  - loose pieces only (no box): customer picks colour + size + quantity
 //   BOX  - full boxes only: one box per size, `units_per_box` pieces in
-//          assorted colours (no colour choice); price = pcs MRP x pieces
+//          assorted colours (no colour choice); price = pcs MRP x pieces.
+//          The stock is still entered in pieces per colour - the boxes are
+//          packed from it - but loose pieces are not sold, to anybody.
 //   BOTH - boxes and loose pieces
 // Who may buy what (Nutex rule):
-//   * existing customers: box OR loose pieces, on every product
+//   * existing customers: box OR loose pieces, where the article sells both
 //   * new customers: full boxes; loose pieces only where the admin opened
 //     them for that product (pcs_for_new_customers, e.g. when the stock
 //     left cannot make a full box)

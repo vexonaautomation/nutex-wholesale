@@ -16,7 +16,7 @@ import { availableOf, autoBoxInfo, EXTRA_COLOUR_AUTO } from '../utils/stockValid
 import { calculatePricing } from './priceCalculator.js';
 import { COLLECTIONS, collectionsOf, joinCollections } from '../utils/collections.js';
 import {
-  allowsBox, allowsPcs, isBoxVariant, primaryInventoryMode, sellModeOf, variantOffered, deriveSellMode,
+  SELL_MODE, allowsBox, allowsPcs, isBoxVariant, primaryInventoryMode, sellModeOf, variantOffered, deriveSellMode,
 } from '../utils/sellMode.js';
 
 const n0 = (v) => Math.max(0, Math.floor(Number(v) || 0));
@@ -328,7 +328,9 @@ export function planVariants({
   const mode = { sell_mode: sellMode };
   const desired = [];
   const sizes = catalog.sizes.filter((s) => sizeIds.includes(s.size_id));
-  if (allowsPcs(mode)) {
+  // colour x size pieces: sold as loose pieces, and/or the stock a box is
+  // packed from (a "box only" article keeps them, they are just not sold)
+  if (allowsPcs(mode) || (allowsBox(mode) && !boxes.length && unitsPerBox >= 1)) {
     const colors = catalog.colors.filter((c) => colorIds.includes(c.color_id));
     let order = 0;
     for (const color of colors) {
@@ -503,10 +505,11 @@ export function hasLegacyBoxes(product, variants = []) {
 }
 
 /**
- * Bulk "Box / pieces": for a group of products set the pieces per box (one
- * box per size, price = pieces x piece MRP; null = no box) and whether NEW
- * customers may also buy loose pieces. Existing customers can always buy
- * loose pieces of products that have colours.
+ * Bulk "Box / pieces": for a group of products set what they are sold in
+ * (`sell_mode` BOTH / BOX / PCS - with BOTH or BOX and no number each keeps
+ * its own box size), the pieces per box (one box per size, price = pieces x
+ * piece MRP; without `sell_mode`, null = no box) and whether NEW customers
+ * may also buy loose pieces.
  * Only these rows are written; prices, stock of existing variants, images and
  * everything else stay untouched. Boxes are packed from the loose pieces, so a
  * product needs colours to get a box (stock is entered in pieces only).
@@ -528,16 +531,28 @@ export async function bulkSetSelling({
         const sizeIds = splitIds(p.size_ids).filter((x) => catalog.sizesById.has(x));
         const colorIds = splitIds(p.color_ids).filter((c) => catalog.colorsById.has(c));
         const label = `${p.sku} ${p.product_name}`;
-        const sellMode = requested || deriveSellMode({ hasBox: units >= 1, hasPcs: colorIds.length > 0 });
+        const existingVariants = catalog.variantsByProduct.get(id) || [];
+        const current = sellModeOf(p);
+        // "Sell in" chosen (box + pcs / box only / pcs only): no number = keep its box size
+        const boxUnits = requested && requested !== SELL_MODE.PCS && !(units >= 1) ? unitsPerBoxOf(p, existingVariants) : units;
+        if (requested && requested !== SELL_MODE.PCS && !(boxUnits >= 1)) {
+          result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: has no box yet - enter the pieces in one box` });
+          continue;
+        }
+        // only the box size changes ("Pack of"): a box-only article stays box only
+        if (!requested && current === SELL_MODE.BOX && !(units >= 1)) {
+          result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: sold in boxes only - choose "Pcs only" in Box / pieces to remove its box` });
+          continue;
+        }
+        const sellMode = requested || (current === SELL_MODE.BOX ? SELL_MODE.BOX : deriveSellMode({ hasBox: units >= 1, hasPcs: colorIds.length > 0 }));
         if (allowsPcs({ sell_mode: sellMode }) && (!sizeIds.length || !colorIds.length)) {
-          result.skipped.push({ product_id: id, sku: p.sku, reason: units >= 1 ? `${label}: add sizes first` : `${label}: has no colours - give it a box size` });
+          result.skipped.push({ product_id: id, sku: p.sku, reason: boxUnits >= 1 ? `${label}: add sizes first` : `${label}: has no colours - give it a box size` });
           continue;
         }
         if (allowsBox({ sell_mode: sellMode }) && !sizeIds.length) { result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: add sizes first (one box per size)` }); continue; }
         if (allowsBox({ sell_mode: sellMode }) && !colorIds.length) { result.skipped.push({ product_id: id, sku: p.sku, reason: `${label}: add colours first - boxes are packed from the loose pieces` }); continue; }
-        const existingVariants = catalog.variantsByProduct.get(id) || [];
         const sizeMrp = new Map(Object.entries(sizeMrpsOf(existingVariants)).filter(([, m]) => m !== Number(p.mrp)));
-        const unitsPerBox = allowsBox({ sell_mode: sellMode }) ? units : null;
+        const unitsPerBox = allowsBox({ sell_mode: sellMode }) ? boxUnits : null;
         const desired = planVariants({
           catalog, existingVariants, sku: p.sku, sellMode, sizeIds, colorIds, sizeMrp, unitsPerBox,
         });
@@ -558,9 +573,9 @@ export async function bulkSetSelling({
         ops.push(...applied.ops);
         ops.push(auditOp({
           admin, ip, action: AUDIT_ACTION.PRODUCT_UPDATED, entity_type: 'Product', entity_id: id,
-          old_value: { units_per_box: unitsPerBoxOf(p, existingVariants), pcs_for_new_customers: p.pcs_for_new_customers === true },
+          old_value: { sell_mode: current, units_per_box: unitsPerBoxOf(p, existingVariants), pcs_for_new_customers: p.pcs_for_new_customers === true },
           new_value: {
-            units_per_box: unitsPerBox, pcs_for_new_customers: fields.pcs_for_new_customers ?? (p.pcs_for_new_customers === true), new_boxes: applied.newVariants.filter(isBoxVariant).length, via,
+            sell_mode: sellMode, units_per_box: unitsPerBox, pcs_for_new_customers: fields.pcs_for_new_customers ?? (p.pcs_for_new_customers === true), new_boxes: applied.newVariants.filter(isBoxVariant).length, via,
           },
         }));
         result.updated.push(p.sku);

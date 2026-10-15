@@ -128,11 +128,11 @@ test('switching PCS / BOX / BOTH and pieces per box keeps IDs and stock, never d
   let catalog = await getCatalog({ fresh: true });
   let pub = serializeProduct(catalog, catalog.productsById.get(pid), { detail: true });
   assert.equal(pub.can_pcs, false);
-  assert.equal(pub.colors.length, 0, 'no colour choice on box-only products');
-  assert.equal(saved.variants.find((v) => v.variant_id === pcsId).status, 'INACTIVE');
+  assert.ok(pub.variants.every((v) => v.kind === 'BOX'), 'no colour choice on box-only products');
+  assert.equal(saved.variants.find((v) => v.variant_id === pcsId).status, 'ACTIVE', 'piece stock kept - boxes are packed from it');
 
   saved = await edit({ sell_mode: 'BOTH', units_per_box: 6 });
-  assert.equal(saved.variants.find((v) => v.variant_id === pcsId).status, 'ACTIVE', 'same piece variant reactivated');
+  assert.equal(saved.variants.find((v) => v.variant_id === pcsId).status, 'ACTIVE', 'same piece variant sold again');
   assert.deepEqual(await inventoryOf(pcsId), { stock: 50, reserved: 0, available: 50 }, 'stock kept');
 
   saved = await edit({ sell_mode: 'BOTH', units_per_box: 12 });
@@ -166,7 +166,8 @@ test('bulk selling options for many products at once', async () => {
   assert.equal(after.variants.find((v) => v.inventory_mode === 'BOX_WISE' && v.size_id === a.s34).unit_mrp, 1200, '10 x size MRP 120');
   const again = await bulkSetSelling(input, adminCtx);
   assert.deepEqual(again.unchanged.sort(), ['BULKA', 'BULKB'], 'running it again changes nothing');
-  assert.throws(() => bulkSellingSchema.parse({ product_ids: ['PRD-X'], sell_mode: 'BOX' }), /pieces are in one box/);
+  // "Box only" without a number = each product keeps its own box size
+  assert.equal(bulkSellingSchema.parse({ product_ids: ['PRD-X'], sell_mode: 'BOX' }).units_per_box, null);
 });
 
 test('first paid order makes the customer an existing customer (pieces + no minimum)', async () => {

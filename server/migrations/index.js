@@ -134,4 +134,25 @@ export const MIGRATIONS = [
       logger.info(`Migration v15: ${ops.length} articles added to the Online Collection`);
     },
   },
+  {
+    // "Sell in" Box / Pcs per article (Products.sell_mode BOX = box only is
+    // now offered in the admin). The owner asked for Sanjana Set (1007) and
+    // the Sanjana bra (1005) to be sold in loose pieces only: done once here,
+    // with the same safe bulk action the admin uses (box variants are set
+    // inactive, never deleted; pieces stock untouched). Only while they are
+    // still "Box + Pcs"; the admin can tick Box again any time.
+    version: 16,
+    description: 'Sell in Box / Pcs per article; Sanjana Set + Sanjana bra pcs only',
+    async up({ sheets, logger }) {
+      const { bulkSetSelling } = await import('../services/productService.js');
+      const rows = await sheets.read('Products', { fresh: true });
+      const ids = rows
+        .filter((r) => ['1007', '1005'].includes(String(r.sku || '').trim()) && /sanjana/i.test(String(r.product_name || ''))
+          && String(r.sell_mode || '').toUpperCase() === 'BOTH')
+        .map((r) => r.product_id);
+      if (!ids.length) return;
+      const res = await bulkSetSelling({ product_ids: ids, sell_mode: 'PCS', units_per_box: null, via: 'owner request: pcs only' }, { admin: { admin_id: 'SYSTEM' }, ip: '' });
+      logger.info(`Migration v16: pcs only for ${res.updated.join(', ') || 'none'}${res.skipped.length ? ` (skipped: ${res.skipped.map((s) => s.reason).join('; ')})` : ''}`);
+    },
+  },
 ];
