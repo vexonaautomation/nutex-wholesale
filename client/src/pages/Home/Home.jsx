@@ -80,7 +80,6 @@ export default function Home() {
         </div>
         <ul className="hero-nx-strip">
           <li>Bulk orders &amp; wholesale supply</li>
-          <li>Quality fabrication</li>
           <li>Built on decades of experience</li>
         </ul>
       </section>
