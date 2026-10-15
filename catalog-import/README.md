@@ -2,6 +2,8 @@
 
 Source: `NUTEX CATELOGUE ALL PRODUCT 01-10-2026.pdf` (prices W.E.F. 01-04-2026).
 
+Also: `ONLINE COLLECTION` pdf (78 pages, Oct 2026) - only its **8 new articles** were added (Kavita Set, Dolly Set, Butter Set, Iroda Set, Goa Set, Clara Set, Kiki Tube Set, Kavita Bra); every other page is an article already listed below. They have `"source": "ONLINE COLLECTION"`, images `products/oc-pNNN.jpg`, sizes 28-44 and `size_stock` (100 pcs per colour for 28-40, 0 for 42 and 44).
+
 ```
 catalog-import/
 ├── catalog.json            150 products + categories, colours, sizes (edit before importing if needed)
@@ -23,6 +25,7 @@ catalog-import/
 - **Admin → Catalogue Import**: preview, enter per category **pcs per box** (blank = no box) and tick **Allow** where new customers may also buy loose pieces, starting stock, click Import (progress shown).
 - or `npm run import:catalog -- --dry-run`, then e.g. `npm run import:catalog -- --box-all=6 --box=everyday-panty:12 --pcs-new=camisole-collection` (uses `.env`).
 - A product can also carry its own `"units_per_box"` / `"pcs_for_new_customers"` in catalog.json (overrides the category choice).
+- A product can carry `"size_stock"` (starting stock per size, pieces per colour); other sizes get the starting stock entered in the import screen.
 - Existing customers can always buy a box or loose pieces. New customers buy boxes only (unless allowed), so give every category a box size.
 
 The import is additive: existing SKUs are skipped and never changed, so it is safe to run again (it continues after an interruption). Edit `catalog.json` **before** the first import, or change products later in the admin product wizard.
