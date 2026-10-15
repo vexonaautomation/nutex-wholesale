@@ -105,6 +105,7 @@ export default function CatalogImport() {
           <ul className="small" style={{ paddingLeft: 18, margin: 0, lineHeight: 1.7 }}>
             <li><strong>{plan.products_to_create}</strong> new products with <strong>{plan.variants_to_create}</strong> colour + size variants, one catalogue image each.</li>
             <li><strong>{plan.products_existing}</strong> products already exist (matched by SKU) - <strong>skipped</strong>, nothing about them is changed{plan.existing_without_image ? `, except ${plan.existing_without_image} without any image get their catalogue image` : ''}.</li>
+            {plan.existing_to_tag > 0 && <li><strong>{plan.existing_to_tag}</strong> existing products are added to the <strong>Online Collection</strong> page (only that tag is added).</li>}
             <li>New sizes: {plan.sizes_to_create.length ? plan.sizes_to_create.join(', ') : 'none'}.</li>
             <li>New colours: {plan.colors_to_create.length ? `${plan.colors_to_create.length} (${plan.colors_to_create.join(', ')})` : 'none'}.</li>
             <li>New categories: {plan.categories_to_create.length ? plan.categories_to_create.join(', ') : 'none'}{plan.category_images_to_add.length ? ` · cover images for ${plan.category_images_to_add.length} categories` : ''}.</li>
@@ -156,7 +157,7 @@ export default function CatalogImport() {
           </button>
           {job && job.status !== 'idle' && (
             <div className="stack" style={{ gap: 8 }}>
-              <div className="row-between small"><strong>{job.phase}</strong><span>{job.done}/{job.total} · created {job.created} · skipped {job.skipped}</span></div>
+              <div className="row-between small"><strong>{job.phase}</strong><span>{job.done}/{job.total} · created {job.created} · skipped {job.skipped}{job.tagged ? ` · added to Online ${job.tagged}` : ''}</span></div>
               <div className={`progress ${job.status === 'done' ? 'is-complete' : ''}`}><span style={{ width: `${job.status === 'done' ? 100 : percent}%` }} /></div>
               {job.errors.length > 0 && <Alert type="warning">{job.errors.slice(-5).join(' · ')}</Alert>}
               <pre className="tiny" style={{ maxHeight: 160, overflow: 'auto', background: 'var(--ink-50)', padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap', margin: 0 }}>{job.log.join('\n')}</pre>

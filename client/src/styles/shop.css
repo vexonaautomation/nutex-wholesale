@@ -56,7 +56,7 @@
   border-bottom: 1px solid var(--border);
 }
 .header-inner { height: var(--header-h); display: flex; align-items: center; gap: 12px; }
-.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex-shrink: 0; } /* the logo never gets squeezed by the menu */
 .brand-mark {
   width: 38px;
   height: 38px;
@@ -88,10 +88,36 @@
   color: var(--ink-700);
   background: none;
   border: 0;
+  white-space: nowrap;
 }
+/* laptops: keep every menu item on one line next to the search box */
+.main-nav svg { flex-shrink: 0; }
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .main-nav { margin-left: 14px; gap: 0; }
+  .main-nav a, .main-nav button { padding: 8px 7px; font-size: 13px; }
+  .main-nav a.nav-online svg { display: none; }
+  .header-actions .header-search input { width: 140px; }
+  .customer-btn .hide-sm { display: none; } /* icon only - the button keeps its aria-label */
+}
+/* bigger screens: more room between the menu items */
+@media (min-width: 1280px) and (max-width: 1439px) {
+  .main-nav { margin-left: 14px; gap: 2px; }
+  .main-nav a, .main-nav button { padding: 9px 9px; }
+  .header-actions .header-search input { width: 160px; }
+}
+@media (min-width: 1440px) and (max-width: 1599px) {
+  .main-nav { margin-left: 28px; gap: 6px; }
+  .main-nav a, .main-nav button { padding: 9px 12px; }
+}
+@media (min-width: 1600px) { .main-nav { margin-left: 36px; gap: 8px; } .main-nav a, .main-nav button { padding: 9px 14px; } }
 .main-nav a:hover,
 .main-nav button:hover,
 .main-nav a.active { color: var(--brand-800); background: var(--brand-50); }
+/* "Online" collection link: highlighted in the menu */
+.main-nav a.nav-online { gap: 6px; color: #e3242b; font-weight: 700; }
+.main-nav a.nav-online:hover, .main-nav a.nav-online.active { color: #fff; background: #e3242b; }
+.mobile-nav a.mobile-nav-online { color: #e3242b; }
+.mobile-nav a.mobile-nav-online span { display: inline-flex; align-items: center; gap: 8px; }
 .nav-group { position: relative; }
 .nav-menu {
   position: absolute;
@@ -283,6 +309,7 @@
 .product-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 768px) { .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; } }
 @media (min-width: 1200px) { .product-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; } }
+@media (min-width: 1600px) { .product-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; } }
 .p-card { display: flex; flex-direction: column; min-width: 0; }
 .p-card-media {
   position: relative;

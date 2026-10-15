@@ -103,4 +103,9 @@ export const MIGRATIONS = [
     version: 13,
     description: 'Existing customers: address, state, pincode',
   },
+  {
+    // Additive only: Products.collections (blank for every existing article).
+    version: 14,
+    description: 'Product collections (Online Collection page)',
+  },
 ];

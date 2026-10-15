@@ -268,6 +268,10 @@ export const productSchema = z.object({
   status: statusEnum.default(RECORD_STATUS.ACTIVE),
   out_of_stock: z.boolean().default(false),
   featured: z.boolean().default(false),
+  // collection pages the article is shown in (e.g. ["online"]); undefined = keep
+  collections: z.union([z.array(z.string().trim().toLowerCase().max(40)).max(10), z.string().max(400)])
+    .transform((v) => (Array.isArray(v) ? v : v.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean)))
+    .optional(),
   sort_order: z.coerce.number().int().min(0).max(1000000).default(1000),
   seo_title: optText(120),
   seo_description: optText(300),
@@ -310,6 +314,13 @@ export const bulkSellingSchema = z.object({
   sell_mode: z.enum(SELL_MODES).optional(), // older clients
 }).superRefine((p, ctx) => {
   if (p.sell_mode && p.sell_mode !== 'PCS' && !(p.units_per_box >= 1)) ctx.addIssue({ code: 'custom', path: ['units_per_box'], message: 'Enter how many pieces are in one box' });
+});
+
+// add / remove a collection (e.g. Online Collection) for many articles
+export const bulkCollectionsSchema = z.object({
+  product_ids: z.array(id).min(1, 'Select at least one product').max(500),
+  collection: z.string().trim().toLowerCase().max(40),
+  add: z.boolean(),
 });
 
 export const bulkSizesSchema = z.object({

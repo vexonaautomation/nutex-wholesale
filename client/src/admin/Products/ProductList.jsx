@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Archive, Boxes, Copy, FileSpreadsheet, PackageCheck, PackageX, Pencil, Plus, Power, Ruler, Shirt,
+  Archive, Boxes, Copy, FileSpreadsheet, PackageCheck, PackageX, Pencil, Plus, Power, Ruler, Shirt, Sparkles,
 } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { useAsync, useDebounce } from '../../hooks/index.js';
@@ -122,9 +122,21 @@ export default function ProductList() {
     if (mode === 'box') return box;
     if (mode === 'nobox') return !box;
     if (mode === 'pcsnew') return p.pcs_for_new_customers;
+    if (mode === 'online') return (p.collections || []).includes('online');
     return true;
   }), [data, mode]);
   const counts = useMemo(() => ({ all: items.length, active: items.filter((p) => p.status === 'ACTIVE').length }), [items]);
+
+  // add / remove the ticked articles to / from the Online Collection page
+  const setOnline = async (add) => {
+    try {
+      const res = await adminApi.post('/products/bulk-collections', { product_ids: [...picked], collection: 'online', add });
+      toast.success(`${add ? 'Added to' : 'Removed from'} Online Collection: ${res.updated.length}${res.unchanged.length ? ` (${res.unchanged.length} already ${add ? 'in it' : 'out'})` : ''}.`);
+      reload();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
 
   const act = async (fn, msg) => {
     try {
@@ -160,7 +172,7 @@ export default function ProductList() {
           {(cats.data?.items || []).map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
         </select>
         <select className="select" value={mode} onChange={(e) => setMode(e.target.value)} aria-label="Box / pieces">
-          <option value="">All (box / pieces)</option><option value="box">With box</option><option value="nobox">No box yet</option><option value="pcsnew">Pieces open for new customers</option>
+          <option value="">All (box / pieces)</option><option value="box">With box</option><option value="nobox">No box yet</option><option value="pcsnew">Pieces open for new customers</option><option value="online">In Online Collection</option>
         </select>
       </div>
       {loading && !data ? <PageLoader /> : error ? <ErrorState error={error} onRetry={reload} /> : !items.length ? (
@@ -173,6 +185,8 @@ export default function ProductList() {
               <button type="button" className="btn btn-sm" onClick={() => setPicked(picked.size === items.length ? new Set() : new Set(items.map((p) => p.product_id)))}>{picked.size === items.length ? 'Clear selection' : `Select all ${items.length}`}</button>
               <button type="button" className="btn btn-sm btn-primary" disabled={!picked.size} onClick={() => setSizesOpen(true)}><Ruler /> Sizes</button>
               <button type="button" className="btn btn-sm btn-primary" disabled={!picked.size} onClick={() => setBulkOpen(true)}><Boxes /> Box / pieces</button>
+              <button type="button" className="btn btn-sm" disabled={!picked.size} onClick={() => setOnline(true)}><Sparkles /> Add to Online</button>
+              <button type="button" className="btn btn-sm" disabled={!picked.size} onClick={() => setOnline(false)}>Remove from Online</button>
             </div>
           </div>
           <div className="table-wrap">
@@ -187,7 +201,7 @@ export default function ProductList() {
                     <td>
                       <div className="row">
                         <div className="thumb"><Img src={p.image ? p.image.replace('/media/', '/api/admin/media/') : ''} label={p.product_name} alt="" /></div>
-                        <div><Link to={`/admin/products/${p.product_id}`} className="cell-main">{p.product_name}</Link><div className="cell-sub">{p.sku}{p.featured ? ' · Featured' : ''}</div></div>
+                        <div><Link to={`/admin/products/${p.product_id}`} className="cell-main">{p.product_name}</Link><div className="cell-sub">{p.sku}{p.featured ? ' · Featured' : ''}{(p.collections || []).includes('online') && <span className="badge badge-gold" style={{ marginLeft: 6 }}><Sparkles size={11} /> Online</span>}</div></div>
                       </div>
                     </td>
                     <td className="small">{p.category_name}</td>

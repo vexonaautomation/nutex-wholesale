@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, ArrowRight, Boxes, ChevronLeft, ChevronRight, ImagePlus, Palette, Plus, Rocket, Star, Trash2,
+  ArrowLeft, ArrowRight, Boxes, ChevronLeft, ChevronRight, ImagePlus, Palette, Plus, Rocket, Sparkles, Star, Trash2,
 } from 'lucide-react';
 import { adminApi, uploadImage } from '../../services/auth.js';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -55,6 +55,7 @@ function fromServer(res) {
     discount_mode: p.discount_mode || 'GLOBAL',
     pcs_for_new_customers: p.pcs_for_new_customers === true,
     box_extra_color: p.box_extra_color || '',
+    online: String(p.collections || '').split(',').includes('online'),
     units_per_box: p.units_per_box ? String(p.units_per_box) : '',
     loaded_units: p.units_per_box ? String(p.units_per_box) : '',
     legacy_boxes: Boolean(res.legacy_boxes),
@@ -253,6 +254,8 @@ export default function ProductWizard() {
       status: form.status,
       out_of_stock: form.out_of_stock,
       featured: form.featured,
+      // keep any other collection, switch "online" on / off
+      collections: [...String(form.collections || '').split(',').filter((c) => c && c !== 'online'), ...(form.online ? ['online'] : [])],
       sort_order: Number(form.sort_order) || 0,
       seo_title: form.seo_title,
       seo_description: form.seo_description,
@@ -283,6 +286,7 @@ export default function ProductWizard() {
       <Field label="Description" className="span-2"><textarea className="textarea" rows={6} value={form.description} onChange={(e) => set('description', e.target.value)} /></Field>
       <Field label="Sort order" hint="Lower numbers appear first"><input className="input" type="number" value={form.sort_order} onChange={(e) => set('sort_order', e.target.value)} /></Field>
       <label className="check" style={{ alignSelf: 'end', paddingBottom: 10 }}><input type="checkbox" checked={form.featured} onChange={(e) => set('featured', e.target.checked)} /> <Star size={16} /> Featured on homepage</label>
+      <label className="check" style={{ alignSelf: 'end', paddingBottom: 10 }}><input type="checkbox" checked={!!form.online} onChange={(e) => set('online', e.target.checked)} /> <Sparkles size={16} /> Show in Online Collection</label>
       <Field label="SEO title (optional)"><input className="input" value={form.seo_title} onChange={(e) => set('seo_title', e.target.value)} maxLength={120} /></Field>
       <Field label="SEO description (optional)"><input className="input" value={form.seo_description} onChange={(e) => set('seo_description', e.target.value)} maxLength={300} /></Field>
     </div>,
