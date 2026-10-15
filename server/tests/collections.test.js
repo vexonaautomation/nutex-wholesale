@@ -11,6 +11,8 @@ import {
 import { getCatalog, queryProducts } from '../services/catalogService.js';
 import { sheetsService } from '../services/sheetsService.js';
 import { productSchema, bulkCollectionsSchema } from '../utils/validation.js';
+import { MIGRATIONS } from '../migrations/index.js';
+import { logger } from '../utils/logger.js';
 
 // Online Collection: articles keep their category and are also shown on
 // the /online page (Products.collections = "online").
@@ -74,4 +76,32 @@ test('admin: add / remove articles to the Online Collection; the product form ke
   assert.deepEqual(res.updated, ['ONB']);
   assert.equal((await listProductsAdmin({ collection: 'online' })).length, 0);
   await assert.rejects(bulkSetCollection({ product_ids: ids, collection: 'summer', add: true }, adminCtx), /Unknown collection/);
+});
+
+test('deploy: migration v15 shows the catalogue articles on the Online page without any admin step', async () => {
+  const { adminCtx } = await freshStore();
+  const { catalog } = await loadCatalogFile();
+  await startCatalogImport({ ...adminCtx, stockPerVariant: 5, wait: true });
+  const other = await createColorProduct(adminCtx, { sku: 'NOTPDF', product_name: 'Not in the pdf' });
+
+  // the live site: articles imported before the tag existed, one cell already filled
+  const products = await sheetsService.read('Products', { fresh: true });
+  const keep = products.find((p) => p.sku === '1019');
+  await sheetsService.commit(products.map((p) => ({
+    op: 'update', sheet: 'Products', id: p.product_id, patch: { collections: p.product_id === keep.product_id ? 'kept' : '' },
+  })));
+  assert.equal(queryProducts(await getCatalog({ fresh: true }), { collection: 'online', limit: 100 }).total, 0, 'blank page before');
+
+  await MIGRATIONS.find((m) => m.version === 15).up({ sheets: sheetsService, logger });
+  const after = await sheetsService.read('Products', { fresh: true });
+  const online = new Set(catalog.products.filter((p) => p.collections.includes('online')).map((p) => p.sku));
+  assert.equal(after.filter((p) => p.collections === 'online').length, online.size - 1);
+  assert.ok(after.filter((p) => p.collections === 'online').every((p) => online.has(p.sku)), 'only pdf articles');
+  assert.equal(after.find((p) => p.sku === '1019').collections, 'kept', 'a filled cell is never overwritten');
+  assert.equal(after.find((p) => p.product_id === other.saved.product.product_id).collections, '', 'other articles untouched');
+  assert.equal(queryProducts(await getCatalog({ fresh: true }), { collection: 'online', limit: 100 }).total, online.size - 1);
+
+  // recorded once: a fresh start does not tag again
+  const versions = (await sheetsService.read('Schema_Version', { fresh: true })).map((r) => Number(r.version));
+  assert.ok(versions.includes(15));
 });
