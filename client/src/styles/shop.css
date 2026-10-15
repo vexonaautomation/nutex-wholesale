@@ -187,8 +187,9 @@
 }
 .hero-nx-inner { padding-top: 32px; padding-bottom: 36px; }
 .hero-nx-copy { max-width: 640px; }
-.hero-nx-logo { display: inline-flex; align-items: center; background: #fff; border-radius: 12px; padding: 12px 20px; box-shadow: 0 12px 32px rgba(0, 0, 0, .35); }
-.hero-nx-logo img { display: block; height: 58px; width: auto; }
+/* logo box softened so it sits in the dark banner instead of standing apart */
+.hero-nx-logo { display: inline-flex; align-items: center; background: #f3eeec; border-radius: 12px; padding: 12px 20px; opacity: .82; box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 10px 28px rgba(0, 0, 0, .45); }
+.hero-nx-logo img { display: block; height: 58px; width: auto; mix-blend-mode: multiply; } /* the logo's own white takes the box colour */
 .hero-nx-brand { margin: 26px 0 8px; font: 700 clamp(15px, 1.7vw, 22px)/1.2 var(--nx-font); letter-spacing: .28em; text-transform: uppercase; }
 .hero-nx-since { display: flex; align-items: center; gap: 14px; margin: 0; font: 500 12px/1 var(--nx-font); letter-spacing: .42em; text-transform: uppercase; color: rgba(255, 255, 255, .75); }
 .hero-nx-since::before { content: ''; width: 40px; height: 2px; background: var(--nx-red); }
