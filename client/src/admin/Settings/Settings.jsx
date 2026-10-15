@@ -260,9 +260,8 @@ export default function Settings() {
       {text('payment_whatsapp_number', 'Payment WhatsApp number', 'Blank = support WhatsApp number')}
       {area('payment_instructions', 'Payment instructions', 'One step per line', 5)}
     </div>,
-    <div className="form-grid" key="h">
-      {text('hero_title', 'Homepage headline')}
-      {area('hero_subtitle', 'Homepage sub-headline', '', 3)}
+    <div className="stack" key="h">
+      <Alert type="info">The home page banner is the Nutex design: logo, "Direct manufacturer to wholesale", "Quality Innerwear. Trusted Since Generations.", Explore collection and Wholesale enquiry (opens WhatsApp with the support number). The logo comes from Company → Company logo.</Alert>
     </div>,
     <div className="stack" key="l">
       <Alert type="warning">Default templates are provided for convenience. Have them reviewed by your legal/compliance advisor before going live. Placeholders like {'{{company_name}}'} are filled from Company settings.</Alert>

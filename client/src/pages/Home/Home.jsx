@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, BadgeCheck, BadgePercent, Boxes, LockKeyhole, MessageCircle, PackageSearch, QrCode, Ruler, ShieldCheck, Target, Truck,
+  ArrowRight, Boxes, IndianRupee, LockKeyhole, MessageCircle, PackageSearch, QrCode, Ruler, Truck,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext.jsx';
 import { api } from '../../services/api.js';
@@ -8,11 +8,8 @@ import { useAsync, useSeo } from '../../hooks/index.js';
 import { ProductCard, ProductGridSkeleton } from '../../components/ProductCard/ProductCard.jsx';
 import { Img } from '../../components/common/ui.jsx';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
-import { formatINR, pct } from '../../utils/format.js';
-import { discountHeadline, maxSlabPercent, wholesaleOf } from '../../utils/pricing.js';
+import { formatINR } from '../../utils/format.js';
 import { waLink, waNumber } from '../../utils/whatsapp.js';
-import { useCustomer } from '../../context/CustomerContext.jsx';
-import { ExistingCustomerPrompt } from '../../components/ExistingCustomerLogin/ExistingCustomerLogin.jsx';
 
 const titleCase = (s) => s.charAt(0) + s.slice(1).toLowerCase();
 
@@ -41,68 +38,51 @@ function GroupSection({ group }) {
 }
 
 export default function Home() {
-  const { settings, categories, groups, slabs } = useStore();
+  const { settings, categories, groups } = useStore();
   // Settings > online payment OFF: no QR step, the team confirms each order
   const onlinePay = settings?.online_payment_enabled !== false;
   const featured = useAsync(() => api.get('/api/products?featured=true&limit=8'), []);
-  const customer = useCustomer();
   const company = settings?.company_name || 'Nutex Apparel Limited';
   useSeo({
     title: `${company} | Wholesale Bras, Panties & Lingerie`,
     description: `Wholesale ordering from ${company}: bras, panties, lingerie sets, camisoles and men's innerwear at wholesale prices.`,
   });
-  const slabMode = settings?.discount_mode === 'SLAB';
-  const examplePct = slabMode ? maxSlabPercent(slabs) : Number(settings?.default_discount_percent || 0);
-  const exampleMrp = 500;
   const wa = waNumber(settings);
 
   return (
     <>
-      {/* HERO */}
-      <section className="hero">
-        <div className="container hero-inner">
-          <div>
-            <span className="eyebrow">{company} · Wholesale</span>
-            <h1>{settings?.hero_title || 'Wholesale innerwear, direct from Nutex'}</h1>
-            <p className="hero-sub">{settings?.hero_subtitle}</p>
-            <div className="hero-cta">
-              <Link to="/shop" className="btn btn-primary btn-lg">Shop wholesale catalogue <ArrowRight /></Link>
-              <a href="#how-it-works" className="btn btn-lg">How ordering works</a>
-            </div>
-            {settings && (
-              <div className="hero-facts">
-                {customer.isExisting
-                  ? <span className="fact" style={{ borderColor: '#c4e7d3', color: 'var(--success-700)' }}><BadgeCheck /> Existing customer · no minimum</span>
-                  : <span className="fact"><Target /> Minimum order {formatINR(settings.minimum_order_value)}</span>}
-                <span className="fact"><BadgePercent /> {discountHeadline(settings, slabs)}</span>
-                {onlinePay
-                  ? <span className="fact"><QrCode /> Pay by UPI QR</span>
-                  : <span className="fact"><BadgeCheck /> Orders confirmed by our team</span>}
+      {/* HERO: Nutex banner - direct manufacturer to wholesale */}
+      <section className="hero-nx" aria-label={`${company} - direct manufacturer to wholesale`}>
+        <div className="hero-nx-main">
+          <img className="hero-nx-photo" src="/hero/hero-model.webp" alt="" width="843" height="985" fetchpriority="high" />
+          <div className="container hero-nx-inner">
+            <div className="hero-nx-copy">
+              <div className="hero-nx-logo">
+                <img src={settings?.company_logo_url || '/hero/hero-logo.png'} alt={company} />
               </div>
-            )}
-            {settings && !customer.isExisting && (
-              <div className="mt-2" style={{ maxWidth: 520 }}><ExistingCustomerPrompt /></div>
-            )}
+              <p className="hero-nx-brand">Nutex Inner Buddy</p>
+              <p className="hero-nx-since">Since 1951</p>
+              <h1 className="hero-nx-title">
+                <span>Direct</span>
+                <span>Manufacturer</span>
+                <span className="is-red">To Wholesale</span>
+              </h1>
+              <p className="hero-nx-sub">Quality Innerwear. Trusted Since Generations.</p>
+              <div className="hero-nx-cta">
+                <Link to="/shop" className="hero-nx-btn is-red">Explore collection <ArrowRight /></Link>
+                {wa
+                  ? <a className="hero-nx-btn is-outline" href={waLink(wa, 'Hello Nutex Team, I have a wholesale enquiry.')} target="_blank" rel="noopener noreferrer">Wholesale enquiry</a>
+                  : <Link to="/contact" className="hero-nx-btn is-outline">Wholesale enquiry</Link>}
+              </div>
+              <p className="hero-nx-note">Manufacturing heritage since 1951</p>
+            </div>
           </div>
-          {settings && (
-            <div className="price-card" aria-label="Wholesale pricing example">
-              <div className="pc-head">
-                <span className="eyebrow">Pricing example</span>
-                <span className="badge badge-success">{slabMode ? `Up to ${pct(examplePct)}` : pct(examplePct)} OFF</span>
-              </div>
-              <div className="pc-row"><span className="muted">Product MRP</span><span className="pc-mrp num">{formatINR(exampleMrp)}</span></div>
-              <div className="pc-row"><span className="muted">Wholesale discount</span><strong>{pct(examplePct)}</strong></div>
-              <div className="pc-row">
-                <span className="muted">You pay per piece</span>
-                <span className="pc-big num">{formatINR(wholesaleOf(exampleMrp, examplePct))}</span>
-              </div>
-              <div className="pc-note">
-                Illustration only. Final prices are calculated by our system in your cart.
-                Orders need a final payable value of at least <strong>{formatINR(settings.minimum_order_value)}</strong>.
-              </div>
-            </div>
-          )}
         </div>
+        <ul className="hero-nx-strip">
+          <li>Bulk orders &amp; wholesale supply</li>
+          <li>Quality fabrication</li>
+          <li>Built on decades of experience</li>
+        </ul>
       </section>
 
       {/* SHOP BY CATEGORY */}
@@ -151,49 +131,6 @@ export default function Home() {
       {/* GROUPS: Women / Panties / Men ... (dynamic from category parent groups) */}
       {groups.map((g) => <GroupSection key={g.name} group={g} />)}
 
-      {/* MINIMUM ORDER + DISCOUNT */}
-      {settings && (
-        <section className="section section-blush">
-          <div className="container two-col" style={{ alignItems: 'stretch' }}>
-            <div className="card card-pad">
-              <span className="eyebrow">Wholesale pricing</span>
-              <h2 className="display" style={{ fontSize: 28, margin: '8px 0 10px' }}>{discountHeadline(settings, slabs)}</h2>
-              {slabMode ? (
-                <>
-                  <p className="muted">Your discount depends on your cart value. The bigger the order, the bigger the discount.</p>
-                  <table className="slab-table">
-                    <thead><tr><th>Cart value</th><th style={{ textAlign: 'right' }}>Discount</th></tr></thead>
-                    <tbody>
-                      {slabs.map((s) => (
-                        <tr key={s.slab_id}>
-                          <td>{formatINR(s.min_amount)} {s.max_amount === null ? 'and above' : `– ${formatINR(s.max_amount)}`}</td>
-                          <td>{pct(s.discount_percent)} OFF</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              ) : (
-                <p className="muted">A flat {pct(settings.default_discount_percent)} discount on MRP applies to every product, and your cart shows the exact amount before you order.</p>
-              )}
-            </div>
-            <div className="card card-pad">
-              <span className="eyebrow">Minimum order</span>
-              <h2 className="display" style={{ fontSize: 28, margin: '8px 0 10px' }}>{formatINR(settings.minimum_order_value)} minimum wholesale order</h2>
-              <p className="muted">The minimum is checked on your <strong>final payable value after discount</strong>. Your cart shows exactly how much more is needed.</p>
-              <div className="info-tile mt-2"><ShieldCheck /> Checkout unlocks automatically once your final payable total reaches {formatINR(settings.minimum_order_value)}.</div>
-              <div className="info-tile mt-1">
-                <BadgeCheck />
-                <div>
-                  <strong>Existing Nutex customers:</strong> {Number(settings.existing_customer_minimum_order_value) > 0 ? `minimum order only ${formatINR(settings.existing_customer_minimum_order_value)}` : 'no minimum order - buy even a single piece'}.{' '}
-                  {customer.isExisting ? <span style={{ color: 'var(--success-700)', fontWeight: 600 }}>You are verified.</span> : <button type="button" className="link" onClick={customer.openLogin}>Verify with WhatsApp</button>}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* BENEFITS */}
       <section className="section">
         <div className="container">
@@ -204,7 +141,7 @@ export default function Home() {
             </div>
           </div>
           <div className="benefits">
-            <div className="benefit"><div className="benefit-icon"><BadgePercent /></div><h3>Wholesale pricing upfront</h3><p>See MRP, discount and your final wholesale value before you place the order.</p></div>
+            <div className="benefit"><div className="benefit-icon"><IndianRupee /></div><h3>Clear wholesale pricing</h3><p>Your cart shows the exact wholesale value before you place the order.</p></div>
             <div className="benefit"><div className="benefit-icon"><Ruler /></div><h3>Order size-wise</h3><p>Pick a colour and enter quantities for every size in one step.</p></div>
             <div className="benefit"><div className="benefit-icon"><Boxes /></div><h3>Mix-colour boxes</h3><p>Selected styles are supplied as assorted colour boxes - just choose the number of boxes.</p></div>
             <div className="benefit"><div className="benefit-icon"><LockKeyhole /></div><h3>Locked orders</h3><p>Once you submit payment details, your order is locked so nothing changes by mistake.</p></div>
@@ -225,7 +162,7 @@ export default function Home() {
           </div>
           <div className="steps">
             <div className="step"><h3>Browse &amp; select</h3><p>Choose products, colours and sizes - or mix-colour boxes.</p></div>
-            <div className="step"><h3>Reach the minimum</h3><p>Your cart shows the discount and how much is left to reach {settings ? formatINR(settings.minimum_order_value) : 'the minimum'}.</p></div>
+            <div className="step"><h3>Reach the minimum</h3><p>Your cart shows your wholesale total and how much is left to reach {settings ? formatINR(settings.minimum_order_value) : 'the minimum'}.</p></div>
             <div className="step"><h3>Checkout</h3><p>Enter business and delivery details. Your order number is created instantly.</p></div>
             {onlinePay ? (
               <>

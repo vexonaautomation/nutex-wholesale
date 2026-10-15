@@ -43,7 +43,7 @@ export function Header() {
   const announcement = settings?.announcement_text
     || (settings ? (customer.isExisting
       ? `Welcome back · Existing customer - no minimum order · ${discountHeadline(settings, slabs)}`
-      : `Wholesale only · Minimum order ${formatINR(settings.minimum_order_value)} (final value after discount) · ${discountHeadline(settings, slabs)}`) : '');
+      : `Wholesale only · Minimum order ${formatINR(settings.minimum_order_value)} (final value after discount)`) : '');
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -108,6 +108,12 @@ export function Header() {
             </Link>
           </div>
         </div>
+        <div className="container mobile-search">
+          <form onSubmit={onSearch} role="search">
+            <Search />
+            <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products or SKU" aria-label="Search products" enterKeyHint="search" />
+          </form>
+        </div>
       </header>
       {cart.editing && (
         <div className="edit-banner">
@@ -132,10 +138,6 @@ export function Header() {
       )}
 
       <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu" side="left">
-        <form onSubmit={onSearch} className="input-group mb-2" role="search">
-          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products or SKU" aria-label="Search products" />
-          <button className="btn" type="submit" aria-label="Search"><Search /></button>
-        </form>
         <nav className="mobile-nav" onClick={(e) => e.target.closest('a') && setMenuOpen(false)}>
           <Link to="/shop">Shop all products <ChevronRight size={16} /></Link>
           {groups.map((g) => (
