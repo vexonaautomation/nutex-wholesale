@@ -12,11 +12,15 @@ import { getSettings } from '../services/settingsService.js';
 import { sheetsService } from '../services/sheetsService.js';
 import { productSchema } from '../utils/validation.js';
 
+// main catalogue (150) + the 8 new articles of the ONLINE COLLECTION pdf
+const TOTAL = 158;
+const NEW_SKUS = ['1019', '7140', '1020', '2024', '1021', '1110-CLARA-SET', '7109V', '7109'];
+
 test('catalog.json is valid: one product per catalogue page, unique SKUs, known colours', async () => {
   const { catalog } = await loadCatalogFile();
   const s = catalogSummary(catalog);
-  assert.equal(s.products, 150);
-  const pages = catalog.products.map((p) => p.page);
+  assert.equal(s.products, TOTAL);
+  const pages = catalog.products.map((p) => `${p.source}:${p.page}`);
   assert.equal(new Set(pages).size, pages.length, 'each catalogue page is its own product');
   const images = catalog.products.map((p) => p.image);
   assert.equal(new Set(images).size, images.length, 'each product has its own image');
@@ -26,6 +30,17 @@ test('catalog.json is valid: one product per catalogue page, unique SKUs, known 
     for (const c of p.colors) assert.ok(colorNames.has(c), `${p.name}: colour ${c} defined`);
   }
   assert.ok(catalog.products.some((p) => p.sku === '1010-AAKRITI-SET') && catalog.products.some((p) => p.sku === '1010-CLARA-PANTY'), 'duplicate style numbers made unique');
+
+  // ONLINE COLLECTION: only new articles, sets / bras 28-44, stock 100 for 28-40
+  const online = catalog.products.filter((p) => p.source === 'ONLINE COLLECTION');
+  assert.deepEqual(online.map((p) => p.sku), NEW_SKUS);
+  const oldNames = new Set(catalog.products.filter((p) => !p.source).map((p) => p.name.toLowerCase()));
+  assert.ok(online.every((p) => !oldNames.has(p.name.toLowerCase())), 'no article added twice');
+  assert.equal(catalog.products.find((p) => p.sku === '1110').name, 'Lavender', 'style no. 1110 stays the Lavender bra');
+  for (const p of online) {
+    assert.deepEqual(p.sizes, ['28', '30', '32', '34', '36', '38', '40', '42', '44'], p.name);
+    assert.deepEqual(p.size_stock, { 28: 100, 30: 100, 32: 100, 34: 100, 36: 100, 38: 100, 40: 100, 42: 0, 44: 0 }, p.name);
+  }
 });
 
 test('catalogue import: creates everything once, re-run is additive and never overwrites', async () => {
@@ -33,20 +48,32 @@ test('catalogue import: creates everything once, re-run is additive and never ov
   const { catalog } = await loadCatalogFile();
   const before = await sheetsService.readMany(['Categories', 'Sizes', 'Colors', 'Products', 'Product_Images'], { fresh: true });
   const plan = planImport(catalog, before);
-  assert.equal(plan.products_to_create, 150);
+  assert.equal(plan.products_to_create, TOTAL);
   assert.ok(plan.categories_to_create.includes('T-Shirt Bra') === false, 'initial master data already has T-Shirt Bra');
 
   const job = await startCatalogImport({ ...adminCtx, stockPerVariant: 7, wait: true });
   assert.equal(job.status, 'done');
-  assert.equal(job.created, 150);
+  assert.equal(job.created, TOTAL);
   assert.deepEqual(job.errors, []);
 
-  const data = await sheetsService.readMany(['Products', 'Product_Variants', 'Inventory', 'Product_Images', 'Categories'], { fresh: true });
-  assert.equal(data.Products.length, 150);
+  const data = await sheetsService.readMany(['Products', 'Product_Variants', 'Inventory', 'Product_Images', 'Categories', 'Sizes'], { fresh: true });
+  assert.equal(data.Products.length, TOTAL);
   assert.equal(data.Product_Variants.length, catalogSummary(catalog).variants);
-  assert.ok(data.Inventory.every((i) => i.stock_qty === 7 && i.available_qty === 7));
-  assert.equal(data.Product_Images.length, 150, 'one image per product');
-  assert.equal(new Set(data.Product_Images.map((i) => i.drive_file_id)).size, 150);
+  // starting stock: 7 (import screen) - the new articles have their own per size
+  const skuOf = new Map(data.Products.map((p) => [p.product_id, p.sku]));
+  const sizeOf = new Map(data.Sizes.map((s) => [s.size_id, s.size_name]));
+  const variantSize = new Map(data.Product_Variants.map((v) => [v.variant_id, sizeOf.get(v.size_id)]));
+  for (const i of data.Inventory) {
+    const expected = NEW_SKUS.includes(skuOf.get(i.product_id)) ? (Number(variantSize.get(i.variant_id)) <= 40 ? 100 : 0) : 7;
+    assert.equal(i.stock_qty, expected, `${skuOf.get(i.product_id)} size ${variantSize.get(i.variant_id)}`);
+    assert.equal(i.available_qty, expected);
+  }
+  assert.ok(['28', '44'].every((s) => data.Sizes.some((x) => x.size_name === s)), 'sizes 28 and 44 exist');
+  const kiki = data.Products.find((p) => p.sku === '7109V');
+  assert.equal(kiki.size_ids.split(',').length, 9);
+  assert.equal(kiki.color_ids.split(',').length, 6);
+  assert.equal(data.Product_Images.length, TOTAL, 'one image per product');
+  assert.equal(new Set(data.Product_Images.map((i) => i.drive_file_id)).size, TOTAL);
   assert.ok(data.Categories.filter((c) => c.image_file_id).length >= 10, 'category covers attached');
   const settings = await getSettings({ fresh: true });
   assert.ok(settings.company_logo_file_id && settings.size_chart_file_id, 'logo and size chart set');
@@ -79,13 +106,13 @@ test('catalogue import: creates everything once, re-run is additive and never ov
   }), { ...adminCtx, productId: sahin.product_id });
   const again = await startCatalogImport({ ...adminCtx, stockPerVariant: 50, wait: true });
   assert.equal(again.created, 0);
-  assert.equal(again.skipped, 150);
+  assert.equal(again.skipped, TOTAL);
   const after = await sheetsService.readMany(['Products', 'Product_Variants', 'Inventory', 'Product_Images', 'Categories', 'Colors', 'Sizes'], { fresh: true });
-  assert.equal(after.Products.length, 150);
+  assert.equal(after.Products.length, TOTAL);
   assert.equal(after.Products.find((p) => p.sku === '2042').mrp, 999, 'admin price kept');
   assert.equal(after.Product_Variants.length, data.Product_Variants.length);
-  assert.ok(after.Inventory.every((i) => i.stock_qty === 7), 'existing stock untouched');
-  assert.equal(after.Product_Images.length, 150);
+  assert.deepEqual(after.Inventory.map((i) => i.stock_qty), data.Inventory.map((i) => i.stock_qty), 'existing stock untouched');
+  assert.equal(after.Product_Images.length, TOTAL);
   assert.equal(after.Categories.length, data.Categories.length);
 });
 

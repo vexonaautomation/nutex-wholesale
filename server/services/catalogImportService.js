@@ -13,7 +13,7 @@
 //    stock and status stay exactly as the admin left them). If an imported
 //    product has no image at all, the catalogue image is attached.
 //  * stock is written only for NEW variants (the starting stock chosen by
-//    the admin, default 0).
+//    the admin, default 0 - or the product's own "size_stock" per size).
 // =====================================================================
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -46,6 +46,8 @@ const sleep = (ms) => new Promise((r) => { setTimeout(r, ms); });
 const relPath = z.string().trim().regex(/^[a-z0-9][a-z0-9/_.-]*\.(jpg|jpeg|png|webp)$/i, 'Image path must be a relative jpg/png/webp path').refine((p) => !p.includes('..'), 'Invalid image path');
 const productEntry = z.object({
   page: z.number().int().optional(),
+  // which PDF the page number belongs to (blank = the main Nutex catalogue)
+  source: z.string().trim().max(100).optional().default(''),
   category: z.string().trim().min(1),
   name: z.string().trim().min(2).max(200),
   style_no: z.string().trim().max(64).optional().default(''),
@@ -63,6 +65,9 @@ const productEntry = z.object({
   sell_mode: z.enum(SELL_MODES).optional(),
   units_per_box: z.number().int().min(1).max(10000).optional(),
   pcs_for_new_customers: z.boolean().optional(),
+  // optional: starting stock per size for this product (pieces per colour);
+  // sizes not listed get the starting stock chosen in the import screen
+  size_stock: z.record(z.string(), z.number().int().min(0).max(100000)).optional(),
 });
 const catalogSchema = z.object({
   version: z.number(),
@@ -88,6 +93,9 @@ const catalogSchema = z.object({
     skus.add(p.sku);
     for (const s of Object.keys(p.size_mrp || {})) {
       if (!p.sizes.includes(s)) ctx.addIssue({ code: 'custom', path: ['products', i, 'size_mrp'], message: `${p.name}: size_mrp size ${s} is not in sizes` });
+    }
+    for (const s of Object.keys(p.size_stock || {})) {
+      if (!p.sizes.includes(s)) ctx.addIssue({ code: 'custom', path: ['products', i, 'size_stock'], message: `${p.name}: size_stock size ${s} is not in sizes` });
     }
   });
 });
@@ -460,10 +468,13 @@ async function runImport({
           sort_order: p.page ? p.page * 10 : 1000, seo_title: '', seo_description: '',
           created_at: now, updated_at: now, created_by: by, updated_by: by,
         });
+        const sizeNameById = new Map(sizes.map((s) => [s.size_id, s.size_name]));
         for (const { fields } of plan) {
           const variantId = newId(ID_PREFIX.variant);
           rows.Product_Variants.push({ variant_id: variantId, product_id: pid, ...fields, created_at: now, updated_at: now });
-          rows.Inventory.push(inventoryRow(pid, variantId, fields, isBoxVariant(fields) ? 0 : stock, INVENTORY_STATUS.ACTIVE, now, by));
+          const own = p.size_stock?.[sizeNameById.get(fields.size_id)];
+          const pieces = isBoxVariant(fields) ? 0 : own ?? stock;
+          rows.Inventory.push(inventoryRow(pid, variantId, fields, pieces, INVENTORY_STATUS.ACTIVE, now, by));
           activeVariantSkus.add(fields.sku);
         }
         if (fileId) rows.Product_Images.push(imageRow(pid, fileId, p.name, now));
