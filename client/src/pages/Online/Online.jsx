@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowDown, ArrowRight, ChevronDown, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowRight, Sparkles } from 'lucide-react';
 import { api } from '../../services/api.js';
 import { useAsync, useSeo } from '../../hooks/index.js';
 import { useStore } from '../../context/StoreContext.jsx';
@@ -25,7 +25,6 @@ const CHAPTERS = [
   { key: 'panty', slugs: ['everyday-panty'], title: 'Everyday', accent: 'Panties', tagline: 'Soft, breathable panties in cotton, lace and prints.', cover: '/online/panty.webp' },
 ];
 const MORE = { key: 'more', slugs: [], title: 'More', accent: 'Styles', tagline: 'More pieces from the online catalogue.', cover: '/online/catalogue.webp' };
-const FIRST_ROWS = 6;
 const two = (n) => String(n).padStart(2, '0');
 
 // Soft fade-in on scroll; nothing moves for people who prefer reduced motion.
@@ -60,8 +59,6 @@ function Seal() {
 }
 
 function Chapter({ chapter, index }) {
-  const [open, setOpen] = useState(false);
-  const shown = open ? chapter.items : chapter.items.slice(0, FIRST_ROWS);
   return (
     <section id={`ocx-${chapter.key}`} className={`ocx-chapter ${index % 2 ? 'is-flip' : ''}`} aria-labelledby={`ocx-${chapter.key}-title`}>
       <div className="container ocx-chapter-inner">
@@ -78,15 +75,8 @@ function Chapter({ chapter, index }) {
           <p>{chapter.tagline}</p>
         </header>
         <div className="product-grid ocx-grid">
-          {shown.map((p) => <div key={p.product_id} data-reveal><ProductCard product={p} /></div>)}
+          {chapter.items.map((p) => <div key={p.product_id} data-reveal><ProductCard product={p} /></div>)}
         </div>
-        {chapter.items.length > FIRST_ROWS && (
-          <div className="ocx-more">
-            <button type="button" className="ocx-btn is-ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-              {open ? 'Show fewer' : `View all ${chapter.items.length} styles`} <ChevronDown className={open ? 'is-up' : ''} />
-            </button>
-          </div>
-        )}
       </div>
     </section>
   );

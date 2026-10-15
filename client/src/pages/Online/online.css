@@ -55,7 +55,6 @@
 .ocx-btn:hover { color: #fff; }
 .ocx-btn:focus-visible { outline: 2px solid var(--ocx-gold); outline-offset: 3px; }
 .ocx-btn svg { width: 18px; height: 18px; transition: transform 0.25s ease; }
-.ocx-btn svg.is-up { transform: rotate(180deg); }
 .ocx-btn.is-red { background: var(--ocx-red); box-shadow: 0 12px 30px rgba(227, 36, 43, 0.32); }
 .ocx-btn.is-red:hover { background: var(--ocx-red-dark); }
 .ocx-btn.is-ghost { border-color: rgba(246, 239, 230, 0.55); background: rgba(0, 0, 0, 0.25); }
@@ -204,7 +203,7 @@
 .ocx-chapter-inner {
   display: grid;
   grid-template-columns: 116px minmax(0, 1fr);
-  grid-template-areas: 'cover head' 'grid grid' 'more more';
+  grid-template-areas: 'cover head' 'grid grid';
   gap: 22px 18px;
   align-items: center;
 }
@@ -235,7 +234,6 @@
 .ocx-chapter-head h2 em { font-style: italic; font-weight: 500; color: var(--ocx-gold); }
 .ocx-chapter-head p { margin: 0; max-width: 540px; font-size: 14.5px; line-height: 1.6; color: var(--ocx-muted); }
 .ocx-grid { grid-area: grid; }
-.ocx-more { grid-area: more; display: flex; justify-content: center; }
 
 /* products as cream boutique tiles on the dark page */
 .ocx .p-card {
@@ -259,20 +257,19 @@
   .ocx-chapter { padding: 72px 0; }
   .ocx-chapter-inner {
     grid-template-columns: 300px minmax(0, 1fr);
-    grid-template-areas: 'cover head' 'cover grid' 'cover more';
-    grid-template-rows: auto auto 1fr;
+    grid-template-areas: 'cover head' 'cover grid';
+    grid-template-rows: auto 1fr;
     gap: 26px 48px;
     align-items: start;
   }
   .ocx-chapter.is-flip .ocx-chapter-inner {
     grid-template-columns: minmax(0, 1fr) 300px;
-    grid-template-areas: 'head cover' 'grid cover' 'more cover';
+    grid-template-areas: 'head cover' 'grid cover';
   }
   .ocx-cover { position: sticky; top: calc(var(--ocx-chips-top) + var(--ocx-chips-h) + 18px); border-radius: 18px; }
   .ocx-cover figcaption { padding: 18px; }
   .ocx-num { font-size: 46px; }
   .ocx-ccount { display: inline; }
-  .ocx-more { justify-content: flex-start; }
 }
 @media (min-width: 1200px) {
   .ocx .ocx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
