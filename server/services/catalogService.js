@@ -10,6 +10,7 @@ import {
 } from '../utils/sellMode.js';
 import { displayDiscountPercent, getActiveSlabs } from './priceCalculator.js';
 import { round2 } from '../utils/money.js';
+import { collectionsOf } from '../utils/collections.js';
 
 const bySort = (nameKey) => (a, b) => (a.sort_order ?? 1e9) - (b.sort_order ?? 1e9) || String(a[nameKey]).localeCompare(String(b[nameKey]));
 const splitIds = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -177,6 +178,7 @@ export function serializeProduct(catalog, product, { detail = false } = {}) {
     category_name: category?.category_name || '',
     category_slug: category?.slug || '',
     parent_category: category?.parent_category || '',
+    collections: collectionsOf(product),
     subcategory: product.subcategory,
     mrp: Number(product.mrp) || 0,
     // size-wise MRP range per piece (equal to mrp when every size has the same MRP)
@@ -263,7 +265,7 @@ export function findProduct(catalog, idOrSlug) {
 
 export function queryProducts(catalog, params = {}) {
   const {
-    category, q, featured, size, color, in_stock: inStockOnly, sort = 'featured', page = 1, limit = 24, parent,
+    category, q, featured, size, color, in_stock: inStockOnly, sort = 'featured', page = 1, limit = 24, parent, collection,
   } = params;
   const cat = category ? catalog.categoriesBySlug.get(category) || catalog.categoriesById.get(category) : null;
   if (category && !cat) return { items: [], total: 0, page: 1, limit: Number(limit) || 24 };
@@ -273,6 +275,7 @@ export function queryProducts(catalog, params = {}) {
     .filter((p) => !cat || p.category_id === cat.category_id)
     .filter((p) => !parent || (catalog.categoriesById.get(p.category_id)?.parent_category || '') === String(parent).toUpperCase())
     .filter((p) => !featured || p.featured === true)
+    .filter((p) => !collection || collectionsOf(p).includes(String(collection).toLowerCase()))
     .filter((p) => !needle || [p.product_name, p.sku, p.subcategory, p.description].some((v) => String(v).toLowerCase().includes(needle)))
     .map((p) => serializeProduct(catalog, p));
   if (size) items = items.filter((p) => p.sizes.some((s) => s.size_id === size));

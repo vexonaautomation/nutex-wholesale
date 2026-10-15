@@ -21,6 +21,7 @@ import ThankYou from './pages/ThankYou/ThankYou.jsx';
 import Order from './pages/Order/Order.jsx';
 import TrackOrder from './pages/TrackOrder/TrackOrder.jsx';
 import MyOrders from './pages/MyOrders/MyOrders.jsx';
+import Online from './pages/Online/Online.jsx';
 import Contact from './pages/Contact/Contact.jsx';
 import Legal from './pages/Legal/Legal.jsx';
 import NotFound from './pages/NotFound/NotFound.jsx';
@@ -86,6 +87,7 @@ export default function App() {
           <Route path="order/:orderNumber/thank-you" element={<ThankYou />} />
           <Route path="track-order" element={<TrackOrder />} />
           <Route path="my-orders" element={<MyOrders />} />
+          <Route path="online" element={<Online />} />
           <Route path="contact" element={<Contact />} />
           <Route path="policies/:slug" element={<Legal />} />
           <Route path="*" element={<NotFound />} />

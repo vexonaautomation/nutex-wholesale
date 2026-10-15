@@ -14,6 +14,7 @@ import { slugify, uniqueSlug } from '../utils/slug.js';
 import { badRequest, notFound, conflict } from '../utils/errors.js';
 import { availableOf, autoBoxInfo, EXTRA_COLOUR_AUTO } from '../utils/stockValidator.js';
 import { calculatePricing } from './priceCalculator.js';
+import { COLLECTIONS, collectionsOf, joinCollections } from '../utils/collections.js';
 import {
   allowsBox, allowsPcs, isBoxVariant, primaryInventoryMode, sellModeOf, variantOffered, deriveSellMode,
 } from '../utils/sellMode.js';
@@ -86,6 +87,7 @@ function adminSummary(catalog, p) {
     status: p.status,
     out_of_stock: p.out_of_stock,
     featured: p.featured,
+    collections: collectionsOf(p),
     sort_order: p.sort_order,
     image: productImages(catalog, p)[0]?.url || '',
     variant_count: variants.length,
@@ -99,7 +101,7 @@ function adminSummary(catalog, p) {
 }
 
 export async function listProductsAdmin({
-  q, status, category_id, inventory_mode, sell_mode,
+  q, status, category_id, inventory_mode, sell_mode, collection,
 } = {}) {
   const catalog = await getCatalog({ fresh: true });
   const needle = String(q || '').trim().toLowerCase();
@@ -108,6 +110,7 @@ export async function listProductsAdmin({
     .filter((p) => !category_id || p.category_id === category_id)
     .filter((p) => !inventory_mode || p.inventory_mode === inventory_mode)
     .filter((p) => !sell_mode || sellModeOf(p) === sell_mode)
+    .filter((p) => !collection || collectionsOf(p).includes(String(collection).toLowerCase()))
     .filter((p) => !needle || [p.product_name, p.sku, p.product_id].some((v) => String(v).toLowerCase().includes(needle)))
     .map((p) => adminSummary(catalog, p));
 }
@@ -222,6 +225,7 @@ export async function saveProduct(input, { admin, ip, productId = null, extraAud
       status: input.status,
       out_of_stock: input.out_of_stock,
       featured: input.featured,
+      collections: input.collections === undefined ? existing?.collections || '' : joinCollections(input.collections),
       sort_order: input.sort_order,
       seo_title: input.seo_title,
       seo_description: input.seo_description,
@@ -565,6 +569,39 @@ export async function bulkSetSelling({
     });
   }
   return result;
+}
+
+/**
+ * Add / remove a collection (e.g. the Online Collection) for many articles.
+ * Only Products.collections is written; everything else stays as it is.
+ */
+export async function bulkSetCollection({ product_ids: productIds, collection, add }, { admin, ip }) {
+  const slug = String(collection || '').toLowerCase();
+  if (!COLLECTIONS[slug]) throw badRequest(`Unknown collection: ${collection}`);
+  return withLock(COMMERCE_LOCK, async () => {
+    const catalog = buildCatalog(await sheetsService.readMany(CATALOG_SHEETS, { fresh: true }));
+    const now = nowIso();
+    const ops = [];
+    const result = { updated: [], unchanged: [], skipped: [] };
+    for (const id of [...new Set(productIds)]) {
+      const p = catalog.productsById.get(id);
+      if (!p) { result.skipped.push({ product_id: id, reason: 'Product not found' }); continue; }
+      const have = collectionsOf(p);
+      const next = joinCollections(add ? [...have, slug] : have.filter((c) => c !== slug));
+      if (next === joinCollections(have)) { result.unchanged.push(p.sku); continue; }
+      ops.push({ op: 'update', sheet: 'Products', id, patch: { collections: next, updated_at: now, updated_by: admin.admin_id } });
+      result.updated.push(p.sku);
+    }
+    if (ops.length) {
+      ops.push(auditOp({
+        admin, ip, action: AUDIT_ACTION.PRODUCT_UPDATED, entity_type: 'Product', entity_id: 'collections',
+        new_value: { collection: slug, add, products: result.updated },
+        notes: `${add ? 'Added to' : 'Removed from'} ${COLLECTIONS[slug].name}: ${result.updated.length} article(s)`,
+      }));
+      await sheetsService.commit(ops);
+    }
+    return result;
+  });
 }
 
 /**

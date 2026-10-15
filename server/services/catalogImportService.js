@@ -14,6 +14,8 @@
 //    product has no image at all, the catalogue image is attached.
 //  * stock is written only for NEW variants (the starting stock chosen by
 //    the admin, default 0 - or the product's own "size_stock" per size).
+//  * "collections" (e.g. the Online Collection) are added to existing
+//    products too - only the missing tag is added, nothing else changes.
 // =====================================================================
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -36,6 +38,7 @@ import { nowIso } from '../utils/dates.js';
 import { uniqueSlug } from '../utils/slug.js';
 import { badRequest, conflict, serviceUnavailable } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
+import { collectionsOf, joinCollections } from '../utils/collections.js';
 
 export const CATALOG_DIR = fileURLToPath(new URL('../../catalog-import/', import.meta.url));
 const CHUNK = 10; // products per Google Sheets batch
@@ -48,6 +51,8 @@ const productEntry = z.object({
   page: z.number().int().optional(),
   // which PDF the page number belongs to (blank = the main Nutex catalogue)
   source: z.string().trim().max(100).optional().default(''),
+  // collection pages the article is also shown in (e.g. ["online"])
+  collections: z.array(z.string().trim().toLowerCase()).max(10).optional().default([]),
   category: z.string().trim().min(1),
   name: z.string().trim().min(2).max(200),
   style_no: z.string().trim().max(64).optional().default(''),
@@ -164,8 +169,16 @@ export function planImport(catalog, data) {
     variants_to_create: create.reduce((s, p) => s + p.sizes.length * p.colors.length, 0),
     products_existing: existing.length,
     existing_without_image: existing.filter((p) => p.image && !imagesByProduct.has(productBySku.get(p.sku).product_id)).length,
+    existing_to_tag: existing.filter((p) => missingTags(productBySku.get(p.sku), p)).length,
     existing_skus: existing.map((p) => p.sku),
   };
+}
+
+// collections of a catalogue entry that an existing product does not have yet
+function missingTags(product, entry) {
+  const have = joinCollections(collectionsOf(product));
+  const next = joinCollections([...collectionsOf(product), ...(entry.collections || [])]);
+  return next !== have ? next : null;
 }
 
 export function catalogSummary(catalog) {
@@ -207,7 +220,7 @@ export async function catalogPreview() {
 // Background job (one at a time, in this process)
 // ------------------------------------------------------------------
 const job = {
-  status: 'idle', phase: '', total: 0, done: 0, created: 0, skipped: 0, images_added: 0,
+  status: 'idle', phase: '', total: 0, done: 0, created: 0, skipped: 0, images_added: 0, tagged: 0,
   errors: [], log: [], started_at: null, finished_at: null, options: null,
 };
 
@@ -237,7 +250,7 @@ export async function startCatalogImport({
     }
   }
   Object.assign(job, {
-    status: 'running', phase: 'Preparing', total: catalog.products.length, done: 0, created: 0, skipped: 0, images_added: 0,
+    status: 'running', phase: 'Preparing', total: catalog.products.length, done: 0, created: 0, skipped: 0, images_added: 0, tagged: 0,
     errors: [], log: [], started_at: nowIso(), finished_at: null, options: { stock_per_variant: stock, selling, activate },
   });
   note(`Import started: ${catalog.products.length} products, starting stock ${stock} pcs per colour+size (boxes are packed from these pieces).`);
@@ -247,7 +260,7 @@ export async function startCatalogImport({
     .then(() => {
       job.status = 'done';
       job.phase = 'Finished';
-      note(`Finished: ${job.created} created, ${job.skipped} already existed, ${job.images_added} images attached to existing products, ${job.errors.length} problem(s).`);
+      note(`Finished: ${job.created} created, ${job.skipped} already existed, ${job.images_added} images attached to existing products, ${job.tagged} added to a collection, ${job.errors.length} problem(s).`);
     })
     .catch((err) => {
       job.status = 'error';
@@ -416,11 +429,18 @@ async function runImport({
       const rows = { Products: [], Product_Variants: [], Inventory: [], Product_Images: [] };
       const createdSkus = [];
       const imageOnly = [];
+      const tagOps = [];
+      const taggedSkus = [];
       for (const p of chunk) {
         const existing = skuNow.get(p.sku);
         const fileId = uploaded.get(p.sku);
         if (existing) {
           job.skipped += 1;
+          const tags = existing.product_id && missingTags(existing, p);
+          if (tags) {
+            tagOps.push({ op: 'update', sheet: 'Products', id: existing.product_id, patch: { collections: tags, updated_at: now, updated_by: by } });
+            taggedSkus.push(p.sku);
+          }
           if (fileId && !imagesNow.has(existing.product_id)) {
             rows.Product_Images.push(imageRow(existing.product_id, fileId, p.name, now));
             imageOnly.push(p.sku);
@@ -462,7 +482,7 @@ async function runImport({
           product_id: pid, sku: p.sku, product_name: p.name, slug, category_id: category.category_id,
           subcategory: p.subcategory || '', description: p.description || '', mrp: p.mrp,
           discount_mode: PRODUCT_DISCOUNT_MODE.GLOBAL, fixed_discount_percent: null, inventory_mode: primaryInventoryMode(sellMode),
-          sell_mode: sellMode, units_per_box: unitsPerBox, pcs_for_new_customers: pcsForNew,
+          sell_mode: sellMode, units_per_box: unitsPerBox, pcs_for_new_customers: pcsForNew, collections: joinCollections(p.collections),
           size_ids: sizes.map((s) => s.size_id).join(','), color_ids: colors.map((c) => c.color_id).join(','),
           status: activate ? RECORD_STATUS.ACTIVE : RECORD_STATUS.INACTIVE, out_of_stock: false, featured: !!p.featured,
           sort_order: p.page ? p.page * 10 : 1000, seo_title: '', seo_description: '',
@@ -482,16 +502,20 @@ async function runImport({
         createdSkus.push(p.sku);
       }
 
-      const ops = Object.entries(rows).filter(([, r]) => r.length).map(([sheet, r]) => ({ op: 'append', sheet, rows: r }));
+      const ops = [...Object.entries(rows).filter(([, r]) => r.length).map(([sheet, r]) => ({ op: 'append', sheet, rows: r })), ...tagOps];
       if (ops.length) {
         ops.push(auditOp({
           admin, ip, action: AUDIT_ACTION.CATALOG_IMPORTED, entity_type: 'Product', entity_id: createdSkus.length ? 'catalog-products' : 'catalog-images',
-          new_value: { created: createdSkus, variants: rows.Product_Variants.length, starting_stock: stock, images_attached: imageOnly },
+          new_value: {
+            created: createdSkus, variants: rows.Product_Variants.length, starting_stock: stock, images_attached: imageOnly, collection_added: taggedSkus,
+          },
         }));
         await sheetsService.commit(ops);
       }
       job.created += createdSkus.length;
       job.images_added += imageOnly.length;
+      job.tagged += taggedSkus.length;
+      if (taggedSkus.length) note(`Added to collection: ${taggedSkus.join(', ')}`);
       if (createdSkus.length) note(`Created ${createdSkus.length}: ${createdSkus.join(', ')}`);
       if (imageOnly.length) note(`Image attached to existing: ${imageOnly.join(', ')}`);
     });

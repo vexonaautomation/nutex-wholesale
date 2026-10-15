@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 const n = 'number';
 const b = 'boolean';
@@ -56,6 +56,9 @@ export const SCHEMA = {
       'pcs_for_new_customers',
       // v10: colour of the extra pieces in a mix box (colour id / AUTO; blank = Black)
       'box_extra_color',
+      // v14: collections the article is also shown in, comma separated
+      // (e.g. "online" = Online Collection page); blank = none
+      'collections',
     ],
     types: {
       mrp: n, fixed_discount_percent: n, sort_order: n, out_of_stock: b, featured: b, units_per_box: n, pcs_for_new_customers: b,

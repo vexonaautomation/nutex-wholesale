@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { BadgeCheck, ChevronDown, Menu, Search, ShoppingBag, Package, PackageSearch, ChevronRight, UserRound } from 'lucide-react';
+import { BadgeCheck, ChevronDown, Menu, Search, ShoppingBag, Package, PackageSearch, ChevronRight, Sparkles, UserRound } from 'lucide-react';
 import { useStore } from '../../context/StoreContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
 import { useCustomer } from '../../context/CustomerContext.jsx';
@@ -67,6 +67,7 @@ export function Header() {
           <Logo settings={settings} />
           <nav className="main-nav" aria-label="Main">
             <NavLink to="/shop" end>Shop All</NavLink>
+            <NavLink to="/online" className="nav-online"><Sparkles size={14} /> Online</NavLink>
             {groups.map((g) => (
               <div className="nav-group" key={g.name}>
                 <button type="button" aria-haspopup="true">{titleCase(g.name)} <ChevronDown size={14} /></button>
@@ -139,6 +140,7 @@ export function Header() {
 
       <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu" side="left">
         <nav className="mobile-nav" onClick={(e) => e.target.closest('a') && setMenuOpen(false)}>
+          <Link to="/online" className="mobile-nav-online"><span><Sparkles size={16} /> Online Collection</span> <ChevronRight size={16} /></Link>
           <Link to="/shop">Shop all products <ChevronRight size={16} /></Link>
           {groups.map((g) => (
             <div key={g.name}>

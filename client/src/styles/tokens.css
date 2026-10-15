@@ -69,15 +69,15 @@
   --shadow: 0 4px 14px rgba(29, 24, 31, 0.08), 0 1px 3px rgba(29, 24, 31, 0.05);
   --shadow-lg: 0 18px 40px rgba(29, 24, 31, 0.14), 0 4px 10px rgba(29, 24, 31, 0.06);
 
-  --container: 1240px;
-  --gutter: 16px;
+  /* page width follows the window: up to 1680px, side margins 16px (phones) to 56px (big screens) */
+  --container: 1680px;
+  --gutter: clamp(16px, 3.6vw, 56px);
   --header-h: 68px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 @media (min-width: 768px) {
   :root {
-    --gutter: 24px;
     --header-h: 76px;
   }
 }
