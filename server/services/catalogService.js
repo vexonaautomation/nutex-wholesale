@@ -162,7 +162,10 @@ export function serializeProduct(catalog, product, { detail = false } = {}) {
   const pcs = variants.filter((v) => v.kind === SELL_MODE.PCS);
   const boxes = variants.filter((v) => v.kind === SELL_MODE.BOX);
   const sizeIds = new Set(variants.map((v) => v.size_id).filter(Boolean));
-  const colorIds = new Set(pcs.map((v) => v.color_id).filter(Boolean));
+  // colours of the loose pieces (box only: the colours its boxes are packed from)
+  const colourSource = pcs.length || !boxes.length ? pcs
+    : (catalog.variantsByProduct.get(product.product_id) || []).filter((v) => !isBoxVariant(v) && v.status === RECORD_STATUS.ACTIVE);
+  const colorIds = new Set(colourSource.map((v) => v.color_id).filter(Boolean));
   const inStock = !product.out_of_stock && variants.some((v) => v.purchasable);
   const override = productOverridePercent(product);
   const images = productImages(catalog, product);

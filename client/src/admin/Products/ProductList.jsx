@@ -18,30 +18,39 @@ import { BulkEditDialog } from './BulkEditDialog.jsx';
 
 function SellBadge({ p }) {
   const box = p.units_per_box || (p.sell_mode && p.sell_mode !== 'PCS' ? '?' : null);
+  const label = p.sell_mode === 'BOX' ? 'Box only' : p.sell_mode === 'PCS' ? 'Pcs only' : 'Box + Pcs';
   return (
     <div className="stack" style={{ gap: 4, alignItems: 'flex-start' }}>
       <span className={`badge ${box ? 'badge-gold' : 'badge-outline'}`}>{box ? `Box of ${box} pcs` : 'No box'}</span>
-      <span className="cell-sub">{p.pcs_for_new_customers ? 'Pcs: everyone' : 'Pcs: existing only'}</span>
+      <span className="cell-sub"><strong>{label}</strong>{p.sell_mode !== 'BOX' && (p.pcs_for_new_customers ? ' · pcs: everyone' : ' · pcs: existing only')}</span>
     </div>
   );
 }
 
+const SELL_IN = [
+  { value: 'BOTH', title: 'Box + Pcs', text: 'Existing customers choose box or loose pieces.' },
+  { value: 'BOX', title: 'Box only', text: 'Full boxes only - no loose pieces for anybody.' },
+  { value: 'PCS', title: 'Pcs only', text: 'No box - loose pieces only.' },
+];
+
 // Bulk "Box / pieces": many products at once (e.g. a whole category).
 function BulkSellingDialog({ open, products, onClose, onDone }) {
   const toast = useToast();
-  const [withBox, setWithBox] = useState(true);
+  const [sellIn, setSellIn] = useState('BOTH');
+  const withBox = sellIn !== 'PCS';
   const [units, setUnits] = useState('');
   const [pcsNew, setPcsNew] = useState('keep');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const apply = async () => {
-    if (withBox && !(Number(units) >= 1)) { toast.error('Enter how many pieces are in one box.'); return; }
     setBusy(true);
     try {
       const res = await adminApi.post('/products/bulk-selling', {
         product_ids: products.map((p) => p.product_id),
-        units_per_box: withBox ? Number(units) : null,
-        ...(pcsNew === 'keep' ? {} : { pcs_for_new_customers: pcsNew === 'yes' }),
+        sell_mode: sellIn,
+        // blank = each product keeps its own box size
+        units_per_box: withBox && Number(units) >= 1 ? Number(units) : null,
+        ...(pcsNew === 'keep' || sellIn === 'BOX' ? {} : { pcs_for_new_customers: pcsNew === 'yes' }),
       });
       setResult(res);
       toast.success(`Box / pieces saved for ${res.updated.length} product(s).`);
@@ -72,25 +81,30 @@ function BulkSellingDialog({ open, products, onClose, onDone }) {
         </div>
       ) : (
         <div className="stack">
-          <p className="small muted mb-0">Existing customers can always choose a full box or loose pieces. New customers buy full boxes - unless you allow loose pieces below.</p>
+          <h4 className="mb-0">Sell these articles in</h4>
           <div className="choice-grid">
-            <button type="button" className="choice" aria-pressed={withBox} onClick={() => setWithBox(true)}><Boxes /><span><strong>Box</strong><span className="small muted">One box per size, assorted colours.</span></span></button>
-            <button type="button" className="choice" aria-pressed={!withBox} onClick={() => setWithBox(false)}><span><strong>No box</strong><span className="small muted">Loose pieces only.</span></span></button>
+            {SELL_IN.map((o) => (
+              <button key={o.value} type="button" className="choice" aria-pressed={sellIn === o.value} onClick={() => setSellIn(o.value)}>
+                {o.value === 'PCS' ? null : <Boxes />}<span><strong>{o.title}</strong><span className="small muted">{o.text}</span></span>
+              </button>
+            ))}
           </div>
           {withBox && (
             <div className="form-grid">
-              <Field label="Pieces in one box" required hint="Box price = pieces × piece MRP of that size. Boxes are packed from the loose pieces - no box stock to enter.">
-                <input className="input" type="number" min={1} value={units} onChange={(e) => setUnits(e.target.value.replace(/[^\d]/g, ''))} />
+              <Field label="Pieces in one box" hint="Blank = each article keeps its own box size. Box price = pieces × piece MRP of that size. Boxes are packed from the loose pieces - no box stock to enter.">
+                <input className="input" type="number" min={1} placeholder="keep" value={units} onChange={(e) => setUnits(e.target.value.replace(/[^\d]/g, ''))} />
               </Field>
             </div>
           )}
-          <Field label="Loose pieces for NEW customers">
+          {sellIn !== 'BOX' && (
+          <Field label="Loose pieces for NEW customers" hint="Existing customers can always buy loose pieces of these articles.">
             <select className="select" value={pcsNew} onChange={(e) => setPcsNew(e.target.value)}>
               <option value="keep">Keep each product as it is</option>
               <option value="no">Not allowed - new customers buy boxes</option>
               <option value="yes">Allowed (e.g. stock cannot make a full box)</option>
             </select>
           </Field>
+          )}
           <p className="tiny soft mb-0">Prices, piece stock, images and everything else stay unchanged. Old variants are kept inactive (never deleted), so you can switch back any time.</p>
         </div>
       )}
@@ -121,6 +135,8 @@ export default function ProductList() {
     const box = Number(p.units_per_box) > 0 || (p.sell_mode && p.sell_mode !== 'PCS');
     if (mode === 'box') return box;
     if (mode === 'nobox') return !box;
+    if (mode === 'both') return p.sell_mode === 'BOTH';
+    if (mode === 'boxonly') return p.sell_mode === 'BOX';
     if (mode === 'pcsnew') return p.pcs_for_new_customers;
     if (mode === 'online') return (p.collections || []).includes('online');
     return true;
@@ -172,7 +188,7 @@ export default function ProductList() {
           {(cats.data?.items || []).map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
         </select>
         <select className="select" value={mode} onChange={(e) => setMode(e.target.value)} aria-label="Box / pieces">
-          <option value="">All (box / pieces)</option><option value="box">With box</option><option value="nobox">No box yet</option><option value="pcsnew">Pieces open for new customers</option><option value="online">In Online Collection</option>
+          <option value="">All (box / pieces)</option><option value="both">Box + Pcs</option><option value="boxonly">Box only</option><option value="nobox">Pcs only (no box)</option><option value="box">With box</option><option value="pcsnew">Pieces open for new customers</option><option value="online">In Online Collection</option>
         </select>
       </div>
       {loading && !data ? <PageLoader /> : error ? <ErrorState error={error} onRetry={reload} /> : !items.length ? (

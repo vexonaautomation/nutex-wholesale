@@ -311,9 +311,9 @@ export const bulkSellingSchema = z.object({
   units_per_box: nullableNumber(z.coerce.number().int('Pieces per box must be a whole number').min(1).max(10000)).optional().default(null),
   // undefined = keep each product's current choice
   pcs_for_new_customers: z.boolean().optional(),
-  sell_mode: z.enum(SELL_MODES).optional(), // older clients
-}).superRefine((p, ctx) => {
-  if (p.sell_mode && p.sell_mode !== 'PCS' && !(p.units_per_box >= 1)) ctx.addIssue({ code: 'custom', path: ['units_per_box'], message: 'Enter how many pieces are in one box' });
+  // sell in: BOTH (box + pcs) / BOX (box only) / PCS (pcs only); with BOTH or
+  // BOX a blank units_per_box keeps each product's own box size
+  sell_mode: z.enum(SELL_MODES).optional(),
 });
 
 // add / remove a collection (e.g. Online Collection) for many articles
