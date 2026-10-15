@@ -108,4 +108,30 @@ export const MIGRATIONS = [
     version: 14,
     description: 'Product collections (Online Collection page)',
   },
+  {
+    // Additive only: fills the blank Products.collections cell of every
+    // article printed in the ONLINE COLLECTION catalogue (catalog-import/
+    // catalog.json, matched by SKU) so the /online page is ready right after
+    // the deploy. Runs once and never overwrites a filled cell - an admin can
+    // still take an article off the Online page later.
+    version: 15,
+    description: 'Online Collection: show the catalogue articles',
+    async up({ sheets, logger }) {
+      const { loadCatalogFile } = await import('../services/catalogImportService.js');
+      let catalog;
+      try {
+        ({ catalog } = await loadCatalogFile());
+      } catch (err) {
+        logger.warn(`Migration v15: catalogue not readable, no article tagged (${err.message})`);
+        return;
+      }
+      const online = new Set(catalog.products.filter((p) => p.collections.includes('online')).map((p) => p.sku));
+      const rows = await sheets.read('Products', { fresh: true });
+      const ops = rows
+        .filter((r) => !String(r.collections || '').trim() && online.has(String(r.sku || '').trim().toUpperCase()))
+        .map((r) => ({ op: 'update', sheet: 'Products', id: r.product_id, patch: { collections: 'online' } }));
+      if (ops.length) await sheets.commit(ops);
+      logger.info(`Migration v15: ${ops.length} articles added to the Online Collection`);
+    },
+  },
 ];
