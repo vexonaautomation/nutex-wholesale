@@ -8,6 +8,11 @@ import '@fontsource/inter/700.css';
 import '@fontsource/playfair-display/600.css';
 import '@fontsource/playfair-display/700.css';
 import '@fontsource/playfair-display/600-italic.css';
+// home page banner
+import '@fontsource/montserrat/500.css';
+import '@fontsource/montserrat/600.css';
+import '@fontsource/montserrat/700.css';
+import '@fontsource/montserrat/800.css';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
