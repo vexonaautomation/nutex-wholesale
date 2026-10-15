@@ -2,12 +2,12 @@ import { Router } from 'express';
 import * as auth from '../controllers/authController.js';
 import * as misc from '../controllers/adminMiscController.js';
 import * as catalogImport from '../controllers/catalogImportController.js';
-import { requireAdmin, requireRole } from '../middleware/adminAuth.js';
+import { requireAdmin, requireRole, subAdminGate } from '../middleware/adminAuth.js';
 import { validate } from '../middleware/validation.js';
 import { loginLimiter } from '../middleware/rateLimit.js';
 import { upload } from '../middleware/upload.js';
 import {
-  loginSchema, changePasswordSchema, adminUserSchema, statusChangeSchema, catalogImportSchema,
+  loginSchema, changePasswordSchema, adminUserSchema, statusChangeSchema, catalogImportSchema, subAdminSchema, subAdminUpdateSchema,
 } from '../utils/validation.js';
 import { adminRouter as products } from './products.js';
 import { adminRouter as categories } from './categories.js';
@@ -32,12 +32,17 @@ router.use((_req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 });
+// sub admins: only the Orders tab, the small dashboard and what the owner ticked
+router.use(subAdminGate);
 
 router.get('/me', auth.me);
 router.post('/change-password', validate(changePasswordSchema), auth.doChangePassword);
 router.get('/users', auth.usersList);
 router.post('/users', requireRole('OWNER', 'ADMIN'), validate(adminUserSchema), auth.usersCreate);
 router.post('/users/:id/status', requireRole('OWNER', 'ADMIN'), validate(statusChangeSchema), auth.usersStatus);
+router.get('/sub-admins', requireRole('OWNER', 'ADMIN'), auth.subAdminsList);
+router.post('/sub-admins', requireRole('OWNER', 'ADMIN'), validate(subAdminSchema), auth.subAdminsCreate);
+router.put('/sub-admins/:id', requireRole('OWNER', 'ADMIN'), validate(subAdminUpdateSchema), auth.subAdminsUpdate);
 
 router.get('/dashboard', misc.dashboard);
 router.get('/audit-log', misc.audit);

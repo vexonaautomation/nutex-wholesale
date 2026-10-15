@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 const n = 'number';
 const b = 'boolean';
@@ -202,6 +202,8 @@ export const SCHEMA = {
     columns: [
       'admin_id', 'email', 'name', 'password_hash', 'role', 'status', 'session_version',
       'last_login_at', 'created_at', 'updated_at',
+      // v17: sub admins - mobile (login + admin order number) and what they may see
+      'mobile', 'permissions',
     ],
     types: { session_version: n },
   },

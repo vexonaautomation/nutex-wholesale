@@ -155,4 +155,10 @@ export const MIGRATIONS = [
       logger.info(`Migration v16: pcs only for ${res.updated.join(', ') || 'none'}${res.skipped.length ? ` (skipped: ${res.skipped.map((s) => s.reason).join('; ')})` : ''}`);
     },
   },
+  {
+    // Additive only: Admin_Users.mobile + Admin_Users.permissions (blank for
+    // existing admins = unchanged, full access). New role SUB_ADMIN.
+    version: 17,
+    description: 'Sub admins: mobile number + permissions',
+  },
 ];

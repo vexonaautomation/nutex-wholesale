@@ -79,7 +79,7 @@ function AdminUsers() {
   );
 }
 
-function MyAccount() {
+export function MyAccount() {
   const toast = useToast();
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');

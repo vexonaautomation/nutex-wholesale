@@ -32,6 +32,7 @@ import { formatINR, round2, roundRupee } from '../utils/money.js';
 import { piecesByInventory, encodeComponents, componentsOf } from '../utils/stockComponents.js';
 import { pcsAllowedFor } from '../utils/sellMode.js';
 import { logger } from '../utils/logger.js';
+import { adminNamesByMobile } from './authService.js';
 
 export const ORDER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_Status_History'];
 
@@ -550,7 +551,7 @@ export async function lockOrder(orderNumber, token, { ip } = {}) {
 }
 
 // ------------------------------------------------------------------- admin
-const orderSummary = (o) => ({
+const orderSummary = (o, names = new Map()) => ({
   order_id: o.order_id,
   order_number: o.order_number,
   created_at: o.created_at,
@@ -568,10 +569,16 @@ const orderSummary = (o) => ({
   payment_mode_snapshot: isOfflineOrder(o) ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
   locked: o.locked === true,
   customer_type: o.customer_type_snapshot || CUSTOMER_TYPE.NEW,
+  // made with an admin / sub admin number: who made this order (bill)
+  placed_by_mobile: o.placed_by_mobile || '',
+  placed_by_name: o.placed_by_mobile ? names.get(normalizeMobile(o.placed_by_mobile)) || '' : '',
 });
 
-export async function listOrdersAdmin({ q, order_status: orderStatus, payment_status: paymentStatus, customer_type: customerType, locked, from, to, page = 1, limit = 50 } = {}) {
-  const orders = await sheetsService.read('Orders', { fresh: true });
+export async function listOrdersAdmin({
+  q, order_status: orderStatus, payment_status: paymentStatus, customer_type: customerType, locked, from, to, placed_by: placedBy, page = 1, limit = 50,
+} = {}) {
+  const [orders, names] = await Promise.all([sheetsService.read('Orders', { fresh: true }), adminNamesByMobile()]);
+  const by = String(placedBy || '').trim();
   const counts = { total: orders.length, by_order_status: {}, by_payment_status: {} };
   for (const o of orders) {
     counts.by_order_status[o.order_status] = (counts.by_order_status[o.order_status] || 0) + 1;
@@ -585,6 +592,10 @@ export async function listOrdersAdmin({ q, order_status: orderStatus, payment_st
     if (customerType && (o.customer_type_snapshot || CUSTOMER_TYPE.NEW) !== customerType) return false;
     if (locked === 'true' && !o.locked) return false;
     if (locked === 'false' && o.locked) return false;
+    // "customer" = placed by the customer, "team" = any admin number, else that number
+    if (by === 'customer' && o.placed_by_mobile) return false;
+    if (by === 'team' && !o.placed_by_mobile) return false;
+    if (by && by !== 'customer' && by !== 'team' && normalizeMobile(o.placed_by_mobile || '') !== normalizeMobile(by)) return false;
     const day = o.created_at ? istDate(new Date(o.created_at)) : '';
     if (from && day < from) return false;
     if (to && day > to) return false;
@@ -600,12 +611,12 @@ export async function listOrdersAdmin({ q, order_status: orderStatus, payment_st
     total: filtered.length,
     page: p,
     limit: size,
-    items: filtered.slice((p - 1) * size, p * size).map(orderSummary),
+    items: filtered.slice((p - 1) * size, p * size).map((o) => orderSummary(o, names)),
   };
 }
 
 export async function getOrderAdmin(idOrNumber) {
-  const [data, settings] = await Promise.all([sheetsService.readMany([...ORDER_SHEETS, 'Audit_Log'], { fresh: true }), getSettings()]);
+  const [data, settings, names] = await Promise.all([sheetsService.readMany([...ORDER_SHEETS, 'Audit_Log'], { fresh: true }), getSettings(), adminNamesByMobile()]);
   const key = String(idOrNumber);
   const order = data.Orders.find((o) => o.order_id === key || o.order_number === normalizeOrderNumber(key));
   if (!order) throw notFound('Order not found.');
@@ -616,7 +627,7 @@ export async function getOrderAdmin(idOrNumber) {
   const revisions = {};
   for (const i of items) (revisions[i.revision] ||= []).push(itemView(i));
   return {
-    order: { ...order, idempotency_key: undefined },
+    order: { ...order, idempotency_key: undefined, placed_by_name: order.placed_by_mobile ? names.get(normalizeMobile(order.placed_by_mobile)) || '' : '' },
     status_label: STATE_LABELS[order.order_status] || order.order_status,
     items: activeItems(items, order.order_id).map(itemView),
     item_revisions: revisions,
