@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, BadgeCheck, Boxes, IndianRupee, LockKeyhole, MessageCircle, PackageSearch, QrCode, Ruler, ShieldCheck, Truck,
+  ArrowRight, Boxes, IndianRupee, LockKeyhole, MessageCircle, PackageSearch, QrCode, Ruler, Truck,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext.jsx';
 import { api } from '../../services/api.js';
@@ -10,7 +10,6 @@ import { Img } from '../../components/common/ui.jsx';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { formatINR } from '../../utils/format.js';
 import { waLink, waNumber } from '../../utils/whatsapp.js';
-import { useCustomer } from '../../context/CustomerContext.jsx';
 
 const titleCase = (s) => s.charAt(0) + s.slice(1).toLowerCase();
 
@@ -43,7 +42,6 @@ export default function Home() {
   // Settings > online payment OFF: no QR step, the team confirms each order
   const onlinePay = settings?.online_payment_enabled !== false;
   const featured = useAsync(() => api.get('/api/products?featured=true&limit=8'), []);
-  const customer = useCustomer();
   const company = settings?.company_name || 'Nutex Apparel Limited';
   useSeo({
     title: `${company} | Wholesale Bras, Panties & Lingerie`,
@@ -132,27 +130,6 @@ export default function Home() {
 
       {/* GROUPS: Women / Panties / Men ... (dynamic from category parent groups) */}
       {groups.map((g) => <GroupSection key={g.name} group={g} />)}
-
-      {/* MINIMUM ORDER */}
-      {settings && (
-        <section className="section section-blush">
-          <div className="container">
-            <div className="card card-pad" style={{ maxWidth: 760, margin: '0 auto' }}>
-              <span className="eyebrow">Minimum order</span>
-              <h2 className="display" style={{ fontSize: 28, margin: '8px 0 10px' }}>{formatINR(settings.minimum_order_value)} minimum wholesale order</h2>
-              <p className="muted">The minimum is checked on your <strong>final payable value</strong>. Your cart shows exactly how much more is needed.</p>
-              <div className="info-tile mt-2"><ShieldCheck /> Checkout unlocks automatically once your final payable total reaches {formatINR(settings.minimum_order_value)}.</div>
-              <div className="info-tile mt-1">
-                <BadgeCheck />
-                <div>
-                  <strong>Existing Nutex customers:</strong> {Number(settings.existing_customer_minimum_order_value) > 0 ? `minimum order only ${formatINR(settings.existing_customer_minimum_order_value)}` : 'no minimum order - buy even a single piece'}.{' '}
-                  {customer.isExisting ? <span style={{ color: 'var(--success-700)', fontWeight: 600 }}>You are verified.</span> : <button type="button" className="link" onClick={customer.openLogin}>Verify with WhatsApp</button>}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* BENEFITS */}
       <section className="section">
