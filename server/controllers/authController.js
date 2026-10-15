@@ -1,5 +1,6 @@
 import {
   login, changePassword, listAdmins, createAdmin, setAdminStatus, publicAdmin, ADMIN_COOKIE,
+  listSubAdmins, createSubAdmin, updateSubAdmin,
 } from '../services/authService.js';
 import { adminCookieOptions } from '../middleware/adminAuth.js';
 import { ctx, noStore } from './helpers.js';
@@ -31,3 +32,6 @@ export async function doChangePassword(req, res) {
 export const usersList = async (_req, res) => res.json({ items: await listAdmins() });
 export const usersCreate = async (req, res) => res.status(201).json(await createAdmin(req.body, ctx(req)));
 export const usersStatus = async (req, res) => res.json(await setAdminStatus(req.params.id, req.body.status, ctx(req)));
+export const subAdminsList = async (_req, res) => res.json(await listSubAdmins());
+export const subAdminsCreate = async (req, res) => res.status(201).json(await createSubAdmin(req.body, ctx(req)));
+export const subAdminsUpdate = async (req, res) => res.json(await updateSubAdmin(req.params.id, req.body, ctx(req)));

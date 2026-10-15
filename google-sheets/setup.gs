@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v16).
+ *  GENERATED from server/config/schema.js (schema v17).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -20,7 +20,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 16;
+var NUTEX_SCHEMA_VERSION = 17;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -40,7 +40,7 @@ var NUTEX_SCHEMA = {
   "Order_Items": ["order_item_id","order_id","order_number","revision","product_id","variant_id","sku_snapshot","product_name_snapshot","category_snapshot","inventory_mode_snapshot","size_snapshot","color_snapshot","box_snapshot","units_per_box_snapshot","qty","mrp_unit_snapshot","discount_percent_snapshot","wholesale_unit_snapshot","line_mrp_total","line_total","status","created_at","stock_components"],
   "Payments": ["payment_id","order_id","order_number","amount","expected_amount","payment_method","utr","proof_file_id","proof_url","status","idempotency_key","customer_note","submitted_at","verified_at","verified_by","remarks"],
   "Order_Status_History": ["history_id","order_id","order_number","from_status","to_status","actor_type","actor_id","note","created_at"],
-  "Admin_Users": ["admin_id","email","name","password_hash","role","status","session_version","last_login_at","created_at","updated_at"],
+  "Admin_Users": ["admin_id","email","name","password_hash","role","status","session_version","last_login_at","created_at","updated_at","mobile","permissions"],
   "Audit_Log": ["audit_id","timestamp","admin_id","actor_type","action","entity_type","entity_id","old_value","new_value","reason","notes","ip"],
   "Schema_Version": ["version","applied_at","description","app_version"]
 };
@@ -128,7 +128,8 @@ var NUTEX_MIGRATIONS = [
   [13,"Existing customers: address, state, pincode"],
   [14,"Product collections (Online Collection page)"],
   [15,"Online Collection: show the catalogue articles"],
-  [16,"Sell in Box / Pcs per article; Sanjana Set + Sanjana bra pcs only"]
+  [16,"Sell in Box / Pcs per article; Sanjana Set + Sanjana bra pcs only"],
+  [17,"Sub admins: mobile number + permissions"]
 ];
 
 var NUTEX_MASTER_DATA = {

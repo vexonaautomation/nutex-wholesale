@@ -37,7 +37,7 @@ export default function Login() {
           <div><strong style={{ fontSize: 18 }}>Nutex Admin</strong><div className="small soft">Wholesale management panel</div></div>
         </div>
         {location.state?.expired && <Alert type="warning">Your session expired. Please sign in again.</Alert>}
-        <Field label="Email"><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus /></Field>
+        <Field label="Email or mobile number" hint="Sub admins sign in with their mobile number."><input className="input" type="text" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus /></Field>
         <Field label="Password"><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></Field>
         {error && <Alert type="error">{error.message}</Alert>}
         <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>{busy ? <Spinner small /> : <LockKeyhole />} Sign in</button>

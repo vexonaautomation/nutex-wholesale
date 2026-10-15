@@ -4,6 +4,7 @@ import {
 } from '../config/constants.js';
 import { normalizeMobile } from './orderToken.js';
 import { SELL_MODES, deriveSellMode, primaryInventoryMode } from './sellMode.js';
+import { PERMISSION_KEYS, DEFAULT_SUB_ADMIN_PERMISSIONS } from './permissions.js';
 
 // sell mode sent by older API clients, else derived: box if pieces-per-box
 // (or box configs) are given, loose pieces if colours are given
@@ -155,7 +156,9 @@ export const paymentSubmitSchema = z.object({
 
 // ------------------------------- ADMIN --------------------------------
 export const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().max(150).refine((v) => EMAIL_RE.test(v), { message: 'Enter a valid email' }),
+  // email, or the mobile number of a sub admin
+  email: z.string().trim().toLowerCase().max(150)
+    .refine((v) => EMAIL_RE.test(v) || /^[6-9]\d{9}$/.test(normalizeMobile(v)), { message: 'Enter your email or 10-digit mobile number' }),
   password: z.string().min(1).max(200),
 });
 
@@ -172,6 +175,25 @@ export const adminUserSchema = z.object({
   name: text(100, 2),
   role: z.enum(['OWNER', 'ADMIN', 'STAFF']).default('ADMIN'),
   password: passwordRule,
+});
+
+// sub admin: name + mobile (signs in with it, and it is their admin order
+// number) + what the owner lets them see besides the Orders tab
+const permissionList = z.array(z.enum(PERMISSION_KEYS)).max(20);
+export const subAdminSchema = z.object({
+  name: text(100, 2),
+  mobile,
+  email: optionalEmail,
+  password: passwordRule,
+  permissions: permissionList.default([...DEFAULT_SUB_ADMIN_PERMISSIONS]),
+});
+export const subAdminUpdateSchema = z.object({
+  name: text(100, 2),
+  mobile,
+  email: optionalEmail,
+  // blank = keep the password
+  password: z.union([z.literal(''), passwordRule]).optional().default(''),
+  permissions: permissionList.default([]),
 });
 
 const statusEnum = z.enum([RECORD_STATUS.ACTIVE, RECORD_STATUS.INACTIVE, RECORD_STATUS.ARCHIVED]);

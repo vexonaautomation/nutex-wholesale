@@ -1,6 +1,7 @@
 import { verifySession, ADMIN_COOKIE } from '../services/authService.js';
 import { config } from '../config/env.js';
 import { unauthorized, forbidden } from '../utils/errors.js';
+import { allowedFor } from '../utils/permissions.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -30,6 +31,12 @@ export async function requireAdmin(req, _res, next) {
   }
   req.admin = await verifySession(token);
   return next();
+}
+
+/** Sub admins may only call the parts of the panel the owner gave them. */
+export function subAdminGate(req, _res, next) {
+  if (allowedFor(req.admin, req)) return next();
+  return next(forbidden('Your sub admin access does not include this. Ask the owner to allow it.'));
 }
 
 export function requireRole(...roles) {

@@ -184,6 +184,18 @@ a.stat:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
 label.choice { cursor: pointer; }
 .choice:has(input:focus-visible) { outline: 2px solid var(--brand-700); outline-offset: 2px; }
 .choice svg { width: 26px; height: 26px; color: var(--brand-700); flex: none; }
+/* sub admin permissions */
+.perm-list { display: grid; gap: 8px; }
+.perm { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-lg); background: var(--white); cursor: pointer; }
+.perm > input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--brand-700); }
+.perm > svg { width: 20px; height: 20px; color: var(--brand-700); flex: none; }
+.perm > span:not(.badge) { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.perm.is-on { border-color: var(--brand-700); background: var(--brand-50); }
+.perm.is-fixed { background: var(--ink-50); cursor: default; }
+.perm .badge { flex: none; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.made-by { gap: 4px; white-space: nowrap; }
+.team-table td, .team-table th { white-space: nowrap; }
 .choice strong { display: block; margin-bottom: 2px; }
 .pick-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .pick {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, BadgePercent, Boxes, CheckCircle2, ClipboardList, Clock, CreditCard, FolderTree, IndianRupee, PackageX, Shirt, Target, Users, XCircle,
+  AlertTriangle, BadgePercent, Boxes, CheckCircle2, ClipboardList, Clock, CreditCard, FolderTree, Hourglass, IndianRupee, PackageX, Shirt, Target, Truck, UserRound, Users, XCircle,
 } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { useAsync } from '../../hooks/index.js';
@@ -11,6 +11,98 @@ import { Alert, ErrorState, PageLoader, StatusBadge, Spinner } from '../../compo
 import { formatDateTime, formatINR, pct } from '../../utils/format.js';
 import { SLAB_BASIS_LABELS, PRICE_DISPLAY_LABELS } from '../../constants/index.js';
 import { PaymentQrButton } from '../PaymentQrManager.jsx';
+import { useAdmin } from '../AdminApp.jsx';
+import { MadeBy } from '../Orders/OrderList.jsx';
+
+/** Pending orders + sale value cards (owner and sub admins). */
+function SalesCards({ s }) {
+  return (
+    <div className="stat-grid cols-6 mb-3">
+      <Stat label="Pending orders" value={s.pending_orders} icon={Hourglass} tone={s.pending_orders ? 'warning' : 'default'} to="/admin/orders" />
+      <Stat label="Payment to verify" value={s.payment_to_verify} icon={CreditCard} tone={s.payment_to_verify ? 'info' : 'default'} to="/admin/orders?status=PAYMENT_SUBMITTED" />
+      <Stat label="To pack / dispatch" value={s.to_dispatch} icon={Truck} />
+      <Stat label="Sale value today" value={formatINR(s.sale_value_today)} icon={IndianRupee} tone="success" />
+      <Stat label="Sale value this month" value={formatINR(s.sale_value_month)} icon={IndianRupee} tone="success" />
+      <Stat label="Total sale value" value={formatINR(s.sale_value_total)} icon={IndianRupee} />
+    </div>
+  );
+}
+
+function RecentOrders({ title, orders, empty = 'No orders yet' }) {
+  const navigate = useNavigate();
+  return (
+    <section className="card card-pad">
+      <div className="row-between mb-2"><h3 className="card-title mb-0">{title}</h3><Link to="/admin/orders" className="btn btn-sm">All orders</Link></div>
+      <div className="table-wrap">
+        <table className="table">
+          <thead><tr><th>Order</th><th>Customer</th><th className="right">Value</th><th>Status</th><th>Made by</th></tr></thead>
+          <tbody>
+            {orders.length ? orders.map((o) => (
+              <tr key={o.order_id} className="is-clickable" onClick={() => navigate(`/admin/orders/${o.order_id}`)}>
+                <td><div className="cell-main">{o.order_number}</div><div className="cell-sub">{formatDateTime(o.created_at)}</div></td>
+                <td><div className="cell-main">{o.business_name}</div><div className="cell-sub">{o.customer_name}</div></td>
+                <td className="right num">{formatINR(o.final_payable)}</td>
+                <td><StatusBadge status={o.order_status} /></td>
+                <td><MadeBy order={o} /></td>
+              </tr>
+            )) : <tr><td colSpan={5} className="center muted">{empty}</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+/** Sub admin: only pending orders and sale value (all orders + their own). */
+function SubAdminDashboard({ data, reload }) {
+  const { admin } = useAdmin();
+  const m = data.mine;
+  return (
+    <>
+      <PageHeader title={`Namaste, ${admin?.name || ''}`} subtitle="Pending orders and sale value" actions={<button type="button" className="btn" onClick={reload}>Refresh</button>} />
+      <SalesCards s={data.sales} />
+      <section className="card card-pad mb-3">
+        <h3 className="card-title"><UserRound /> Orders made with your number {admin?.mobile ? `(${admin.mobile})` : ''}</h3>
+        <div className="stat-grid">
+          <Stat label="Your orders" value={m.orders} icon={ClipboardList} to={admin?.mobile ? `/admin/orders?placed_by=${admin.mobile}` : undefined} />
+          <Stat label="Your pending orders" value={m.pending_orders} icon={Hourglass} tone={m.pending_orders ? 'warning' : 'default'} />
+          <Stat label="Your sale value (month)" value={formatINR(m.sale_value_month)} icon={IndianRupee} tone="success" />
+          <Stat label="Your total sale value" value={formatINR(m.sale_value_total)} icon={IndianRupee} />
+        </div>
+      </section>
+      <div className="adm-grid-main">
+        <RecentOrders title="Recent orders" orders={data.recent_orders} />
+        <RecentOrders title="Your recent orders" orders={data.my_recent_orders} empty="No orders made with your number yet" />
+      </div>
+    </>
+  );
+}
+
+/** Owner: orders made by each sub admin / admin number. */
+function TeamOrders({ team }) {
+  if (!team?.length) return null;
+  return (
+    <section className="card card-pad mb-3">
+      <div className="row-between mb-2"><h3 className="card-title mb-0"><Users /> Orders by your team</h3><Link to="/admin/sub-admins" className="btn btn-sm">Sub admins</Link></div>
+      <div className="table-wrap">
+        <table className="table team-table">
+          <thead><tr><th>Made by</th><th className="right">Orders</th><th className="right">Pending</th><th className="right">Sale value (month)</th><th className="right">Total sale value</th></tr></thead>
+          <tbody>
+            {team.map((t) => (
+              <tr key={t.mobile}>
+                <td><Link className="link cell-main" to={`/admin/orders?placed_by=${t.mobile}`}>{t.name}</Link><div className="cell-sub">{t.mobile}{t.sub_admin ? ' · sub admin' : ''}</div></td>
+                <td className="right num">{t.orders}</td>
+                <td className="right num">{t.pending_orders}</td>
+                <td className="right num">{formatINR(t.sale_value_month)}</td>
+                <td className="right num"><strong>{formatINR(t.sale_value_total)}</strong></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 
 export default function Dashboard() {
   const { data, loading, error, reload } = useAsync(() => adminApi.get('/dashboard'), []);
@@ -20,6 +112,7 @@ export default function Dashboard() {
 
   if (loading) return <PageLoader />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
+  if (data.limited) return <SubAdminDashboard data={data} reload={reload} />;
   const c = data.cards;
   const setup = data.setup;
   const needsMaster = setup.categories_empty || setup.sizes_empty || setup.colors_empty;
@@ -74,6 +167,9 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <SalesCards s={data.sales} />
+      <TeamOrders team={data.team} />
 
       <div className="stat-grid cols-6 mb-3">
         <Stat label="Total products" value={c.total_products} icon={Shirt} />

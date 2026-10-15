@@ -22,9 +22,41 @@ import ExistingCustomers from './ExistingCustomers/ExistingCustomers.jsx';
 import Settings from './Settings/Settings.jsx';
 import AuditLog from './AuditLog/AuditLog.jsx';
 import CatalogImport from './CatalogImport/CatalogImport.jsx';
+import SubAdmins from './SubAdmins/SubAdmins.jsx';
+import { MyAccount } from './Settings/Settings.jsx';
+import { PageHeader } from './components.jsx';
 
 const AuthContext = createContext(null);
 export const useAdmin = () => useContext(AuthContext);
+
+// Sub admins see the Orders tab + small dashboard + what the owner ticked.
+export const isSubAdmin = (admin) => admin?.role === 'SUB_ADMIN';
+export const isManager = (admin) => ['OWNER', 'ADMIN'].includes(admin?.role);
+/** permission: a sub admin key ("products"...), "full" (not for sub admins) or "manager" (owner / admin). */
+export function allowed(admin, permission) {
+  if (!permission) return true;
+  if (permission === 'manager') return isManager(admin);
+  if (permission === 'full') return !isSubAdmin(admin);
+  return !isSubAdmin(admin) || (admin.permissions || []).includes(permission);
+}
+export const useCan = () => {
+  const { admin } = useAdmin();
+  return (permission) => allowed(admin, permission);
+};
+
+function Need({ permission, children }) {
+  const { admin } = useAdmin();
+  return allowed(admin, permission) ? children : <Navigate to="/admin/dashboard" replace />;
+}
+
+function Account() {
+  return (
+    <>
+      <PageHeader title="My account" subtitle="Change your password. Other sessions are signed out." />
+      <div className="card card-pad"><MyAccount /></div>
+    </>
+  );
+}
 
 export default function AdminApp() {
   const [state, setState] = useState({ loading: true, admin: null });
@@ -73,23 +105,25 @@ export default function AdminApp() {
         <Route index element={state.admin ? <Navigate to="/admin/dashboard" replace /> : <Login />} />
         <Route element={state.admin ? <AdminLayout /> : <Navigate to="/admin" replace state={{ from: location.pathname }} />}>
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="products" element={<ProductList />} />
-          <Route path="pack-sizes" element={<PackSizes />} />
-          <Route path="products/new" element={<ProductWizard />} />
-          <Route path="products/:id" element={<ProductWizard />} />
-          <Route path="catalog-import" element={<CatalogImport />} />
-          <Route path="categories" element={<Categories />} />
-          <Route path="colors" element={<Colors />} />
-          <Route path="sizes" element={<Sizes />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="discount-slabs" element={<DiscountSlabs />} />
+          <Route path="products" element={<Need permission="products"><ProductList /></Need>} />
+          <Route path="pack-sizes" element={<Need permission="products"><PackSizes /></Need>} />
+          <Route path="products/new" element={<Need permission="products"><ProductWizard /></Need>} />
+          <Route path="products/:id" element={<Need permission="products"><ProductWizard /></Need>} />
+          <Route path="catalog-import" element={<Need permission="full"><CatalogImport /></Need>} />
+          <Route path="categories" element={<Need permission="products"><Categories /></Need>} />
+          <Route path="colors" element={<Need permission="products"><Colors /></Need>} />
+          <Route path="sizes" element={<Need permission="products"><Sizes /></Need>} />
+          <Route path="inventory" element={<Need permission="inventory"><Inventory /></Need>} />
+          <Route path="discount-slabs" element={<Need permission="pricing"><DiscountSlabs /></Need>} />
           <Route path="orders" element={<OrderList />} />
           <Route path="orders/:id" element={<OrderDetail />} />
-          <Route path="payments" element={<Payments />} />
-          <Route path="customers" element={<Customers />} />
-          <Route path="existing-customers" element={<ExistingCustomers />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="audit-log" element={<AuditLog />} />
+          <Route path="payments" element={<Need permission="payments"><Payments /></Need>} />
+          <Route path="customers" element={<Need permission="customers"><Customers /></Need>} />
+          <Route path="existing-customers" element={<Need permission="customers"><ExistingCustomers /></Need>} />
+          <Route path="sub-admins" element={<Need permission="manager"><SubAdmins /></Need>} />
+          <Route path="account" element={<Account />} />
+          <Route path="settings" element={<Need permission="full"><Settings /></Need>} />
+          <Route path="audit-log" element={<Need permission="full"><AuditLog /></Need>} />
           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Route>
       </Routes>

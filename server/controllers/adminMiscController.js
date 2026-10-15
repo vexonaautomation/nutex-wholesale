@@ -11,7 +11,7 @@ import { DRIVE_FOLDERS } from '../config/constants.js';
 import { config } from '../config/env.js';
 import { ctx } from './helpers.js';
 
-export const dashboard = async (_req, res) => res.json(await getDashboard());
+export const dashboard = async (req, res) => res.json(await getDashboard({ admin: req.admin }));
 export const audit = async (req, res) => res.json(await listAudit(req.query));
 export const setupMasterData = async (req, res) => res.json(await initializeMasterData(ctx(req)));
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Lock, ClipboardList } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Lock, ClipboardList, UserRound } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { qs } from '../../services/api.js';
 import { useAsync, useDebounce } from '../../hooks/index.js';
@@ -8,11 +8,23 @@ import { PageHeader, SearchBox, Pager } from '../components.jsx';
 import { EmptyState, ErrorState, PageLoader, StatusBadge } from '../../components/common/ui.jsx';
 import { formatDateTime, formatINR } from '../../utils/format.js';
 import { ORDER_STATUS, PAYMENT_STATUS } from '../../constants/index.js';
+import { useAdmin, isManager, isSubAdmin } from '../AdminApp.jsx';
+
+/** Who made the order: the customer, or the admin / sub admin number. */
+export function MadeBy({ order }) {
+  if (!order.placed_by_mobile) return <span className="soft small">Customer</span>;
+  return <span className="badge badge-outline made-by"><UserRound size={12} /> {order.placed_by_name || `Admin ${order.placed_by_mobile}`}</span>;
+}
 
 export default function OrderList() {
   const navigate = useNavigate();
+  const { admin } = useAdmin();
+  // links from the dashboard / sub admins: ?status=… or ?placed_by=…
+  const [params] = useSearchParams();
+  const [placedBy, setPlacedBy] = useState(params.get('placed_by') || '');
+  const team = useAsync(() => (isManager(admin) ? adminApi.get('/sub-admins') : Promise.resolve({ items: [] })), []);
   const [q, setQ] = useState('');
-  const [orderStatus, setOrderStatus] = useState('');
+  const [orderStatus, setOrderStatus] = useState(params.get('status') || '');
   const [paymentStatus, setPaymentStatus] = useState('');
   const [customerType, setCustomerType] = useState('');
   const [from, setFrom] = useState('');
@@ -20,14 +32,14 @@ export default function OrderList() {
   const [page, setPage] = useState(1);
   const dq = useDebounce(q, 300);
   const { data, loading, error, reload } = useAsync(
-    () => adminApi.get(`/orders${qs({ q: dq, order_status: orderStatus, payment_status: paymentStatus, customer_type: customerType, from, to, page, limit: 50 })}`),
-    [dq, orderStatus, paymentStatus, customerType, from, to, page],
+    () => adminApi.get(`/orders${qs({ q: dq, order_status: orderStatus, payment_status: paymentStatus, customer_type: customerType, placed_by: placedBy, from, to, page, limit: 50 })}`),
+    [dq, orderStatus, paymentStatus, customerType, placedBy, from, to, page],
   );
   const counts = data?.counts;
 
   return (
     <>
-      <PageHeader title="Orders" subtitle="Search by order number, mobile, customer or business name." actions={<a className="btn" href="/api/admin/export/Orders">Export CSV</a>} />
+      <PageHeader title="Orders" subtitle="Search by order number, mobile, customer or business name." actions={isSubAdmin(admin) ? null : <a className="btn" href="/api/admin/export/Orders">Export CSV</a>} />
       {counts && (
         <div className="status-tabs">
           <button type="button" className="status-tab" aria-pressed={!orderStatus} onClick={() => { setOrderStatus(''); setPage(1); }}>All <b>{counts.total}</b></button>
@@ -49,6 +61,13 @@ export default function OrderList() {
           <option value="EXISTING">Existing customers</option>
           <option value="NEW">New customers</option>
         </select>
+        <select className="select" value={placedBy} onChange={(e) => { setPlacedBy(e.target.value); setPage(1); }} aria-label="Made by">
+          <option value="">Made by: everyone</option>
+          <option value="customer">Made by the customer</option>
+          <option value="team">Made by the team (admin numbers)</option>
+          {isSubAdmin(admin) && admin.mobile && <option value={admin.mobile}>Made by me</option>}
+          {(team.data?.items || []).map((u) => <option key={u.admin_id} value={u.mobile}>Made by {u.name}</option>)}
+        </select>
         <input className="input" type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} aria-label="From date" />
         <input className="input" type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} aria-label="To date" />
       </div>
@@ -59,7 +78,7 @@ export default function OrderList() {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Order no</th><th>Date</th><th>Customer</th><th>Mobile</th><th>City</th><th className="right">Order value</th><th>Payment</th><th>Order status</th><th>Locked</th><th>Updated</th></tr>
+                <tr><th>Order no</th><th>Date</th><th>Customer</th><th>Mobile</th><th>City</th><th className="right">Order value</th><th>Payment</th><th>Order status</th><th>Made by</th><th>Locked</th><th>Updated</th></tr>
               </thead>
               <tbody>
                 {data.items.map((o) => (
@@ -72,6 +91,7 @@ export default function OrderList() {
                     <td className="right num"><strong>{formatINR(o.final_payable)}</strong>{o.less_packing && <div><span className="badge badge-gold packing-flag" title="Customer chose to less packing charges">− packing {formatINR(o.packing_deduction)}</span></div>}</td>
                     <td>{o.payment_mode_snapshot === 'OFFLINE' ? <span className="badge badge-gold">No online payment</span> : <StatusBadge kind="payment" status={o.payment_status} />}</td>
                     <td><StatusBadge status={o.order_status} /></td>
+                    <td><MadeBy order={o} /></td>
                     <td>{o.locked ? <Lock size={16} color="var(--ink-700)" aria-label="Locked" /> : <span className="soft small">Open</span>}</td>
                     <td className="small nowrap">{formatDateTime(o.updated_at)}</td>
                   </tr>

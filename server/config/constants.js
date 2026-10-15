@@ -93,6 +93,8 @@ export const ADMIN_ROLE = Object.freeze({
   OWNER: 'OWNER',
   ADMIN: 'ADMIN',
   STAFF: 'STAFF',
+  // limited panel: Orders tab + small dashboard + what the owner ticks
+  SUB_ADMIN: 'SUB_ADMIN',
 });
 
 export const AUDIT_ACTION = Object.freeze({

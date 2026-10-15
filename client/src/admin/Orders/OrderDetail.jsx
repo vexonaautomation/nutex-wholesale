@@ -13,6 +13,7 @@ import { ORDER_STATUS } from '../../constants/index.js';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { waLink } from '../../utils/whatsapp.js';
 import OrderItemsEditor from './OrderItemsEditor.jsx';
+import { useCan } from '../AdminApp.jsx';
 
 export function ProofModal({ payment, onClose }) {
   const [failed, setFailed] = useState(false);
@@ -28,7 +29,9 @@ export function ProofModal({ payment, onClose }) {
 
 export function PaymentDecision({ payment, onDone }) {
   const toast = useToast();
+  const can = useCan();
   const [mode, setMode] = useState(null);
+  if (!can('payments')) return <span className="small soft">Owner verifies</span>;
   return (
     <>
       <div className="row" style={{ gap: 6 }}>
@@ -278,7 +281,7 @@ export default function OrderDetail() {
               <dt>Mobile</dt><dd><a href={`tel:${order.mobile_snapshot}`}>{order.mobile_snapshot}</a></dd>
               <dt>WhatsApp</dt><dd>{order.whatsapp_snapshot}</dd>
               {order.alternate_mobile_snapshot && <><dt>Alternate mobile</dt><dd>{order.alternate_mobile_snapshot}</dd></>}
-              {order.placed_by_mobile && <><dt>Placed by</dt><dd><span className="badge badge-outline">Admin number {order.placed_by_mobile}</span></dd></>}
+              {order.placed_by_mobile && <><dt>Made by</dt><dd><span className="badge badge-outline">{order.placed_by_name ? `${order.placed_by_name} · ${order.placed_by_mobile}` : `Admin number ${order.placed_by_mobile}`}</span></dd></>}
               <dt>Email</dt><dd>{order.email_snapshot || '—'}</dd>
               <dt>GSTIN</dt><dd>{order.gstin_snapshot || '—'}</dd>
               <dt>Billing</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.billing_address_snapshot}</dd>
