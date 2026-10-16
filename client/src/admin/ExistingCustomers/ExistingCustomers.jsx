@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BadgeCheck, Download, ListPlus, Pencil, Plus, Upload,
+  BadgeCheck, Download, FileSpreadsheet, ListPlus, Pencil, Plus, Upload,
 } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { qs } from '../../services/api.js';
@@ -12,6 +12,7 @@ import { Modal } from '../../components/common/Modal.jsx';
 import { Alert, EmptyState, ErrorState, Field, PageLoader, Spinner, StatusBadge } from '../../components/common/ui.jsx';
 import { formatDate, formatINR } from '../../utils/format.js';
 import { INDIAN_STATES } from '../../constants/index.js';
+import { ExcelImportDialog } from './ExcelImportDialog.jsx';
 
 const EMPTY = {
   mobile: '', alternate_mobiles: '', customer_name: '', business_name: '', city: '', address: '', state: '', pincode: '', gstin: '', minimum_order_value: '', notes: '',
@@ -25,6 +26,7 @@ export default function ExistingCustomers() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [excelOpen, setExcelOpen] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [bulkResult, setBulkResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -98,7 +100,8 @@ export default function ExistingCustomers() {
         subtitle="Customers in this list can order without the standard minimum after verifying any of their numbers (main or alternate) with a WhatsApp OTP."
         actions={(
           <>
-            <button type="button" className="btn" onClick={() => { setBulkOpen(true); setBulkResult(null); }}><ListPlus /> Bulk add</button>
+            <button type="button" className="btn" onClick={() => { setBulkOpen(true); setBulkResult(null); }}><ListPlus /> Paste numbers</button>
+            <button type="button" className="btn" onClick={() => setExcelOpen(true)}><FileSpreadsheet /> Import from Excel</button>
             <button type="button" className="btn btn-primary" onClick={() => open(null)}><Plus /> Add customer</button>
           </>
         )}
@@ -112,7 +115,7 @@ export default function ExistingCustomers() {
       {data?.duplicates?.length > 0 && <Alert type="warning" className="mb-2">Duplicate numbers in the sheet: {data.duplicates.join(', ')}. Keep only one row per number.</Alert>}
       <div className="filter-bar"><SearchBox value={q} onChange={setQ} placeholder="Mobile, name, business, city" /></div>
       {loading && !data ? <PageLoader /> : error ? <ErrorState error={error} onRetry={reload} /> : !data.items.length ? (
-        <EmptyState icon={BadgeCheck} title="No existing customers yet" action={<button type="button" className="btn btn-primary" onClick={() => setBulkOpen(true)}>Bulk add numbers</button>}>
+        <EmptyState icon={BadgeCheck} title="No existing customers yet" action={<button type="button" className="btn btn-primary" onClick={() => setExcelOpen(true)}><FileSpreadsheet /> Import from Excel</button>}>
           Add the mobile numbers of customers who already buy from Nutex.
         </EmptyState>
       ) : (
@@ -179,14 +182,17 @@ export default function ExistingCustomers() {
 
       <Modal
         open={bulkOpen}
-        title="Bulk add existing customers"
+        title="Paste existing customers"
         size="lg"
         onClose={() => setBulkOpen(false)}
         footer={<><button type="button" className="btn" onClick={() => setBulkOpen(false)}>Close</button><button type="button" className="btn btn-primary" onClick={bulk} disabled={busy || !bulkText.trim()}>{busy && <Spinner small />} Add / update customers</button></>}
       >
         <div className="stack">
+          <Alert type="info">
+            Have an Excel sheet? Use <button type="button" className="link" onClick={() => { setBulkOpen(false); setExcelOpen(true); }}><strong>Import from Excel</strong></button> instead - download the template, fill it, upload it and see every row before saving.
+          </Alert>
           <div className="card card-pad" style={{ background: 'var(--ink-50)' }}>
-            <strong>Import from Excel - 3 steps</strong>
+            <strong>Paste from Excel / CSV</strong>
             <ol className="small mb-0" style={{ paddingLeft: 18, lineHeight: 1.7 }}>
               <li><a className="link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }} href="/templates/existing-customers-template.csv" download="nutex-existing-customers-template.csv"><Download size={14} /> Download the template</a> and open it in Excel.</li>
               <li>Fill one customer per row (only <strong>mobile</strong> is required) and delete the 2 example rows. Columns: mobile, customer_name, business_name, city, <strong>address, state, pincode</strong>, alternate_mobiles (several: <code>/</code>), gstin, minimum_order_value (blank = default), notes.</li>
@@ -204,6 +210,7 @@ export default function ExistingCustomers() {
           )}
         </div>
       </Modal>
+      <ExcelImportDialog open={excelOpen} onClose={() => setExcelOpen(false)} onDone={reload} />
     </>
   );
 }

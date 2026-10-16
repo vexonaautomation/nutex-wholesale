@@ -6,6 +6,7 @@ import {
   listExistingCustomers, addExistingCustomers, parseBulkText, updateExistingCustomer, lookupCustomersForAdmin,
 } from '../services/existingCustomerService.js';
 import { customerOrderHistory } from '../services/orderService.js';
+import { existingCustomersWorkbook, importExistingCustomersFile } from '../services/existingCustomerExcelService.js';
 import { badRequest } from '../utils/errors.js';
 import { ctx, noStore } from './helpers.js';
 
@@ -65,6 +66,23 @@ export async function existingBulk(req, res) {
   const rows = [...req.body.rows, ...parseBulkText(req.body.text)];
   if (!rows.length) throw badRequest('Paste at least one mobile number.');
   res.json(await addExistingCustomers(rows, ctx(req)));
+}
+
+// Excel template (?with=customers: filled with the current list)
+export async function existingTemplate(req, res) {
+  const { buffer, filename } = await existingCustomersWorkbook({ withCustomers: req.query.with === 'customers' });
+  res.set({
+    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Content-Disposition': `attachment; filename="${filename}"`,
+    'Cache-Control': 'no-store',
+  });
+  res.send(buffer);
+}
+
+// body = the filled .xlsx; ?apply=1 saves, otherwise preview only
+export async function existingImport(req, res) {
+  if (!Buffer.isBuffer(req.body) || !req.body.length) throw badRequest('Upload the filled Excel (.xlsx) file.');
+  res.json(await importExistingCustomersFile(req.body, { apply: req.query.apply === '1', ...ctx(req) }));
 }
 
 export const existingUpdate = async (req, res) => res.json(await updateExistingCustomer(req.params.key, req.body, ctx(req)));
