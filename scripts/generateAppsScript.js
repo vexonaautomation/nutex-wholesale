@@ -56,11 +56,18 @@ export function generateAppsScript() {
  *      (First time: Review permissions -> choose your account -> Allow.)
  *   4. Reload the spreadsheet: a "Nutex Setup" menu appears for next time.
  *
- *  SAFE TO RUN ANY NUMBER OF TIMES - ADDITIVE ONLY
- *   - creates only MISSING sheets, adds only MISSING columns (at the end),
+ *  SAFE TO RUN ANY NUMBER OF TIMES - NOTHING IS EVER DELETED
+ *   - creates only MISSING sheets, adds only MISSING columns,
  *     adds only MISSING settings, records schema versions;
- *   - never deletes, clears, reorders or overwrites any existing data.
- *  The website also performs this same additive check every time it starts.
+ *   - puts the columns of every sheet in the standard order: a column
+ *     that is in another place moves WITH ALL ITS VALUES (e.g. names in
+ *     column B -> column C keep every name, row by row). Columns you added
+ *     yourself are kept at the end. Before a sheet is changed, a copy of
+ *     it is saved as "<sheet> backup <date time>" (delete it yourself later);
+ *   - never deletes rows, columns, sheets or values.
+ *  Best run when nobody is ordering (e.g. at night). The website itself only
+ *  adds missing sheets / columns when it starts - it reads every column by
+ *  its header name, so the column order never breaks the app.
  * =====================================================================
  */
 
@@ -88,6 +95,7 @@ function onOpen() {
     .addItem('1. Create / update all sheets', 'setupNutexSheets')
     .addItem('2. Load initial categories, sizes and colours', 'loadNutexMasterData')
     .addItem('3. Check setup', 'checkNutexSetup')
+    .addItem('4. Arrange columns only (keeps all data)', 'arrangeNutexColumns')
     .addToUi();
 }
 
@@ -97,7 +105,7 @@ function setupNutexSheets() {
   lock.waitLock(30000);
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var report = { created: [], columns: [], settings: 0, versions: [], warnings: [] };
+    var report = { created: [], columns: [], settings: 0, versions: [], arranged: [], backups: [], warnings: [] };
 
     if (/^Untitled/i.test(ss.getName())) {
       ss.rename(NUTEX_SPREADSHEET_NAME);
@@ -106,6 +114,7 @@ function setupNutexSheets() {
 
     Object.keys(NUTEX_SCHEMA).forEach(function (name) {
       nutexEnsureSheet_(ss, name, NUTEX_SCHEMA[name], report);
+      nutexArrangeSheet_(ss, name, NUTEX_SCHEMA[name], report);
     });
 
     report.settings = nutexEnsureSettings_(ss);
@@ -120,6 +129,8 @@ function setupNutexSheets() {
     if (report.renamed) lines.push('Spreadsheet renamed to "' + report.renamed + '".');
     lines.push('Sheets created: ' + (report.created.length ? report.created.join(', ') : 'none (all present)'));
     lines.push('Columns added: ' + (report.columns.length ? report.columns.join('; ') : 'none'));
+    lines.push('Columns moved to their place (with all data): ' + (report.arranged.length ? report.arranged.join('; ') : 'none (all in order)'));
+    if (report.backups.length) lines.push('Backup copies made: ' + report.backups.join(', '));
     lines.push('Settings added: ' + report.settings);
     lines.push('Schema versions recorded: ' + (report.versions.length ? report.versions.join(', ') : 'already up to date (v' + NUTEX_SCHEMA_VERSION + ')'));
     report.warnings.forEach(function (w) { lines.push('WARNING: ' + w); });
@@ -176,6 +187,108 @@ function nutexEnsureSheet_(ss, name, columns, report) {
   }
   if (sheet.getFrozenRows() < 1) sheet.setFrozenRows(1);
   return sheet;
+}
+
+/* ------------------------------------- 4. arrange columns (moves data) */
+/** Menu item: only puts the columns in order (adds missing columns first). */
+function arrangeNutexColumns() {
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(30000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var report = { created: [], columns: [], arranged: [], backups: [], warnings: [] };
+    Object.keys(NUTEX_SCHEMA).forEach(function (name) {
+      nutexEnsureSheet_(ss, name, NUTEX_SCHEMA[name], report);
+      nutexArrangeSheet_(ss, name, NUTEX_SCHEMA[name], report);
+    });
+    var lines = [];
+    lines.push('Columns moved to their place (with all data): ' + (report.arranged.length ? report.arranged.join('; ') : 'none (all in order)'));
+    if (report.backups.length) lines.push('Backup copies made: ' + report.backups.join(', '));
+    if (report.columns.length) lines.push('Columns added: ' + report.columns.join('; '));
+    report.warnings.forEach(function (w) { lines.push('WARNING: ' + w); });
+    nutexNotify_('Nutex columns arranged', lines);
+    return report;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Standard order: the schema columns, then any column you added yourself (never dropped). */
+function nutexTargetOrder_(header, columns) {
+  var known = columns.filter(function (c) { return header.indexOf(c) !== -1; });
+  var extra = header.filter(function (h) { return columns.indexOf(h) === -1; });
+  return known.concat(extra);
+}
+
+/**
+ * Puts the columns of one sheet in the standard order. Every column moves
+ * with all its cells (values, formulas, number formats, dropdowns), row by
+ * row - nothing is deleted. A copy of the sheet is saved first.
+ */
+function nutexArrangeSheet_(ss, name, columns, report) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet || sheet.getLastColumn() < 1) return;
+  var lastCol = sheet.getLastColumn();
+  var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+  while (header.length && !header[header.length - 1]) header.pop();
+  if (!header.length) return;
+  if (header.some(function (h) { return !h; })) {
+    report.warnings.push(name + ': a column has no header name - columns NOT arranged. Give it a name in row 1 and run again.');
+    return;
+  }
+  var dupes = header.filter(function (h, i) { return header.indexOf(h) !== i; });
+  if (dupes.length) {
+    report.warnings.push(name + ': the column "' + dupes[0] + '" is there twice - columns NOT arranged. Keep one of them and run again.');
+    return;
+  }
+  var target = nutexTargetOrder_(header, columns);
+  if (JSON.stringify(target) === JSON.stringify(header)) return; // already in order
+
+  var width = header.length;
+  var rowsBefore = sheet.getLastRow();
+  var lastRow = Math.max(rowsBefore, 1);
+  var range = sheet.getRange(1, 1, lastRow, width);
+  var values = range.getValues();
+  var formulas = range.getFormulas();
+  var formats = range.getNumberFormats();
+  var from = target.map(function (h) { return header.indexOf(h); });
+  var moved = target.filter(function (h, i) { return from[i] !== i; }).length;
+
+  // 1. a copy of the sheet, exactly as it is now
+  var backup = sheet.copyTo(ss);
+  backup.setName(nutexBackupName_(ss, name + ' backup ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm')));
+  report.backups.push(backup.getName());
+
+  // 2. the website may have added a row meanwhile: then change nothing
+  if (sheet.getLastRow() !== rowsBefore || sheet.getLastColumn() !== lastCol) {
+    report.warnings.push(name + ': changed while arranging - NOT arranged. Run again when nobody is ordering.');
+    return;
+  }
+
+  // 3. write every row back with the columns in their new places
+  var newValues = values.map(function (row, i) {
+    return from.map(function (j) { return formulas[i][j] ? formulas[i][j] : row[j]; });
+  });
+  var newFormats = formats.map(function (row) { return from.map(function (j) { return row[j]; }); });
+  range.setNumberFormats(newFormats);
+  range.setValues(newValues);
+
+  // dropdowns / text format follow the columns
+  var rows = Math.max(sheet.getMaxRows() - 1, 1);
+  var body = sheet.getRange(2, 1, rows, width);
+  var rules = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, width).getDataValidations() : [];
+  body.clearDataValidations();
+  if (rules.length) sheet.getRange(2, 1, lastRow - 1, width).setDataValidations(rules.map(function (row) { return from.map(function (j) { return row[j]; }); }));
+  nutexFormatColumns_(sheet, name, target, 1);
+  nutexStyleHeader_(sheet, 1, width);
+  report.arranged.push(name + ' (' + moved + ' columns moved)');
+}
+
+function nutexBackupName_(ss, base) {
+  var name = base.slice(0, 90);
+  var n = 1;
+  while (ss.getSheetByName(name)) { n += 1; name = base.slice(0, 86) + ' (' + n + ')'; }
+  return name;
 }
 
 function nutexStyleHeader_(sheet, startCol, count) {
@@ -325,10 +438,14 @@ function checkNutexSetup() {
       return;
     }
     var header = nutexHeaderMap_(sheet);
+    while (header.length && !header[header.length - 1]) header.pop();
     var missing = NUTEX_SCHEMA[name].filter(function (c) { return header.indexOf(c) === -1; });
     if (missing.length) {
       ok = false;
       lines.push(name + ': missing columns ' + missing.join(', '));
+    } else if (JSON.stringify(nutexTargetOrder_(header, NUTEX_SCHEMA[name])) !== JSON.stringify(header)) {
+      ok = false;
+      lines.push(name + ': all columns present, but some are in another place (run "1. Create / update all sheets" - data moves with them)');
     } else {
       lines.push(name + ': OK (' + Math.max(sheet.getLastRow() - 1, 0) + ' rows)');
     }

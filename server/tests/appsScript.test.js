@@ -50,10 +50,21 @@ class FakeSheet {
       getValues() {
         return Array.from({ length: numRows }, (_, i) => Array.from({ length: numCols }, (_, j) => sheet.rows[row - 1 + i]?.[col - 1 + j] ?? ''));
       },
+      getFormulas() { return Array.from({ length: numRows }, () => Array.from({ length: numCols }, () => '')); },
+      getNumberFormats() { return Array.from({ length: numRows }, () => Array.from({ length: numCols }, () => 'General')); },
+      getDataValidations() { return Array.from({ length: numRows }, () => Array.from({ length: numCols }, () => null)); },
     };
-    for (const m of ['setFontWeight', 'setBackground', 'setFontColor', 'setNumberFormat', 'setDataValidation']) range[m] = () => range;
+    for (const m of ['setFontWeight', 'setBackground', 'setFontColor', 'setNumberFormat', 'setDataValidation', 'setNumberFormats', 'setDataValidations', 'clearDataValidations']) range[m] = () => range;
     return range;
   }
+  copyTo(ss) {
+    const copy = new FakeSheet(`Copy of ${this.name}`);
+    copy.rows = this.rows.map((r) => [...r]);
+    copy.maxCols = this.maxCols;
+    ss.sheets.push(copy);
+    return copy;
+  }
+  setName(n) { this.name = n; return this; }
 }
 
 class FakeSpreadsheet {
@@ -63,6 +74,7 @@ class FakeSpreadsheet {
   getSheetByName(n) { return this.sheets.find((s) => s.name === n) || null; }
   insertSheet(n) { const s = new FakeSheet(n); this.sheets.push(s); return s; }
   getSheets() { return this.sheets; }
+  getSpreadsheetTimeZone() { return 'Asia/Kolkata'; }
   getEditors() { return [{ getEmail: () => 'owner@gmail.com' }, { getEmail: () => 'app@nutex.iam.gserviceaccount.com' }]; }
 }
 
@@ -75,7 +87,7 @@ function runScript(ss) {
       newDataValidation: () => validation,
     },
     LockService: { getDocumentLock: () => ({ waitLock() {}, releaseLock() {} }) },
-    Utilities: { getUuid: () => crypto.randomUUID(), sleep() {} },
+    Utilities: { getUuid: () => crypto.randomUUID(), sleep() {}, formatDate: () => '2026-10-16 10:00' },
     Logger: { log() {} },
   };
   vm.createContext(ctx);
@@ -114,9 +126,56 @@ test('setup.gs is additive: re-running changes nothing; data and extra columns a
   const ec = ss.getSheetByName('Existing_Customers');
   ec.rows = [['mobile', 'customer_name', 'my_notes'], ['9876543210', 'Riya', 'VIP']];
   gs.setupNutexSheets();
-  assert.deepEqual(ec.rows[1].slice(0, 3), ['9876543210', 'Riya', 'VIP'], 'existing data untouched');
-  assert.equal(ec.rows[0][2], 'my_notes', 'admin column kept in place');
-  for (const col of SCHEMA.Existing_Customers.columns) assert.ok(ec.rows[0].includes(col), `${col} added`);
+  const cols = SCHEMA.Existing_Customers.columns;
+  assert.deepEqual(ec.rows[0], [...cols, 'my_notes'], 'missing columns added, own column kept (at the end)');
+  const at = (name) => ec.rows[1][ec.rows[0].indexOf(name)];
+  assert.equal(at('mobile'), '9876543210', 'existing data kept');
+  assert.equal(at('customer_name'), 'Riya');
+  assert.equal(at('my_notes'), 'VIP', 'own column moved with its value');
+});
+
+test('setup.gs moves a misplaced column WITH all its values, row by row, after a backup copy', () => {
+  const ss = new FakeSpreadsheet('My sheet');
+  const gs = runScript(ss);
+  gs.setupNutexSheets();
+  const cols = SCHEMA.Orders.columns;
+  // the owner's Orders sheet: customer_name_snapshot (column D) and business_name_snapshot (E) swapped,
+  // placed_by_mobile moved next to the order number
+  const shuffled = [...cols];
+  [shuffled[3], shuffled[4]] = [shuffled[4], shuffled[3]];
+  shuffled.splice(shuffled.indexOf('placed_by_mobile'), 1);
+  shuffled.splice(2, 0, 'placed_by_mobile');
+  const orders = ss.getSheetByName('Orders');
+  const record = (n) => Object.fromEntries(cols.map((c) => [c, `${c}-${n}`]));
+  const data = [record(1), record(2), record(3)];
+  orders.rows = [shuffled, ...data.map((r) => shuffled.map((c) => r[c]))];
+  const original = orders.rows.map((r) => [...r]);
+  const sheetsBefore = ss.sheets.length;
+
+  gs.setupNutexSheets();
+  assert.deepEqual(orders.rows[0], cols, 'columns in the standard order');
+  data.forEach((r, i) => assert.deepEqual(orders.rows[i + 1], cols.map((c) => r[c]), `row ${i + 2}: every value under its own header`));
+  assert.equal(orders.getLastRow(), 4, 'no row lost');
+  const backup = ss.getSheetByName('Orders backup 2026-10-16 10:00');
+  assert.ok(backup, 'backup copy made first');
+  assert.deepEqual(backup.rows, original, 'backup = the sheet exactly as it was');
+  assert.equal(ss.sheets.length, sheetsBefore + 1);
+
+  // already in order now: running again changes nothing and makes no more backups
+  const after = snapshot(ss);
+  gs.setupNutexSheets();
+  assert.equal(snapshot(ss), after);
+});
+
+test('setup.gs never arranges a sheet with an unnamed or duplicate column', () => {
+  const ss = new FakeSpreadsheet('My sheet');
+  const gs = runScript(ss);
+  gs.setupNutexSheets();
+  const sizes = ss.getSheetByName('Sizes');
+  sizes.rows = [['size_id', 'sort_order', 'size_name', 'size_name'], ['SIZ-1', 1, '32', 'x']];
+  const report = gs.setupNutexSheets();
+  assert.ok(report.warnings.some((w) => /Sizes: the column "size_name" is there twice/.test(w)));
+  assert.deepEqual(sizes.rows[1].slice(0, 4), ['SIZ-1', 1, '32', 'x'], 'untouched');
 });
 
 test('setup.gs master data: only into empty sheets, with app-style IDs', () => {
