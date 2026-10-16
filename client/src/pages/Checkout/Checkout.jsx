@@ -19,7 +19,7 @@ const SAVED_KEY = 'nutex_customer_v1';
 const IDEM_KEY = 'nutex_checkout_key';
 const EMPTY = {
   customer_name: '', business_name: '', mobile: '', whatsapp: '', alternate_mobile: '', email: '', billing_address: '', shipping_address: '',
-  same_as_billing: true, city: '', state: '', pincode: '', gstin: '', order_notes: '',
+  same_as_billing: true, city: '', state: '', pincode: '', gstin: '', aadhaar: '', order_notes: '',
 };
 
 function loadSaved() {
@@ -49,6 +49,8 @@ function validate(f, { mobileOptional = false } = {}) {
   if (!f.state) e.state = 'Select state';
   if (!/^[1-9]\d{5}$/.test(f.pincode.trim())) e.pincode = 'Enter a valid 6-digit pincode';
   if (f.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(f.gstin.trim().toUpperCase())) e.gstin = 'Enter a valid 15-character GSTIN';
+  const aadhaar = String(f.aadhaar || '').replace(/[\s-]/g, '');
+  if (!f.gstin.trim() && aadhaar && !/^[2-9]\d{11}$/.test(aadhaar)) e.aadhaar = 'Enter a valid 12-digit Aadhaar number';
   return e;
 }
 
@@ -158,7 +160,12 @@ export default function Checkout() {
     try {
       const res = await orderApi.createDraft({
         // admin number without a customer number: the order uses the admin number
-        customer: { ...form, mobile: isAdmin && !form.mobile.trim() ? verifiedMobile : form.mobile, gstin: form.gstin.trim().toUpperCase() },
+        customer: {
+          ...form,
+          mobile: isAdmin && !form.mobile.trim() ? verifiedMobile : form.mobile,
+          gstin: form.gstin.trim().toUpperCase(),
+          aadhaar: form.gstin.trim() ? '' : String(form.aadhaar || '').replace(/[\s-]/g, ''),
+        },
         items: cart.items.map(({ variant_id, qty }) => ({ variant_id, qty })),
         idempotency_key: idemKey,
         client_final_payable: quote.final_payable,
@@ -167,7 +174,8 @@ export default function Checkout() {
       saveOrderAccess(res.order_number, res.access_token, { final_payable: res.order?.totals?.final_payable, business: form.business_name });
       if (!isAdmin) {
         try {
-          const { order_notes: _n, ...remember } = form;
+          // never keep the Aadhaar number in the browser
+          const { order_notes: _n, aadhaar: _a, ...remember } = form;
           localStorage.setItem(SAVED_KEY, JSON.stringify(remember));
         } catch { /* ignore */ }
       }
@@ -246,6 +254,11 @@ export default function Checkout() {
               <Field label="Alternate mobile (optional)" hint="Another number you use - it can also be used later to log in as an existing customer" error={errors.alternate_mobile} className="span-2"><input className="input" value={form.alternate_mobile} onChange={set('alternate_mobile')} inputMode="tel" placeholder="Second mobile / WhatsApp number" aria-invalid={!!errors.alternate_mobile} /></Field>
               <Field label="Email (optional)" error={errors.email} className="span-2"><input className="input" type="email" value={form.email} onChange={set('email')} autoComplete="email" aria-invalid={!!errors.email} /></Field>
               <Field label="GST number (optional)" hint="For a GST invoice" error={errors.gstin} className="span-2"><input className="input" value={form.gstin} onChange={set('gstin')} style={{ textTransform: 'uppercase' }} maxLength={15} aria-invalid={!!errors.gstin} /></Field>
+              {!form.gstin.trim() && (
+                <Field label="Aadhaar number (if no GST, optional)" hint="Only the last 4 digits are saved and printed on the bill (XXXX XXXX 1234)." error={errors.aadhaar} className="span-2">
+                  <input className="input" value={form.aadhaar || ''} onChange={set('aadhaar')} inputMode="numeric" autoComplete="off" maxLength={14} placeholder="12-digit Aadhaar number" aria-invalid={!!errors.aadhaar} />
+                </Field>
+              )}
             </div>
           </section>
           <section className="card card-pad">

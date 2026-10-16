@@ -17,6 +17,8 @@ import { sheetsService } from './sheetsService.js';
 import { INVENTORY_MODE } from '../config/constants.js';
 import { conflict } from '../utils/errors.js';
 import { round2 } from '../utils/money.js';
+import { normalizeMobile } from '../utils/orderToken.js';
+import { adminNamesByMobile } from './authService.js';
 
 // ------------------------------------------------------------ size columns
 // Nutex sizes: S starts at 32 (S/32, M/34, L/36, XL/38, ...). Letter sizes and
@@ -48,13 +50,31 @@ const istDate = (iso) => {
   return `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`;
 };
 
+const oneLine = (v) => String(v || '').replace(/\s*\n\s*/g, ', ').replace(/\s+/g, ' ').trim();
+const same = (a, b) => oneLine(a).toLowerCase() === oneLine(b).toLowerCase();
+
+/** "Street, City, State - 302001" (city / state left out when the street already has them). */
+export function fullAddress(street, city, state, pincode) {
+  const s = oneLine(street);
+  const has = (w) => w && s.toLowerCase().includes(String(w).toLowerCase());
+  const place = [!has(city) && oneLine(city), !has(state) && oneLine(state)].filter(Boolean).join(', ');
+  const tail = [place, pincode && !has(pincode) ? String(pincode).trim() : ''].filter(Boolean).join(' - ');
+  return [s, tail].filter(Boolean).join(', ');
+}
+
+/** Aadhaar on a bill: only the last 4 digits (XXXX XXXX 1234). */
+export function maskAadhaar(value) {
+  const d = String(value || '').replace(/\D/g, '');
+  return d.length >= 4 ? `XXXX XXXX ${d.slice(-4)}` : '';
+}
+
 /**
  * Rows grouped like the estimate: one row per article + colour + rate (boxes = "Mix").
  * `productSkus` (product_id -> article SKU) prints the article's SKU instead of
  * the size/colour-specific variant SKU saved on the order line.
  */
 export function buildBill({
-  order, items, settings, productSkus = {},
+  order, items, settings, productSkus = {}, names = new Map(),
 }) {
   const rows = new Map();
   const used = new Set(ALWAYS);
@@ -96,9 +116,18 @@ export function buildBill({
     number: order.order_number,
     date: istDate(order.created_at),
     party: {
+      // the business is the party; the person is printed under it
       name: order.business_name_snapshot || order.customer_name_snapshot || '',
+      customer_name: order.business_name_snapshot && order.customer_name_snapshot && !same(order.business_name_snapshot, order.customer_name_snapshot)
+        ? oneLine(order.customer_name_snapshot) : '',
       phone: order.mobile_snapshot || '',
       city: order.city_snapshot || '',
+      address: fullAddress(order.billing_address_snapshot, order.city_snapshot, order.state_snapshot, order.pincode_snapshot),
+      ship_to: order.shipping_address_snapshot && !same(order.shipping_address_snapshot, order.billing_address_snapshot)
+        ? fullAddress(order.shipping_address_snapshot, order.city_snapshot, order.state_snapshot, order.pincode_snapshot) : '',
+      // GST number; without GST the Aadhaar number (last 4 digits only)
+      gstin: String(order.gstin_snapshot || '').trim().toUpperCase(),
+      aadhaar: order.gstin_snapshot ? '' : maskAadhaar(order.aadhaar_last4),
     },
     columns,
     rows: list,
@@ -119,6 +148,10 @@ export function buildBill({
       return Math.abs(off) < 1 ? off : 0;
     })(),
     terms: String(settings.bill_terms || '').split('\n').map((t) => t.trim()).filter(Boolean),
+    // who made the order: the sub admin / admin of that number, else the customer online
+    made_by: order.placed_by_mobile
+      ? names.get(normalizeMobile(order.placed_by_mobile)) || 'Nutex team'
+      : 'Online order (customer)',
   };
 }
 
@@ -268,10 +301,25 @@ export function renderBillPdf(bill) {
   text(`Date: ${bill.date}`, L, y + 8, { f: 'B', size: 9, width: R - L, align: 'right' });
   y += 26;
   hline(y, INK, 1.4);
-  text(`Party Name: ${bill.party.name}`, L, y + 10, { f: 'B', size: 10.5, width: (R - L) * 0.45 });
-  text(`Ph: ${bill.party.phone}`, L + (R - L) * 0.4, y + 10, { f: 'B', size: 10.5 });
-  text(`City: ${bill.party.city}`, L, y + 10, { f: 'B', size: 10.5, width: R - L, align: 'right' });
-  y += 30;
+  // party: business name + phone, customer name + GSTIN (or Aadhaar), full address
+  const p = bill.party;
+  const split = L + (R - L) * 0.62;
+  const labelled = (label, value, x, yy, { size = 9.5, width, bold = false } = {}) => {
+    doc.font('B').fontSize(size).fillColor(INK).text(label, x, yy, { width, continued: true, lineGap: 1 })
+      .font(bold ? 'B' : 'R').text(` ${value}`, { lineGap: 1 });
+    return doc.y;
+  };
+  let py = y + 9;
+  labelled('Party Name:', p.name, L, py, { size: 10.5, width: split - L - 12, bold: true });
+  text(`Ph: ${p.phone}`, split, py, { f: 'B', size: 10.5, width: R - split, align: 'right' });
+  py += 17;
+  const idLine = p.gstin ? `GSTIN: ${p.gstin}` : p.aadhaar ? `Aadhaar No: ${p.aadhaar}` : 'GSTIN: Not registered';
+  if (p.customer_name) labelled('Customer Name:', p.customer_name, L, py, { width: split - L - 12 });
+  text(idLine, split, py, { f: 'B', size: 9.5, width: R - split, align: 'right' });
+  py += 15;
+  if (p.address) py = labelled('Address:', p.address, L, py, { width: R - L }) + 2;
+  if (p.ship_to) py = labelled('Ship to:', p.ship_to, L, py, { width: R - L }) + 2;
+  y = py + 6;
   hline(y, '#9ca3af', 0.7, { l: 1.5, s: 1.5 });
   y += 14;
 
@@ -323,7 +371,7 @@ export function renderBillPdf(bill) {
   if (bill.gst_percent > 0) text(`${bill.gst_percent}% GST included`, tx, ly + 32, { size: 9, width: R - tx, align: 'right', color: SOFT });
 
   const sy = Math.max(ty, ly + 46) + 40;
-  text('Sales Representative: .....................................', L, sy, { size: 8.5 });
+  labelled('Made by:', bill.made_by, L, sy, { size: 9.5, width: (R - L) * 0.5, bold: true });
   text("Customer's Signature: .....................................", L, sy, { size: 8.5, width: R - L, align: 'right' });
   doc.font('B').fontSize(10);
   const forName = bill.company.name;
@@ -343,10 +391,10 @@ export function renderBillPdf(bill) {
 export const billFileName = (bill) => `${bill.title.replace(/[^A-Za-z0-9]+/g, '_')}_${bill.number}.pdf`;
 
 async function billFor(bundle) {
-  const [settings, products] = await Promise.all([getSettings(), sheetsService.read('Products')]);
+  const [settings, products, names] = await Promise.all([getSettings(), sheetsService.read('Products'), adminNamesByMobile()]);
   const productSkus = Object.fromEntries(products.map((p) => [p.product_id, p.sku]));
   const bill = buildBill({
-    order: bundle.order, items: activeItems(bundle.items, bundle.order.order_id), settings, productSkus,
+    order: bundle.order, items: activeItems(bundle.items, bundle.order.order_id), settings, productSkus, names,
   });
   return { bill, pdf: await renderBillPdf(bill), filename: billFileName(bill) };
 }

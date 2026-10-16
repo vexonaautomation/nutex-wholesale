@@ -344,6 +344,7 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
       state_snapshot: c.state,
       pincode_snapshot: c.pincode,
       gstin_snapshot: c.gstin,
+      aadhaar_last4: c.aadhaar_last4 || '',
       alternate_mobile_snapshot: c.alternate_mobile,
       order_notes: c.order_notes,
       ...totalsFields(quote, lessPacking ? quote.packing_charges : 0),

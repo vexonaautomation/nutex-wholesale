@@ -284,6 +284,7 @@ export default function OrderDetail() {
               {order.placed_by_mobile && <><dt>Made by</dt><dd><span className="badge badge-outline">{order.placed_by_name ? `${order.placed_by_name} · ${order.placed_by_mobile}` : `Admin number ${order.placed_by_mobile}`}</span></dd></>}
               <dt>Email</dt><dd>{order.email_snapshot || '—'}</dd>
               <dt>GSTIN</dt><dd>{order.gstin_snapshot || '—'}</dd>
+              {!order.gstin_snapshot && order.aadhaar_last4 && <><dt>Aadhaar</dt><dd>XXXX XXXX {order.aadhaar_last4}</dd></>}
               <dt>Billing</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.billing_address_snapshot}</dd>
               <dt>Shipping</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.shipping_address_snapshot}</dd>
               <dt>City / State</dt><dd>{order.city_snapshot}, {order.state_snapshot} - {order.pincode_snapshot}</dd>

@@ -161,4 +161,10 @@ export const MIGRATIONS = [
     version: 17,
     description: 'Sub admins: mobile number + permissions',
   },
+  {
+    // Additive only: Orders.aadhaar_last4 (blank for older orders). The bill
+    // shows business + customer name, full address, GSTIN or Aadhaar, Made by.
+    version: 18,
+    description: 'Bill: party details, Aadhaar (last 4 digits) when no GST, made by',
+  },
 ];
