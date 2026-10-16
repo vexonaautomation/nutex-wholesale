@@ -250,7 +250,7 @@ const DETAIL_FIELDS = ['customer_name', 'business_name', 'city', 'address', 'sta
  * the upload (name, business, city, address, state, pincode, GSTIN - empty
  * columns keep what is there); an inactive one is reactivated.
  */
-export async function addExistingCustomers(inputs, { admin, ip }) {
+export async function addExistingCustomers(inputs, { admin, ip }, { dryRun = false } = {}) {
   const rows = await sheetsService.read(SHEET, { fresh: true });
   const now = nowIso();
   const appended = [];
@@ -258,17 +258,28 @@ export async function addExistingCustomers(inputs, { admin, ip }) {
   const ops = [];
   const skipped = [];
   const seen = new Set();
+  // per row (Excel row number in `_row`): what happens to it
+  const report = { add: [], update: [], unchanged: [], errors: [] };
+  const who = (input, row) => ({
+    row: input._row ?? null,
+    mobile: row?.mobile || String(input.mobile ?? ''),
+    name: row?.business_name || row?.customer_name || String(input.business_name || input.customer_name || '').trim(),
+  });
+  const skip = (input, row, reason) => {
+    skipped.push({ mobile: row?.mobile || input.mobile, reason });
+    report.errors.push({ ...who(input, row), reason });
+  };
   for (const input of inputs) {
     let row;
     try {
       row = cleanRow(input);
     } catch (err) {
-      skipped.push({ mobile: input.mobile, reason: err.message });
+      skip(input, null, err.message);
       continue;
     }
     const nums = [row.mobile, ...splitMobiles(row.alternate_mobiles)];
     if (nums.some((m) => seen.has(m))) {
-      skipped.push({ mobile: row.mobile, reason: 'Duplicate in this list' });
+      skip(input, row, 'This number is twice in the file');
       continue;
     }
     const existing = rows.find((r) => normalizeMobile(r.mobile) === row.mobile);
@@ -280,19 +291,24 @@ export async function addExistingCustomers(inputs, { admin, ip }) {
       if (Object.keys(patch).length) {
         ops.push({ op: 'update', sheet: SHEET, id: existing.mobile, patch: { ...patch, updated_at: now } });
         updated.push(row.mobile);
+        report.update.push({ ...who(input, row), fields: Object.keys(patch) });
       } else {
         skipped.push({ mobile: row.mobile, reason: 'Already listed - no new details' });
+        report.unchanged.push(who(input, row));
       }
       continue;
     }
     const clash = nums.map((m) => ({ m, owner: ownerOf(rows, m) })).find((x) => x.owner);
     if (clash) {
-      skipped.push({ mobile: row.mobile, reason: `${clash.m} is already registered with ${ownerLabel(clash.owner)}` });
+      skip(input, row, `${clash.m} is already registered with ${ownerLabel(clash.owner)}`);
       continue;
     }
     nums.forEach((m) => seen.add(m));
     appended.push({ ...row, status: RECORD_STATUS.ACTIVE, added_at: now, updated_at: now, added_by: admin?.email || admin?.admin_id || '' });
+    report.add.push(who(input, row));
   }
+  // preview: nothing is written
+  if (dryRun) return { added: appended.length, updated: updated.length, skipped, report };
   if (appended.length) ops.push({ op: 'append', sheet: SHEET, rows: appended });
   if (ops.length) {
     ops.push(auditOp({
@@ -301,7 +317,7 @@ export async function addExistingCustomers(inputs, { admin, ip }) {
     }));
     await sheetsService.commit(ops);
   }
-  return { added: appended.length, updated: updated.length, skipped };
+  return { added: appended.length, updated: updated.length, skipped, report };
 }
 
 /**
@@ -323,7 +339,7 @@ const BULK_COLUMNS = {
   notes: ['notes', 'note', 'remarks'],
 };
 const normHeader = (h) => String(h || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[_\-.*:]+/g, ' ').replace(/\s+/g, ' ').trim();
-const fieldOfHeader = (h) => Object.entries(BULK_COLUMNS).find(([, names]) => names.includes(normHeader(h)))?.[0] || null;
+export const fieldOfHeader = (h) => Object.entries(BULK_COLUMNS).find(([, names]) => names.includes(normHeader(h)))?.[0] || null;
 export const EXAMPLE_ROW_MARK = 'EXAMPLE ROW';
 
 /**

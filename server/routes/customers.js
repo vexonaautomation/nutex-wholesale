@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import * as c from '../controllers/customerController.js';
 import { validate } from '../middleware/validation.js';
 import { customerToken } from '../middleware/auth.js';
@@ -24,4 +24,7 @@ adminRouter.get('/customers/:id', c.adminGet);
 adminRouter.get('/existing-customers', c.existingList);
 adminRouter.post('/existing-customers', validate(existingCustomerSchema), c.existingAdd);
 adminRouter.post('/existing-customers/bulk', validate(existingCustomerBulkSchema), c.existingBulk);
+// Excel: download the template (?with=customers = filled with the list), upload it back
+adminRouter.get('/existing-customers/template.xlsx', c.existingTemplate);
+adminRouter.post('/existing-customers/import', express.raw({ type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/octet-stream'], limit: '10mb' }), c.existingImport);
 adminRouter.put('/existing-customers/:key', validate(existingCustomerSchema), c.existingUpdate);
