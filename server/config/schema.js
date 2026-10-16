@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 const n = 'number';
 const b = 'boolean';
@@ -156,6 +156,9 @@ export const SCHEMA = {
       // v12: TRUE = the customer chose "less packing charges" at checkout;
       // packing_deduction then follows the items. Blank = no.
       'less_packing',
+      // v18: last 4 digits of the Aadhaar number (customers without GST) -
+      // only these are kept and printed on the bill (XXXX XXXX 1234)
+      'aadhaar_last4',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,

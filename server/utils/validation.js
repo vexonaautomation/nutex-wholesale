@@ -54,9 +54,15 @@ export const customerSchema = z.object({
   state: text(80, 2),
   pincode: z.string().trim().refine((v) => PINCODE_RE.test(v), { message: 'Enter a valid 6-digit pincode' }),
   gstin: optionalGstin,
+  // customers without GST may give their Aadhaar number: only the last 4 digits are kept
+  aadhaar: z.string().trim().max(20).optional().default(''),
   order_notes: optText(1000),
   alternate_mobile: z.string().trim().max(20).optional().default(''),
 }).transform((c, ctx) => {
+  const aadhaar = String(c.aadhaar || '').replace(/[\s-]/g, '');
+  if (aadhaar && !/^[2-9]\d{11}$/.test(aadhaar)) {
+    ctx.addIssue({ code: 'custom', path: ['aadhaar'], message: 'Enter a valid 12-digit Aadhaar number' });
+  }
   const whatsapp = c.whatsapp ? normalizeMobile(c.whatsapp) : c.mobile;
   if (!/^[6-9]\d{9}$/.test(whatsapp)) {
     ctx.addIssue({ code: 'custom', path: ['whatsapp'], message: 'Enter a valid 10-digit WhatsApp number' });
@@ -73,7 +79,10 @@ export const customerSchema = z.object({
   if (shipping.length < 5) {
     ctx.addIssue({ code: 'custom', path: ['shipping_address'], message: 'Shipping address is required' });
   }
-  return { ...c, whatsapp, shipping_address: shipping };
+  // never keep the full Aadhaar number
+  return {
+    ...c, whatsapp, shipping_address: shipping, aadhaar: undefined, aadhaar_last4: !c.gstin && aadhaar ? aadhaar.slice(-4) : '',
+  };
 });
 
 export const cartItemsSchema = z.array(z.object({
