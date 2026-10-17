@@ -138,7 +138,7 @@ var NUTEX_MIGRATIONS = [
   [16,"Sell in Box / Pcs per article; Sanjana Set + Sanjana bra pcs only"],
   [17,"Sub admins: mobile number + permissions"],
   [18,"Bill: party details, Aadhaar (last 4 digits) when no GST, made by"],
-  [19,"Size-wise MRP rule for bras, sets, panties, vests and underwear"]
+  [19,"Size-wise MRP rule for bras, panties, vests and underwear (not sets)"]
 ];
 
 var NUTEX_MASTER_DATA = {

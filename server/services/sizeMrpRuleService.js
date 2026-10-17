@@ -1,6 +1,6 @@
 // Nutex size-wise MRP rule: bigger sizes cost a fixed amount more than the
 // article's MRP (the MRP is the price of the smaller sizes).
-//   Bras & sets (28-44)  28-40 = MRP, 42-44 = MRP + 6
+//   Bras (28-44)         28-40 = MRP, 42-44 = MRP + 6  (not sets: they go up to 40)
 //   Panties              32-38 = MRP, 40 = +12, 42-44 = +24, 46 = +36
 //   Gents vests          S-L = MRP, XL-XXL = +16
 //   Gents underwear      S-L = MRP, XL-2XL = +20, 3XL-4XL = +40
@@ -16,7 +16,7 @@ import { withLock, COMMERCE_LOCK } from '../utils/lockManager.js';
 import { nowIso } from '../utils/dates.js';
 
 export const SIZE_MRP_RULES = Object.freeze({
-  BRA: { label: 'Bras & sets', plus: { 28: 0, 30: 0, 32: 0, 34: 0, 36: 0, 38: 0, 40: 0, 42: 6, 44: 6 } },
+  BRA: { label: 'Bras', plus: { 28: 0, 30: 0, 32: 0, 34: 0, 36: 0, 38: 0, 40: 0, 42: 6, 44: 6 } },
   PANTY: { label: 'Panties', plus: { 32: 0, 34: 0, 36: 0, 38: 0, 40: 12, 42: 24, 44: 24, 46: 36 } },
   VEST: { label: 'Gents vests', plus: { S: 0, M: 0, L: 0, XL: 16, XXL: 16 } },
   UNDERWEAR: { label: 'Gents underwear', plus: { S: 0, M: 0, L: 0, XL: 20, XXL: 20, XXXL: 40, '4XL': 40 } },
@@ -33,13 +33,15 @@ export function ruleTypeOf(product, category) {
   const cat = `${category?.slug || ''} ${category?.category_name || ''}`.toLowerCase();
   const text = `${product.subcategory || ''} ${product.product_name || ''}`.toLowerCase();
   if (/camisole|shapewear/.test(cat)) return null;
+  // sets keep one MRP for every size (in practice they go up to 40)
+  if (/lingerie|\bsets?\b/.test(cat)) return null;
   if (/panty|panties/.test(cat)) return 'PANTY';
   if (/\bmen\b|gents|male/.test(cat) || /men-collection/.test(cat)) {
     if (/vest|baniyan|banian/.test(text)) return 'VEST';
     if (/trunk|brief|underwear|drawer|boxer/.test(text)) return 'UNDERWEAR';
     return null;
   }
-  if (/bra|set|lingerie|cotton|print/.test(cat)) return 'BRA';
+  if (/bra|cotton|print/.test(cat)) return 'BRA';
   return null;
 }
 
@@ -83,7 +85,7 @@ export async function applySizeMrpRules({ productIds = null, force = false, dryR
       if (only ? !only.has(p.product_id) : p.status === RECORD_STATUS.ARCHIVED) continue;
       const label = `${p.sku} ${p.product_name}`;
       const plan = planSizeMrp(catalog, p);
-      if (!plan.type) { if (only) result.skipped.push({ sku: p.sku, reason: `${label}: no size rule for this kind of article` }); continue; }
+      if (!plan.type) { if (only) result.skipped.push({ sku: p.sku, reason: `${label}: no size rule for this kind of article (sets, camisoles)` }); continue; }
       if (!force && hasOwnSizeMrp(catalog, p)) { result.skipped.push({ sku: p.sku, reason: `${label}: already has its own size-wise MRP - not changed` }); continue; }
       const changed = plan.changes.filter((c) => c.changed);
       if (!changed.length) { result.unchanged.push(p.sku); continue; }

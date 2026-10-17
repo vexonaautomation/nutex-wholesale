@@ -43,7 +43,10 @@ test('deploy (migration v19): size-wise MRP by kind of article; own size prices 
   const panty = catalog.products.find((p) => typeOf(p) === 'PANTY' && sizesOf(catalog, p).has('40') && sizesOf(catalog, p).has('42'));
   const trunk = catalog.products.find((p) => p.sku === 'CELLO');
   const parker = catalog.products.find((p) => p.sku === 'RAMBO-PARKER');
-  assert.ok(bra && panty && trunk && parker);
+  const set = catalog.products.find((p) => catalog.categoriesById.get(p.category_id)?.slug === 'lingerie-set' && sizesOf(catalog, p).has('42') && new Set(Object.values(pieceMrps(catalog, p))).size === 1);
+  assert.ok(bra && panty && trunk && parker && set);
+  assert.equal(typeOf(set), null, 'sets: no size increase');
+  assert.ok(catalog.categoriesById.get(bra.category_id)?.slug !== 'lingerie-set');
   const parkerBefore = pieceMrps(catalog, parker);
 
   await MIGRATIONS.find((m) => m.version === 19).up({ sheets: sheetsService, logger });
@@ -66,6 +69,8 @@ test('deploy (migration v19): size-wise MRP by kind of article; own size prices 
   assert.deepEqual([got.S, got.L, got.XL, got.XXL, got.XXXL, got['4XL']], [tm, tm, tm + 20, tm + 20, tm + 40, tm + 40]);
 
   assert.deepEqual(pieceMrps(catalog, catalog.productsById.get(parker.product_id)), parkerBefore, 'own size-wise MRP kept');
+  const setMrps = pieceMrps(catalog, catalog.productsById.get(set.product_id));
+  assert.equal(setMrps['42'], Number(set.mrp), 'set 42 keeps the MRP');
 
   // a box of size 42 is priced from the new piece MRP
   const pub = serializeProduct(catalog, catalog.productsById.get(bra.product_id), { detail: true });

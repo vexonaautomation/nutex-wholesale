@@ -7,7 +7,8 @@ import { Alert, Spinner } from '../../components/common/ui.jsx';
 
 // Nutex size-wise MRP rule for the ticked articles: shows what changes first.
 const RULES = [
-  ['Bras & sets', '28-40 = MRP · 42-44 = MRP + ₹6'],
+  ['Bras', '28-40 = MRP · 42-44 = MRP + ₹6'],
+  ['Sets', 'same MRP for every size (no increase)'],
   ['Panties', '32-38 = MRP · 40 = + ₹12 · 42-44 = + ₹24 · 46 = + ₹36'],
   ['Gents vests', 'S-L = MRP · XL-XXL = + ₹16'],
   ['Gents underwear', 'S-L = MRP · XL-2XL = + ₹20 · 3XL-4XL = + ₹40'],
