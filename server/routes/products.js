@@ -2,7 +2,7 @@ import express, { Router } from 'express';
 import * as c from '../controllers/productController.js';
 import { validate } from '../middleware/validation.js';
 import {
-  productSchema, outOfStockSchema, bulkSellingSchema, bulkSizesSchema, packSizesSchema, bulkCollectionsSchema, colourReplaceSchema,
+  productSchema, outOfStockSchema, bulkSellingSchema, bulkSizesSchema, packSizesSchema, bulkCollectionsSchema, colourReplaceSchema, sizeMrpRulesSchema,
 } from '../utils/validation.js';
 
 export const publicRouter = Router();
@@ -26,6 +26,8 @@ adminRouter.post('/products/:id/deactivate', c.adminDeactivate);
 adminRouter.post('/products/:id/reactivate', c.adminReactivate);
 adminRouter.post('/products/:id/archive', c.adminArchive);
 adminRouter.post('/products/:id/duplicate', c.adminDuplicate);
+// size-wise MRP rule (bigger sizes = MRP + fixed amount) for the ticked articles
+adminRouter.post('/products/size-mrp-rules', validate(sizeMrpRulesSchema), c.adminSizeMrpRules);
 // colour replacement for one article: ?from=&to= preview, POST applies (stock moves too)
 adminRouter.get('/products/:id/replace-colour', c.adminColourPreview);
 adminRouter.post('/products/:id/replace-colour', validate(colourReplaceSchema), c.adminColourReplace);

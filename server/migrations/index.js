@@ -167,4 +167,18 @@ export const MIGRATIONS = [
     version: 18,
     description: 'Bill: party details, Aadhaar (last 4 digits) when no GST, made by',
   },
+  {
+    // The owner's size-wise MRP rule, applied once to every article (bras
+    // 42-44 +6 - not sets; panties 40 +12, 42-44 +24, 46 +36; vests XL-XXL +16;
+    // underwear XL-2XL +20, 3XL-4XL +40). Only Product_Variants.variant_mrp of
+    // those sizes is written; articles that already have their own size-wise
+    // MRP are left as they are. Box prices follow automatically.
+    version: 19,
+    description: 'Size-wise MRP rule for bras, panties, vests and underwear (not sets)',
+    async up({ logger }) {
+      const { applySizeMrpRules } = await import('../services/sizeMrpRuleService.js');
+      const res = await applySizeMrpRules({}, { admin: { admin_id: 'SYSTEM' }, ip: '' });
+      logger.info(`Migration v19: size-wise MRP set for ${res.updated.length} article(s); skipped ${res.skipped.length} (${res.skipped.map((s) => s.sku).join(', ')})`);
+    },
+  },
 ];

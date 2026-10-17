@@ -9,6 +9,12 @@ import { notFound, badRequest } from '../utils/errors.js';
 import { ctx, noStore } from './helpers.js';
 import { bulkEditWorkbook, bulkEditProducts } from '../services/productBulkEditService.js';
 import { previewColourReplace, replaceProductColour } from '../services/colourReplaceService.js';
+import { applySizeMrpRules, SIZE_MRP_RULES } from '../services/sizeMrpRuleService.js';
+
+export const adminSizeMrpRules = async (req, res) => res.json({
+  rules: SIZE_MRP_RULES,
+  ...(await applySizeMrpRules({ productIds: req.body.product_ids, force: req.body.force, dryRun: req.body.dry_run }, ctx(req))),
+});
 
 export const adminColourPreview = async (req, res) => res.json(await previewColourReplace(req.params.id, { from: String(req.query.from || ''), to: String(req.query.to || '') }));
 export const adminColourReplace = async (req, res) => res.json(await replaceProductColour(req.params.id, req.body, ctx(req)));

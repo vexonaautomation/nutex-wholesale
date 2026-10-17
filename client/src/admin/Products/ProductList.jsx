@@ -16,6 +16,7 @@ import { qs } from '../../services/api.js';
 import { BulkSizesDialog } from './BulkSizesDialog.jsx';
 import { BulkEditDialog } from './BulkEditDialog.jsx';
 import { ColourReplaceDialog } from './ColourReplaceDialog.jsx';
+import { SizeMrpRuleDialog } from './SizeMrpRuleDialog.jsx';
 
 function SellBadge({ p }) {
   const box = p.units_per_box || (p.sell_mode && p.sell_mode !== 'PCS' ? '?' : null);
@@ -122,6 +123,7 @@ export default function ProductList() {
   const [picked, setPicked] = useState(() => new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [sizesOpen, setSizesOpen] = useState(false);
+  const [mrpRuleOpen, setMrpRuleOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [colourFor, setColourFor] = useState(null);
   const dq = useDebounce(q, 250);
@@ -202,6 +204,7 @@ export default function ProductList() {
             <div className="row wrap">
               <button type="button" className="btn btn-sm" onClick={() => setPicked(picked.size === items.length ? new Set() : new Set(items.map((p) => p.product_id)))}>{picked.size === items.length ? 'Clear selection' : `Select all ${items.length}`}</button>
               <button type="button" className="btn btn-sm btn-primary" disabled={!picked.size} onClick={() => setSizesOpen(true)}><Ruler /> Sizes</button>
+              <button type="button" className="btn btn-sm btn-primary" disabled={!picked.size} onClick={() => setMrpRuleOpen(true)}>₹ Size MRP rule</button>
               <button type="button" className="btn btn-sm btn-primary" disabled={!picked.size} onClick={() => setBulkOpen(true)}><Boxes /> Box / pieces</button>
               <button type="button" className="btn btn-sm" disabled={!picked.size} onClick={() => setOnline(true)}><Sparkles /> Add to Online</button>
               <button type="button" className="btn btn-sm" disabled={!picked.size} onClick={() => setOnline(false)}>Remove from Online</button>
@@ -291,6 +294,7 @@ export default function ProductList() {
         onConfirm={() => act(() => adminApi.post(`/products/${confirm.p.product_id}/${confirm.action}`), confirm.action === 'archive' ? 'Product archived.' : 'Product deactivated.')}
       />
       <ColourReplaceDialog productId={colourFor} open={!!colourFor} onClose={() => setColourFor(null)} onDone={reload} />
+      <SizeMrpRuleDialog open={mrpRuleOpen} productIds={[...picked]} onClose={() => setMrpRuleOpen(false)} onDone={reload} />
     </>
   );
 }

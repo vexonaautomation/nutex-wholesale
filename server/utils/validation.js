@@ -348,6 +348,13 @@ export const bulkSellingSchema = z.object({
 });
 
 // add / remove a collection (e.g. Online Collection) for many articles
+// size-wise MRP rule for the ticked articles (force = also those with their own size MRPs)
+export const sizeMrpRulesSchema = z.object({
+  product_ids: z.array(id).min(1, 'Select at least one product').max(500),
+  force: z.boolean().optional().default(false),
+  dry_run: z.boolean().optional().default(false),
+});
+
 // replace one colour of an article with another (its stock moves too)
 export const colourReplaceSchema = z.object({
   from_color_id: id,
