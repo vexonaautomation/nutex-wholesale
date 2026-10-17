@@ -401,9 +401,27 @@
 .gallery-thumbs img { width: 100%; height: 100%; object-fit: cover; }
 .lightbox { position: fixed; inset: 0; background: rgba(10, 8, 12, 0.94); z-index: 110; display: flex; flex-direction: column; }
 .lightbox-close { position: absolute; top: 14px; right: 14px; z-index: 2; color: var(--white); background: rgba(255, 255, 255, 0.12); border: 0; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; }
-.lightbox-scroll { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; touch-action: pinch-zoom pan-x pan-y; }
-.lightbox-scroll img { max-width: none; width: min(1400px, 200vw); height: auto; }
-@media (min-width: 768px) { .lightbox-scroll img { width: auto; max-height: 92vh; max-width: 92vw; } }
+/* the whole image fits the screen (never stretched); tap / pinch to zoom */
+.lightbox-scroll { flex: 1; min-height: 0; overflow: auto; display: flex; padding: 64px 12px 8px; touch-action: pinch-zoom pan-x pan-y; }
+.lightbox-scroll img {
+  display: block;
+  margin: auto; /* centred, and still scrollable to every edge when zoomed */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 130px);
+  max-height: calc(100dvh - 130px);
+  object-fit: contain;
+  border-radius: 6px;
+  cursor: zoom-in;
+}
+.lightbox-scroll.is-zoomed { padding: 0; }
+.lightbox-scroll img.is-zoomed { max-width: none; max-height: none; width: min(1400px, 220vw); cursor: zoom-out; border-radius: 0; }
+.lightbox-hint { margin: 0; padding: 10px 16px 16px; text-align: center; font-size: 13px; color: rgba(255, 255, 255, 0.75); }
+@media (min-width: 768px) {
+  .lightbox-scroll { padding: 64px 24px 8px; }
+  .lightbox-scroll img.is-zoomed { width: min(1800px, 160vw); }
+}
 
 .pdp-info h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(26px, 3.4vw, 36px); margin: 6px 0 6px; }
 .pdp-sku { font-size: 13px; color: var(--text-soft); }

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Img } from '../common/ui.jsx';
@@ -6,14 +6,29 @@ import { useLockBodyScroll } from '../../hooks/index.js';
 
 /**
  * Main image + thumbnails. Swipe on mobile (CSS scroll-snap), hover-zoom on
- * desktop, tap/click opens a full-screen viewer with native pinch-zoom.
+ * desktop, tap/click opens a full-screen viewer: the whole image fits the
+ * screen; tap it (or pinch) to zoom in, tap again to fit.
  */
 export function ProductGallery({ images = [], name }) {
   const track = useRef(null);
+  const viewer = useRef(null);
   const [index, setIndex] = useState(0);
   const [zoom, setZoom] = useState(null);
   const [lightbox, setLightbox] = useState(false);
+  const [bigZoom, setBigZoom] = useState(false);
   useLockBodyScroll(lightbox);
+
+  // the tap that opens the viewer must not also zoom it (phones send a late click)
+  const openedAt = useRef(0);
+  const openViewer = () => { openedAt.current = Date.now(); setBigZoom(false); setLightbox(true); };
+  const toggleZoom = () => { if (Date.now() - openedAt.current > 450) setBigZoom((z) => !z); };
+  // zoomed in: start from the middle of the image
+  useEffect(() => {
+    const el = viewer.current;
+    if (!el || !bigZoom) return;
+    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+    el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+  }, [bigZoom]);
 
   const go = useCallback((i) => {
     const el = track.current;
@@ -52,11 +67,11 @@ export function ProductGallery({ images = [], name }) {
               className={`gallery-slide ${zoom && i === index ? 'zooming' : ''}`}
               onMouseMove={onMove}
               onMouseLeave={() => setZoom(null)}
-              onClick={() => setLightbox(true)}
+              onClick={openViewer}
               role="button"
               tabIndex={0}
               aria-label={`Open image ${i + 1} of ${images.length} full screen`}
-              onKeyDown={(e) => e.key === 'Enter' && setLightbox(true)}
+              onKeyDown={(e) => e.key === 'Enter' && openViewer()}
             >
               <Img
                 src={img.url}
@@ -88,9 +103,15 @@ export function ProductGallery({ images = [], name }) {
       {lightbox && createPortal(
         <div className="lightbox" role="dialog" aria-modal="true" aria-label={`${name} images`}>
           <button type="button" className="lightbox-close" onClick={() => setLightbox(false)} aria-label="Close"><X /></button>
-          <div className="lightbox-scroll">
-            <img src={images[index]?.url} alt={images[index]?.alt || name} />
+          <div className={`lightbox-scroll ${bigZoom ? 'is-zoomed' : ''}`} ref={viewer}>
+            <img
+              src={images[index]?.url}
+              alt={images[index]?.alt || name}
+              className={bigZoom ? 'is-zoomed' : ''}
+              onClick={toggleZoom}
+            />
           </div>
+          <p className="lightbox-hint">{bigZoom ? 'Tap the image to see it whole' : 'Tap the image or pinch to zoom'}</p>
         </div>,
         document.body,
       )}
