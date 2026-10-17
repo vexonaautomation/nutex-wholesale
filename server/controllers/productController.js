@@ -8,6 +8,10 @@ import { RECORD_STATUS } from '../config/constants.js';
 import { notFound, badRequest } from '../utils/errors.js';
 import { ctx, noStore } from './helpers.js';
 import { bulkEditWorkbook, bulkEditProducts } from '../services/productBulkEditService.js';
+import { previewColourReplace, replaceProductColour } from '../services/colourReplaceService.js';
+
+export const adminColourPreview = async (req, res) => res.json(await previewColourReplace(req.params.id, { from: String(req.query.from || ''), to: String(req.query.to || '') }));
+export const adminColourReplace = async (req, res) => res.json(await replaceProductColour(req.params.id, req.body, ctx(req)));
 
 // ------------------------------ public ------------------------------
 export async function listProducts(req, res) {

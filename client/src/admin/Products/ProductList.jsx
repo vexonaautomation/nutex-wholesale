@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Archive, Boxes, Copy, FileSpreadsheet, PackageCheck, PackageX, Pencil, Plus, Power, Ruler, Shirt, Sparkles,
+  Archive, Boxes, Copy, FileSpreadsheet, PackageCheck, PackageX, Palette, Pencil, Plus, Power, Ruler, Shirt, Sparkles,
 } from 'lucide-react';
 import { adminApi } from '../../services/auth.js';
 import { useAsync, useDebounce } from '../../hooks/index.js';
@@ -15,6 +15,7 @@ import { formatINR, pct } from '../../utils/format.js';
 import { qs } from '../../services/api.js';
 import { BulkSizesDialog } from './BulkSizesDialog.jsx';
 import { BulkEditDialog } from './BulkEditDialog.jsx';
+import { ColourReplaceDialog } from './ColourReplaceDialog.jsx';
 
 function SellBadge({ p }) {
   const box = p.units_per_box || (p.sell_mode && p.sell_mode !== 'PCS' ? '?' : null);
@@ -122,6 +123,7 @@ export default function ProductList() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [sizesOpen, setSizesOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [colourFor, setColourFor] = useState(null);
   const dq = useDebounce(q, 250);
   const toast = useToast();
   const navigate = useNavigate();
@@ -235,6 +237,7 @@ export default function ProductList() {
                       <div className="row" style={{ justifyContent: 'flex-end', gap: 4 }}>
                         <Link to={`/admin/products/${p.product_id}`} className="btn btn-sm btn-icon" title="Edit"><Pencil /></Link>
                         <button type="button" className="btn btn-sm btn-icon" title="Duplicate" onClick={() => duplicate(p)}><Copy /></button>
+                        <button type="button" className="btn btn-sm btn-icon" title="Replace a colour (stock moves too)" aria-label={`Replace a colour of ${p.product_name}`} onClick={() => setColourFor(p.product_id)}><Palette /></button>
                         <button
                           type="button"
                           className="btn btn-sm btn-icon"
@@ -287,6 +290,7 @@ export default function ProductList() {
         onClose={() => setConfirm(null)}
         onConfirm={() => act(() => adminApi.post(`/products/${confirm.p.product_id}/${confirm.action}`), confirm.action === 'archive' ? 'Product archived.' : 'Product deactivated.')}
       />
+      <ColourReplaceDialog productId={colourFor} open={!!colourFor} onClose={() => setColourFor(null)} onDone={reload} />
     </>
   );
 }

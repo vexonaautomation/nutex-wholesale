@@ -17,6 +17,7 @@ import { PriceTag } from '../../components/common/PriceTag.jsx';
 import { formatINR, pct } from '../../utils/format.js';
 import { compressImage, MAX_UPLOAD_BYTES } from '../../utils/image.js';
 import { wholesaleOf } from '../../utils/pricing.js';
+import { ColourReplaceDialog } from './ColourReplaceDialog.jsx';
 
 const STEPS = ['Basic information', 'Category', 'Pricing', 'Sizes', 'Box / pieces', 'Colours / Boxes', 'Inventory', 'Images', 'Status', 'Preview & publish'];
 
@@ -109,6 +110,7 @@ export default function ProductWizard() {
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState(null);
   const [uploading, setUploading] = useState(0);
+  const [replaceOpen, setReplaceOpen] = useState(false);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -448,6 +450,12 @@ export default function ProductWizard() {
           <p className="muted mb-0">{form.sell_pcs || form.legacy_boxes
             ? 'Customers buying loose pieces choose from these colours (existing customers always can; new customers only if allowed in step 5). Boxes come in assorted colours.'
             : 'Box only: stock is entered per colour and every box is packed in assorted colours from it. Customers do not pick a colour.'}</p>
+          {!isNew && form.color_ids.length > 0 && (
+            <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-sm" onClick={() => setReplaceOpen(true)}><Palette /> Replace a colour (stock moves too)</button>
+              <span className="tiny soft">E.g. "Lavender" of this article is really "Pink".</span>
+            </div>
+          )}
           {err('color_ids') && <Alert type="error">{err('color_ids')}</Alert>}
           <div className="pick-grid">
             {masters.colors.map((c) => (
@@ -699,6 +707,15 @@ export default function ProductWizard() {
           </div>
         </section>
       </div>
+      {!isNew && (
+        <ColourReplaceDialog
+          productId={id}
+          open={replaceOpen}
+          onClose={() => setReplaceOpen(false)}
+          note="This saves at once and reloads the product - save your other changes in this form first."
+          onDone={() => window.location.reload()}
+        />
+      )}
     </>
   );
 }
