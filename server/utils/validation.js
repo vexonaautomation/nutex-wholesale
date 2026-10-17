@@ -348,6 +348,12 @@ export const bulkSellingSchema = z.object({
 });
 
 // add / remove a collection (e.g. Online Collection) for many articles
+// replace one colour of an article with another (its stock moves too)
+export const colourReplaceSchema = z.object({
+  from_color_id: id,
+  to_color_id: id,
+});
+
 export const bulkCollectionsSchema = z.object({
   product_ids: z.array(id).min(1, 'Select at least one product').max(500),
   collection: z.string().trim().toLowerCase().max(40),

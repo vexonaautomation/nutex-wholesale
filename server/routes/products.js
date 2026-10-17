@@ -2,7 +2,7 @@ import express, { Router } from 'express';
 import * as c from '../controllers/productController.js';
 import { validate } from '../middleware/validation.js';
 import {
-  productSchema, outOfStockSchema, bulkSellingSchema, bulkSizesSchema, packSizesSchema, bulkCollectionsSchema,
+  productSchema, outOfStockSchema, bulkSellingSchema, bulkSizesSchema, packSizesSchema, bulkCollectionsSchema, colourReplaceSchema,
 } from '../utils/validation.js';
 
 export const publicRouter = Router();
@@ -26,4 +26,7 @@ adminRouter.post('/products/:id/deactivate', c.adminDeactivate);
 adminRouter.post('/products/:id/reactivate', c.adminReactivate);
 adminRouter.post('/products/:id/archive', c.adminArchive);
 adminRouter.post('/products/:id/duplicate', c.adminDuplicate);
+// colour replacement for one article: ?from=&to= preview, POST applies (stock moves too)
+adminRouter.get('/products/:id/replace-colour', c.adminColourPreview);
+adminRouter.post('/products/:id/replace-colour', validate(colourReplaceSchema), c.adminColourReplace);
 adminRouter.post('/products/:id/out-of-stock', validate(outOfStockSchema), c.adminOutOfStock);
