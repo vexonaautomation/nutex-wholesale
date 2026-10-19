@@ -106,16 +106,20 @@ export const draftOrderSchema = z.object({
 export const updateOrderSchema = z.object({
   items: cartItemsSchema,
   client_final_payable: z.number().nonnegative().nullable().optional(),
+  // "Do you wish to less packing charges?" while editing (not sent = keep)
+  less_packing: z.boolean().optional(),
 });
 
 export const adminOrderItemsSchema = z.object({
   items: cartItemsSchema,
   client_final_payable: z.number().nonnegative().nullable().optional(),
   note: z.string().trim().max(300).optional().default(''),
+  less_packing: z.boolean().optional(),
 });
 
 export const recalculateSchema = z.object({
   items: z.array(z.object({ variant_id: id, qty: z.coerce.number().int().min(0).max(100000) })).max(300).optional(),
+  less_packing: z.boolean().optional(),
 });
 
 export const verifyStartSchema = z.object({ mobile });

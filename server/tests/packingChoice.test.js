@@ -5,7 +5,7 @@ import { freshStore, masters, CUSTOMER } from './helpers/fixtures.js';
 import { saveProduct } from '../services/productService.js';
 import { categoryService } from '../services/categoryService.js';
 import {
-  createDraftOrder, getCustomerOrder, getOrderAdmin, updateOrderItems, updateOrderItemsAdmin, listOrdersAdmin,
+  createDraftOrder, getCustomerOrder, getOrderAdmin, updateOrderItems, updateOrderItemsAdmin, listOrdersAdmin, setPackingDeduction,
 } from '../services/orderService.js';
 import { adminBill } from '../services/billService.js';
 import { buildQuote } from '../services/quoteService.js';
@@ -156,4 +156,40 @@ test('category own rate is used; switched off in Settings = not offered', async 
   assert.equal(buildQuote({ catalog, items: [{ variant_id: print.box(s32), qty: 1 }] }).packing_choice, false);
   const o = await place([{ variant_id: print.box(s32), qty: 1 }], true);
   assert.equal((await getCustomerOrder(o.order_number, o.access_token)).totals.packing_deduction, 0, 'ignored while switched off');
+});
+
+test('the choice can be ticked / unticked while editing the order (customer and admin); a hand-set amount stays', async () => {
+  const {
+    adminCtx, s32, bra, place,
+  } = await setup();
+  const created = await place([{ variant_id: bra.box(s32), qty: 2 }]); // 12 bras: packing 24, not chosen at checkout
+  let view = await getCustomerOrder(created.order_number, created.access_token);
+  assert.equal(view.totals.less_packing, false);
+  const fullTotal = view.totals.final_payable;
+
+  // customer edits the order and ticks it
+  view = await updateOrderItems(created.order_number, created.access_token, { items: [{ variant_id: bra.box(s32), qty: 2 }], less_packing: true });
+  assert.equal(view.totals.less_packing, true);
+  assert.equal(view.totals.packing_deduction, 24);
+  assert.equal(view.totals.final_payable, fullTotal - 24);
+
+  // not sent = keeps the choice; unticked = taken back
+  view = await updateOrderItems(created.order_number, created.access_token, { items: [{ variant_id: bra.box(s32), qty: 1 }] });
+  assert.equal(view.totals.packing_deduction, 12, 'still chosen, follows the items');
+  view = await updateOrderItems(created.order_number, created.access_token, { items: [{ variant_id: bra.box(s32), qty: 1 }], less_packing: false });
+  assert.equal(view.totals.less_packing, false);
+  assert.equal(view.totals.packing_deduction, 0);
+
+  // admin "Edit items" ticks it
+  const admin = await updateOrderItemsAdmin(created.order_number, adminOrderItemsSchema.parse({ items: [{ variant_id: bra.box(s32), qty: 2 }], less_packing: true }), adminCtx);
+  assert.equal(admin.order.less_packing, true);
+  assert.equal(admin.totals.packing_deduction, 24);
+  const off = await updateOrderItemsAdmin(created.order_number, adminOrderItemsSchema.parse({ items: [{ variant_id: bra.box(s32), qty: 2 }], less_packing: false }), adminCtx);
+  assert.equal(off.order.less_packing, false);
+  assert.equal(off.totals.packing_deduction, 0);
+
+  // a flat amount the admin set by hand is kept when editing
+  await setPackingDeduction(created.order_number, { amount: 50, note: '' }, adminCtx);
+  const kept = await updateOrderItemsAdmin(created.order_number, adminOrderItemsSchema.parse({ items: [{ variant_id: bra.box(s32), qty: 3 }] }), adminCtx);
+  assert.equal(kept.totals.packing_deduction, 50);
 });

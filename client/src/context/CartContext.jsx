@@ -119,7 +119,7 @@ export function CartProvider({ children }) {
   const startEditOrder = useCallback((order) => {
     setCart({
       items: order.items.map((i) => ({ variant_id: i.variant_id, product_id: i.product_id, qty: i.qty })),
-      editing: { order_number: order.order_number },
+      editing: { order_number: order.order_number, less_packing: order.totals?.less_packing === true },
     });
   }, []);
 

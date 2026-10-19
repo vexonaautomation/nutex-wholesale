@@ -176,6 +176,8 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [tick, setTick] = useState(0);
+  // "less packing charges" can be ticked / unticked while editing too
+  const [lessPacking, setLessPacking] = useState(order.less_packing === true);
   const debounced = useDebounce(lines, 350);
 
   useEffect(() => {
@@ -183,15 +185,15 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
     const body = debounced.filter((l) => l.qty > 0);
     if (!body.length) { setPreview(null); return undefined; }
     setPreviewing(true);
-    adminApi.post(`/orders/${encodeURIComponent(order.order_id)}/items/preview`, { items: body })
+    adminApi.post(`/orders/${encodeURIComponent(order.order_id)}/items/preview`, { items: body, less_packing: lessPacking })
       .then((res) => { if (live) setPreview(res); })
       .catch((err) => { if (live) toast.error(err.message); })
       .finally(() => { if (live) setPreviewing(false); });
     return () => { live = false; };
-  }, [debounced, order.order_id, toast, tick]);
+  }, [debounced, order.order_id, toast, tick, lessPacking]);
 
   const byVariant = useMemo(() => new Map((preview?.quote.lines || []).map((l) => [l.variant_id, l])), [preview]);
-  const changed = !sameLines(lines, initial);
+  const changed = !sameLines(lines, initial) || lessPacking !== (order.less_packing === true);
   const stale = debounced !== lines || previewing;
   const quote = preview?.quote;
   const newTotal = preview?.new_final_payable ?? null;
@@ -216,7 +218,7 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
     setSaving(true);
     try {
       const res = await adminApi.put(`/orders/${encodeURIComponent(order.order_id)}/items`, {
-        items: lines.filter((l) => l.qty > 0), client_final_payable: quote.final_payable, note,
+        items: lines.filter((l) => l.qty > 0), client_final_payable: quote.final_payable, note, less_packing: lessPacking,
       });
       toast.success(`Order ${order.order_number} updated · new total ${formatINR(res.totals.final_payable)}`);
       onSaved(res);
@@ -268,6 +270,17 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
       </div>
 
       <AddItems orderId={order.order_id} onAdd={add} />
+
+      {quote?.packing_choice && (
+        <label className={`packing-choice${lessPacking ? ' is-on' : ''}`}>
+          <input type="checkbox" checked={lessPacking} onChange={(e) => setLessPacking(e.target.checked)} />
+          <span>
+            <strong>Less packing charges</strong>
+            <span className="small">{lessPacking ? 'Taken off' : 'Tick to take'} <strong>{formatINR(quote.packing_charges)}</strong> {lessPacking ? 'from this order (customer does not want packing).' : 'off this order.'}</span>
+            <span className="tiny soft">{(quote.packing_breakdown || []).map((b) => `${b.category_name}: ${b.pieces} pcs × ₹${b.rate}`).join(' · ')}</span>
+          </span>
+        </label>
+      )}
 
       <div className="packing-box">
         <div className="row wrap" style={{ gap: 16 }}>
