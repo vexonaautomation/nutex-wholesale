@@ -6,7 +6,11 @@ import {
   listOrdersAdmin, getOrderAdmin, updateOrderStatusAdmin, reopenOrderAdmin, cancelOrderAdmin, setPackingDeduction,
   previewOrderItemsAdmin, orderProductOptionsAdmin, updateOrderItemsAdmin,
 } from '../services/orderService.js';
-import { customerBill, adminBill } from '../services/billService.js';
+import { customerBill, adminBill, packingSlip } from '../services/billService.js';
+import {
+  listPackers, createPacker, updatePacker, assignPacker, packingSlipByToken,
+} from '../services/packingService.js';
+import { config } from '../config/env.js';
 import { ctx, noStore } from './helpers.js';
 
 // ------------------------------ public ------------------------------
@@ -52,6 +56,25 @@ export async function bill(req, res) {
 export async function adminBillPdf(req, res) {
   sendPdf(res, await adminBill(req.params.id));
 }
+
+// ------------------------------------------------------------ packing team
+export async function adminPackingSlip(req, res) {
+  sendPdf(res, await packingSlip(req.params.id));
+}
+
+export async function packingSlipPublic(req, res) {
+  noStore(res);
+  const { pdf, filename } = await packingSlipByToken(req.params.token);
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${filename}"`, 'X-Content-Type-Options': 'nosniff' });
+  res.send(pdf);
+}
+
+export const adminPackers = async (req, res) => res.json({ items: await listPackers({ activeOnly: req.query.active === '1' }) });
+export const adminPackerCreate = async (req, res) => res.status(201).json(await createPacker(req.body, ctx(req)));
+export const adminPackerUpdate = async (req, res) => res.json(await updatePacker(req.params.id, req.body, ctx(req)));
+export const adminAssignPacker = async (req, res) => res.json(await assignPacker(req.params.id, req.body, {
+  ...ctx(req), baseUrl: config.frontendUrl || `${req.protocol}://${req.get('host')}`,
+}));
 
 export async function getOrder(req, res) {
   noStore(res);

@@ -181,4 +181,10 @@ export const MIGRATIONS = [
       logger.info(`Migration v19: size-wise MRP set for ${res.updated.length} article(s); skipped ${res.skipped.length} (${res.skipped.map((s) => s.sku).join(', ')})`);
     },
   },
+  {
+    // Additive only: new Packers sheet; Orders.packer_id / packer_name /
+    // packing_assigned_at / packing_slip_sent_at (blank for older orders).
+    version: 20,
+    description: 'Packing team: packer per order + packing slip (no amounts) on WhatsApp',
+  },
 ];

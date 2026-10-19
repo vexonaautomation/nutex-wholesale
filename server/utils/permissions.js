@@ -44,6 +44,8 @@ const ALWAYS = [
   // the Orders tab: everything
   [ANY, /^\/orders(\/.*)?$/],
   ['GET', /^\/payments\/[^/]+\/proof$/],
+  // pick a packer when marking an order "Processing"
+  ['GET', /^\/packers$/],
 ];
 const BY_PERMISSION = {
   payments: [['GET', /^\/payments$/], ['PUT', /^\/payments\/[^/]+\/(verify|reject)$/]],

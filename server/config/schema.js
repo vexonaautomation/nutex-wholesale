@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 const n = 'number';
 const b = 'boolean';
@@ -159,6 +159,8 @@ export const SCHEMA = {
       // v18: last 4 digits of the Aadhaar number (customers without GST) -
       // only these are kept and printed on the bill (XXXX XXXX 1234)
       'aadhaar_last4',
+      // v20: who packs the order (Packers sheet) and when the packing slip went out
+      'packer_id', 'packer_name', 'packing_assigned_at', 'packing_slip_sent_at',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,
@@ -198,6 +200,12 @@ export const SCHEMA = {
       'history_id', 'order_id', 'order_number', 'from_status', 'to_status', 'actor_type',
       'actor_id', 'note', 'created_at',
     ],
+    types: {},
+  },
+  // v20: people who pack orders; the packing slip (no amounts) goes to their WhatsApp
+  Packers: {
+    idField: 'packer_id',
+    columns: ['packer_id', 'name', 'mobile', 'status', 'notes', 'created_at', 'updated_at'],
     types: {},
   },
   Admin_Users: {

@@ -19,6 +19,7 @@ const TEXT_COLUMNS = {
   Orders: ['order_number', 'mobile_snapshot', 'whatsapp_snapshot', 'pincode_snapshot', 'gstin_snapshot', 'alternate_mobile_snapshot'],
   Payments: ['utr', 'order_number'],
   Settings: ['setting_value'],
+  Packers: ['mobile'],
 };
 
 // Dropdowns that make hand-editing safer (invalid values are allowed but flagged)
@@ -29,6 +30,7 @@ const DROPDOWNS = {
   Sizes: { status: ['ACTIVE', 'INACTIVE', 'ARCHIVED'] },
   Products: { status: ['ACTIVE', 'INACTIVE', 'ARCHIVED'], inventory_mode: ['COLOR_WISE', 'BOX_WISE'], discount_mode: ['GLOBAL', 'CUSTOM'] },
   Inventory: { status: ['ACTIVE', 'OUT_OF_STOCK'] },
+  Packers: { status: ['ACTIVE', 'INACTIVE'] },
 };
 
 // one entry per line - compact and easy to read in the Apps Script editor

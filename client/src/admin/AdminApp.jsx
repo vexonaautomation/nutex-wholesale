@@ -23,6 +23,7 @@ import Settings from './Settings/Settings.jsx';
 import AuditLog from './AuditLog/AuditLog.jsx';
 import CatalogImport from './CatalogImport/CatalogImport.jsx';
 import SubAdmins from './SubAdmins/SubAdmins.jsx';
+import Packers from './Packers/Packers.jsx';
 import { MyAccount } from './Settings/Settings.jsx';
 import { PageHeader } from './components.jsx';
 
@@ -121,6 +122,7 @@ export default function AdminApp() {
           <Route path="customers" element={<Need permission="customers"><Customers /></Need>} />
           <Route path="existing-customers" element={<Need permission="customers"><ExistingCustomers /></Need>} />
           <Route path="sub-admins" element={<Need permission="manager"><SubAdmins /></Need>} />
+          <Route path="packers" element={<Need permission="manager"><Packers /></Need>} />
           <Route path="account" element={<Account />} />
           <Route path="settings" element={<Need permission="full"><Settings /></Need>} />
           <Route path="audit-log" element={<Need permission="full"><AuditLog /></Need>} />

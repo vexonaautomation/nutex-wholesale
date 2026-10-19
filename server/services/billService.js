@@ -220,13 +220,14 @@ export function renderBillPdf(bill) {
   };
   const frame = () => doc.save().lineWidth(1.2).strokeColor(INK).rect(30, 30, W - 60, H - 60).stroke().restore();
 
-  // ---- table geometry
-  const fixed = { qty: 56, rate: 46, disc: 34, amount: 66 };
+  // ---- table geometry (a packing slip has no rate / discount / amount)
+  const slip = bill.slip === true;
+  const fixed = slip ? { qty: 72 } : { qty: 56, rate: 46, disc: 34, amount: 66 };
   const sizeW = 30;
   const freeW = 44;
   const sizeCols = bill.columns.map((c) => ({ ...c, w: c.key === 'FREE' ? freeW : sizeW }));
-  const itemW = R - L - sizeCols.reduce((s, c) => s + c.w, 0) - fixed.qty - fixed.rate - fixed.disc - fixed.amount;
-  const cols = [{ key: 'item', w: itemW }, ...sizeCols.map((c) => ({ key: `s:${c.key}`, w: c.w, c })), { key: 'qty', w: fixed.qty }, { key: 'rate', w: fixed.rate }, { key: 'disc', w: fixed.disc }, { key: 'amount', w: fixed.amount }];
+  const itemW = R - L - sizeCols.reduce((s, c) => s + c.w, 0) - Object.values(fixed).reduce((s, w) => s + w, 0);
+  const cols = [{ key: 'item', w: itemW }, ...sizeCols.map((c) => ({ key: `s:${c.key}`, w: c.w, c })), ...Object.entries(fixed).map(([key, w]) => ({ key, w }))];
   let cx = L;
   for (const c of cols) { c.x = cx; cx += c.w; }
   const HEAD_H = 32;
@@ -249,6 +250,7 @@ export function renderBillPdf(bill) {
     const q = cols.find((c) => c.key === 'qty');
     text('Total', q.x, mid - 10, { size: 8.5, color: SOFT, width: q.w, align: 'center' });
     text('Qty', q.x, mid + 1, { size: 8.5, color: SOFT, width: q.w, align: 'center' });
+    if (slip) return y + HEAD_H;
     const rate = cols.find((c) => c.key === 'rate');
     text('Rate', rate.x, mid - 5, { size: 8.5, color: SOFT, width: rate.w - 6, align: 'right' });
     const disc = cols.find((c) => c.key === 'disc');
@@ -278,6 +280,7 @@ export function renderBillPdf(bill) {
     text(formatDzn(row.pcs), q.x, qy, { f: 'B', size: 8.5, width: q.w, align: 'center' });
     text(formatPcs(row.pcs), q.x, qy + 11, { size: 7.5, width: q.w, align: 'center' });
     if (row.boxes) text(formatBoxes(row.boxes), q.x, qy + 21, { size: 7.5, width: q.w, align: 'center' });
+    if (slip) return y + ROW_H;
     const rate = cols.find((c) => c.key === 'rate');
     text(Number(row.rate).toFixed(2), rate.x, mid, { size: 8, width: rate.w - 6, align: 'right' });
     const disc = cols.find((c) => c.key === 'disc');
@@ -298,6 +301,7 @@ export function renderBillPdf(bill) {
   y += 6;
   hline(y, INK, 1.4);
   text(`S.No: ${bill.number}`, L, y + 8, { f: 'B', size: 9 });
+  if (slip && bill.packer_name) text(`Packing by: ${bill.packer_name}`, L, y + 8, { f: 'B', size: 9, width: R - L, align: 'center' });
   text(`Date: ${bill.date}`, L, y + 8, { f: 'B', size: 9, width: R - L, align: 'right' });
   y += 26;
   hline(y, INK, 1.4);
@@ -333,6 +337,38 @@ export function renderBillPdf(bill) {
       y = tableHeader(48);
     }
     y = tableRow(row, y);
+  }
+
+  // ---- packing slip: quantities, notes and signatures only - no amounts
+  if (slip) {
+    if (y + 240 > bottom) {
+      doc.addPage({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 0 });
+      frame();
+      y = 40;
+    }
+    y += 24;
+    const sx = L + (R - L) * 0.52;
+    const notesW = sx - L - 20;
+    text('Packing notes:', L, y + 4, { f: 'B', size: 8.5 });
+    let ny = y + 18;
+    for (const t of bill.notes?.length ? bill.notes : ['-']) {
+      text(t, L, ny, { size: 8.5, width: notesW });
+      ny += doc.font('R').fontSize(8.5).heightOfString(t, { width: notesW, lineGap: 1 }) + 4;
+    }
+    let qy = y;
+    for (const [label, value] of [['Total Boxes:', formatBoxes(bill.total_boxes)], ['Total Pieces:', formatPcs(bill.total_pcs)], ['Total Quantity (Dzn):', bill.total_dzn]]) {
+      text(label, sx, qy, { size: 10, width: (R - sx) * 0.6, align: 'right', color: '#374151' });
+      text(value, sx, qy, { f: 'B', size: 10.5, width: R - sx, align: 'right' });
+      doc.save().lineWidth(0.5).strokeColor('#e5e7eb').dash(2, { space: 2 }).moveTo(sx, qy + 20).lineTo(R, qy + 20).stroke().restore();
+      qy += 28;
+    }
+    const sy2 = Math.max(ny, qy) + 44;
+    text(`Packed by: ${bill.packer_name || '.......................................'}`, L, sy2, { f: 'B', size: 9.5 });
+    text('Checked by: .......................................', L, sy2, { size: 9, width: R - L, align: 'right' });
+    text(`Made by: ${bill.made_by}`, L, sy2 + 26, { size: 8.5, color: SOFT });
+    text('Packing slip - prices are on the bill.', L, sy2 + 26, { size: 8.5, width: R - L, align: 'right', color: SOFT });
+    doc.end();
+    return done;
   }
 
   // ---- totals, terms, signatures (kept together)
@@ -397,6 +433,29 @@ async function billFor(bundle) {
     order: bundle.order, items: activeItems(bundle.items, bundle.order.order_id), settings, productSkus, names,
   });
   return { bill, pdf: await renderBillPdf(bill), filename: billFileName(bill) };
+}
+
+/**
+ * Packing slip for the packing person: the bill's articles, colours and
+ * size-wise quantities with the customer's address - no rate, no amount.
+ */
+export async function packingSlip(idOrNumber, { packerName } = {}) {
+  const bundle = await loadOrderBundle(idOrNumber, { byId: true });
+  const [settings, products, names] = await Promise.all([getSettings(), sheetsService.read('Products'), adminNamesByMobile()]);
+  const productSkus = Object.fromEntries(products.map((p) => [p.product_id, p.sku]));
+  const { order } = bundle;
+  const bill = buildBill({
+    order, items: activeItems(bundle.items, order.order_id), settings, productSkus, names,
+  });
+  const notes = [
+    order.order_notes && `Customer note: ${String(order.order_notes).trim()}`,
+    order.less_packing === true && 'Customer chose "less packing charges".',
+    order.customer_type_snapshot === 'EXISTING' ? 'Existing customer.' : '',
+  ].filter(Boolean);
+  const slip = {
+    ...bill, slip: true, title: 'PACKING SLIP', packer_name: packerName ?? order.packer_name ?? '', notes,
+  };
+  return { slip, pdf: await renderBillPdf(slip), filename: `Packing_slip_${bill.number}.pdf` };
 }
 
 export async function customerBill(orderNumber, token) {

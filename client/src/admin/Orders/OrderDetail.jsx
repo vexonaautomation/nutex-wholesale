@@ -13,6 +13,7 @@ import { ORDER_STATUS } from '../../constants/index.js';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { waLink } from '../../utils/whatsapp.js';
 import OrderItemsEditor from './OrderItemsEditor.jsx';
+import { PackerFields, PackingCard, sendToPacker } from './PackerPicker.jsx';
 import { useCan } from '../AdminApp.jsx';
 
 export function ProofModal({ payment, onClose }) {
@@ -124,10 +125,17 @@ export default function OrderDetail() {
   const changeStatus = async () => {
     setSaving(true);
     try {
-      const res = await adminApi.put(`/orders/${order.order_id}/status`, statusForm);
+      const { packing, ...body } = statusForm;
+      const res = await adminApi.put(`/orders/${order.order_id}/status`, body);
       setData(res);
       setStatusForm(null);
       toast.success(`Order moved to ${ORDER_STATUS[res.order.order_status]?.label}.`);
+      // Processing: the chosen packer gets the packing slip
+      if (packing?.packer_id) {
+        const sent = await sendToPacker(order.order_id, packing, toast).catch((err) => { toast.error(err.message); return null; });
+        if (sent && packing.send && !sent.sent && sent.wa_link) window.open(sent.wa_link, '_blank', 'noopener');
+        reload();
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -164,7 +172,7 @@ export default function OrderDetail() {
         <h3 className="card-title">Actions</h3>
         <div className="row wrap">
           {data.actions.allowed_statuses.map((s) => (
-            <button key={s} type="button" className="btn btn-sm btn-dark" onClick={() => setStatusForm({ status: s, note: '', courier_name: order.courier_name || '', tracking_number: order.tracking_number || '', dispatch_note: '' })}>
+            <button key={s} type="button" className="btn btn-sm btn-dark" onClick={() => setStatusForm({ status: s, note: '', courier_name: order.courier_name || '', tracking_number: order.tracking_number || '', dispatch_note: '', packing: { packer_id: order.packer_id || '', send: true } })}>
               {s === 'DISPATCHED' && <Truck />} {order.payment_mode_snapshot === 'OFFLINE' && order.order_status === 'PAYMENT_PENDING' && s === 'CONFIRMED' ? 'Confirm order' : `Mark ${ORDER_STATUS[s].label}`}
             </button>
           ))}
@@ -269,6 +277,7 @@ export default function OrderDetail() {
         </div>
 
         <div className="stack" style={{ gap: 16 }}>
+          {(order.packer_id || ['PAYMENT_VERIFIED', 'CONFIRMED', 'PROCESSING', 'PACKED'].includes(order.order_status)) && <PackingCard order={order} onChanged={reload} />}
           <section className="card card-pad"><h3 className="card-title">Totals (snapshot)</h3><OrderTotals totals={data.totals} />
             <PackingCharges key={`${order.order_id}-${data.totals.packing_deduction}`} order={order} totals={data.totals} onSaved={setData} />
             <p className="tiny soft mt-1 mb-0">Discount mode {order.discount_mode_snapshot}{order.discount_mode_snapshot === 'SLAB' ? ` · basis ${order.discount_basis_snapshot} ${formatINR(order.discount_basis_amount)}` : ''}</p>
@@ -327,6 +336,9 @@ export default function OrderDetail() {
       >
         {statusForm && (
           <div className="stack">
+            {statusForm.status === 'PROCESSING' && (
+              <PackerFields value={statusForm.packing} onChange={(packing) => setStatusForm({ ...statusForm, packing })} />
+            )}
             {statusForm.status === 'DISPATCHED' && (
               <div className="form-grid">
                 <Field label="Courier name"><input className="input" value={statusForm.courier_name} onChange={(e) => setStatusForm({ ...statusForm, courier_name: e.target.value })} /></Field>
