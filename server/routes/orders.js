@@ -8,7 +8,9 @@ import {
 import {
   quoteSchema, draftOrderSchema, trackOrderSchema, activeOrdersSchema, updateOrderSchema, recalculateSchema,
   orderStatusSchema, reopenSchema, cancelSchema, packingDeductionSchema, adminOrderItemsSchema,
+  packerSchema, assignPackerSchema,
 } from '../utils/validation.js';
+import { requireRole } from '../middleware/adminAuth.js';
 
 export const publicRouter = Router();
 publicRouter.post('/cart/quote', quoteLimiter, customerToken, validate(quoteSchema), c.quoteCart);
@@ -20,11 +22,19 @@ publicRouter.get('/orders/:orderNumber/bill', orderAccessLimiter, orderToken, c.
 publicRouter.put('/orders/:orderNumber', orderToken, validate(updateOrderSchema), c.updateOrder);
 publicRouter.post('/orders/:orderNumber/recalculate', quoteLimiter, orderToken, validate(recalculateSchema), c.recalculate);
 publicRouter.post('/orders/:orderNumber/lock', orderToken, c.lock);
+// packing slip for the packer (signed link from WhatsApp, no login, no amounts)
+publicRouter.get('/packing-slip/:token', orderAccessLimiter, c.packingSlipPublic);
 
 export const adminRouter = Router();
 adminRouter.get('/orders', c.adminList);
 adminRouter.get('/orders/:id', c.adminGet);
 adminRouter.get('/orders/:id/bill', c.adminBillPdf);
+adminRouter.get('/orders/:id/packing-slip', c.adminPackingSlip);
+adminRouter.post('/orders/:id/packer', validate(assignPackerSchema), c.adminAssignPacker);
+// packing team: everyone in the panel sees the list, the owner manages it
+adminRouter.get('/packers', c.adminPackers);
+adminRouter.post('/packers', requireRole('OWNER', 'ADMIN'), validate(packerSchema), c.adminPackerCreate);
+adminRouter.put('/packers/:id', requireRole('OWNER', 'ADMIN'), validate(packerSchema), c.adminPackerUpdate);
 adminRouter.put('/orders/:id/status', validate(orderStatusSchema), c.adminStatus);
 adminRouter.post('/orders/:id/reopen', validate(reopenSchema), c.adminReopen);
 adminRouter.post('/orders/:id/cancel', validate(cancelSchema), c.adminCancel);

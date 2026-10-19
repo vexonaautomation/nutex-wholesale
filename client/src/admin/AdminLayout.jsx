@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  BadgeCheck, BadgePercent, BookOpen, Boxes, ClipboardList, CreditCard, FolderTree, KeyRound, LayoutDashboard, LogOut, Menu, Package, Palette, Ruler,
+  BadgeCheck, BadgePercent, BookOpen, Boxes, ClipboardList, CreditCard, FolderTree, KeyRound, LayoutDashboard, LogOut, Menu, Package, PackageCheck, Palette, Ruler,
   ScrollText, Settings as SettingsIcon, Shirt, Store, UserCog, Users,
 } from 'lucide-react';
 import { useAdmin, allowed, isSubAdmin } from './AdminApp.jsx';
@@ -26,6 +26,7 @@ const NAV = [
     ['/admin/payments', 'Payments', CreditCard, 'payments'],
     ['/admin/customers', 'Customers', Users, 'customers'],
     ['/admin/existing-customers', 'Existing Customers', BadgeCheck, 'customers'],
+    ['/admin/packers', 'Packing team', PackageCheck, 'manager'],
   ]],
   ['System', [
     ['/admin/sub-admins', 'Sub admins', UserCog, 'manager'],

@@ -431,6 +431,19 @@ export const orderStatusSchema = z.object({
   dispatch_note: optText(500),
 });
 
+// packing team
+export const packerSchema = z.object({
+  name: text(100, 2),
+  mobile,
+  notes: optText(300),
+  status: z.enum([RECORD_STATUS.ACTIVE, RECORD_STATUS.INACTIVE]).optional(),
+});
+export const assignPackerSchema = z.object({
+  packer_id: id,
+  // WhatsApp the packing slip link to the packer
+  send: z.boolean().optional().default(true),
+});
+
 export const reopenSchema = z.object({
   reason: text(500, 5),
   confirm: z.literal(true, { message: 'Confirmation is required' }),

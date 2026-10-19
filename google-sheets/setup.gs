@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v19).
+ *  GENERATED from server/config/schema.js (schema v20).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -27,7 +27,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 19;
+var NUTEX_SCHEMA_VERSION = 20;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -43,10 +43,11 @@ var NUTEX_SCHEMA = {
   "Discount_Slabs": ["slab_id","label","min_amount","max_amount","discount_percent","priority","active","start_date","end_date","deleted","created_at","updated_at"],
   "Existing_Customers": ["mobile","customer_name","business_name","city","gstin","minimum_order_value","status","notes","added_at","updated_at","added_by","alternate_mobiles","address","state","pincode"],
   "Customers": ["customer_id","customer_name","business_name","mobile","whatsapp","email","billing_address","shipping_address","city","state","pincode","gstin","created_at","updated_at","alternate_mobile"],
-  "Orders": ["order_id","order_number","customer_id","customer_name_snapshot","business_name_snapshot","mobile_snapshot","whatsapp_snapshot","email_snapshot","billing_address_snapshot","shipping_address_snapshot","city_snapshot","state_snapshot","pincode_snapshot","gstin_snapshot","order_notes","mrp_subtotal","discount_mode_snapshot","discount_basis_snapshot","discount_basis_amount","discount_percent","slab_id_snapshot","discount_amount","final_payable","total_qty","minimum_order_value_snapshot","minimum_order_met","order_status","payment_status","locked","stock_state","revision","idempotency_key","courier_name","tracking_number","dispatch_note","cancel_reason","created_at","updated_at","locked_at","payment_submitted_at","verified_at","dispatched_at","completed_at","cancelled_at","customer_type_snapshot","alternate_mobile_snapshot","payment_mode_snapshot","packing_deduction","placed_by_mobile","less_packing","aadhaar_last4"],
+  "Orders": ["order_id","order_number","customer_id","customer_name_snapshot","business_name_snapshot","mobile_snapshot","whatsapp_snapshot","email_snapshot","billing_address_snapshot","shipping_address_snapshot","city_snapshot","state_snapshot","pincode_snapshot","gstin_snapshot","order_notes","mrp_subtotal","discount_mode_snapshot","discount_basis_snapshot","discount_basis_amount","discount_percent","slab_id_snapshot","discount_amount","final_payable","total_qty","minimum_order_value_snapshot","minimum_order_met","order_status","payment_status","locked","stock_state","revision","idempotency_key","courier_name","tracking_number","dispatch_note","cancel_reason","created_at","updated_at","locked_at","payment_submitted_at","verified_at","dispatched_at","completed_at","cancelled_at","customer_type_snapshot","alternate_mobile_snapshot","payment_mode_snapshot","packing_deduction","placed_by_mobile","less_packing","aadhaar_last4","packer_id","packer_name","packing_assigned_at","packing_slip_sent_at"],
   "Order_Items": ["order_item_id","order_id","order_number","revision","product_id","variant_id","sku_snapshot","product_name_snapshot","category_snapshot","inventory_mode_snapshot","size_snapshot","color_snapshot","box_snapshot","units_per_box_snapshot","qty","mrp_unit_snapshot","discount_percent_snapshot","wholesale_unit_snapshot","line_mrp_total","line_total","status","created_at","stock_components"],
   "Payments": ["payment_id","order_id","order_number","amount","expected_amount","payment_method","utr","proof_file_id","proof_url","status","idempotency_key","customer_note","submitted_at","verified_at","verified_by","remarks"],
   "Order_Status_History": ["history_id","order_id","order_number","from_status","to_status","actor_type","actor_id","note","created_at"],
+  "Packers": ["packer_id","name","mobile","status","notes","created_at","updated_at"],
   "Admin_Users": ["admin_id","email","name","password_hash","role","status","session_version","last_login_at","created_at","updated_at","mobile","permissions"],
   "Audit_Log": ["audit_id","timestamp","admin_id","actor_type","action","entity_type","entity_id","old_value","new_value","reason","notes","ip"],
   "Schema_Version": ["version","applied_at","description","app_version"]
@@ -57,7 +58,8 @@ var NUTEX_TEXT_COLUMNS = {
   "Customers": ["mobile","whatsapp","pincode","gstin","alternate_mobile"],
   "Orders": ["order_number","mobile_snapshot","whatsapp_snapshot","pincode_snapshot","gstin_snapshot","alternate_mobile_snapshot"],
   "Payments": ["utr","order_number"],
-  "Settings": ["setting_value"]
+  "Settings": ["setting_value"],
+  "Packers": ["mobile"]
 };
 
 var NUTEX_DROPDOWNS = {
@@ -66,7 +68,8 @@ var NUTEX_DROPDOWNS = {
   "Colors": {"status":["ACTIVE","INACTIVE","ARCHIVED"]},
   "Sizes": {"status":["ACTIVE","INACTIVE","ARCHIVED"]},
   "Products": {"status":["ACTIVE","INACTIVE","ARCHIVED"],"inventory_mode":["COLOR_WISE","BOX_WISE"],"discount_mode":["GLOBAL","CUSTOM"]},
-  "Inventory": {"status":["ACTIVE","OUT_OF_STOCK"]}
+  "Inventory": {"status":["ACTIVE","OUT_OF_STOCK"]},
+  "Packers": {"status":["ACTIVE","INACTIVE"]}
 };
 
 /** [setting_key, default value, data_type, description] - added only if missing. */
@@ -138,7 +141,8 @@ var NUTEX_MIGRATIONS = [
   [16,"Sell in Box / Pcs per article; Sanjana Set + Sanjana bra pcs only"],
   [17,"Sub admins: mobile number + permissions"],
   [18,"Bill: party details, Aadhaar (last 4 digits) when no GST, made by"],
-  [19,"Size-wise MRP rule for bras, panties, vests and underwear (not sets)"]
+  [19,"Size-wise MRP rule for bras, panties, vests and underwear (not sets)"],
+  [20,"Packing team: packer per order + packing slip (no amounts) on WhatsApp"]
 ];
 
 var NUTEX_MASTER_DATA = {

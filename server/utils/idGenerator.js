@@ -19,6 +19,7 @@ export const ID_PREFIX = Object.freeze({
   history: 'HIS',
   admin: 'ADM',
   audit: 'AUD',
+  packer: 'PKR',
 });
 
 export function newId(prefix) {
