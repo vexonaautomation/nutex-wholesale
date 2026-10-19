@@ -69,6 +69,9 @@ export default function Cart() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const { quote } = cart;
+  // editing an order: "Do you wish to less packing charges?" starts as the order had it
+  const [lessPacking, setLessPacking] = useState(cart.editing?.less_packing === true);
+  const packingOff = cart.editing && lessPacking && quote?.packing_choice ? quote.packing_charges : 0;
   useSeo({ title: 'Your cart | Nutex Wholesale', noindex: true });
 
   const updateOrder = async () => {
@@ -76,7 +79,7 @@ export default function Cart() {
     setSaveError(null);
     try {
       const n = cart.editing.order_number;
-      await orderApi.update(n, cart.items.map(({ variant_id, qty }) => ({ variant_id, qty })), quote?.final_payable);
+      await orderApi.update(n, cart.items.map(({ variant_id, qty }) => ({ variant_id, qty })), quote?.final_payable, lessPacking && !!quote?.packing_choice);
       cart.stopEditing();
       toast.success(`Order ${n} updated.`);
       navigate(`/order/${n}`);
@@ -160,8 +163,18 @@ export default function Cart() {
         <aside className="sticky-col stack">
           {!cart.editing && <ExistingCustomerPrompt />}
           <div className="card card-pad">
-            <CartSummary quote={quote} />
+            <CartSummary quote={quote} lessPacking={packingOff} />
           </div>
+          {cart.editing && quote?.packing_choice && (
+            <label className={`packing-choice${lessPacking ? ' is-on' : ''}`}>
+              <input type="checkbox" checked={lessPacking} onChange={(e) => setLessPacking(e.target.checked)} />
+              <span>
+                <strong>Do you wish to less packing charges?</strong>
+                <span className="small">Tick to take <strong>{formatINR(quote.packing_charges)}</strong> off this order.</span>
+                <span className="tiny soft">{quote.packing_breakdown.map((b) => `${b.category_name}: ${b.pieces} pcs × ₹${b.rate}`).join(' · ')}</span>
+              </span>
+            </label>
+          )}
           <DiscountProgress quote={quote} />
           <MinimumOrderProgress quote={quote} />
           <Messages messages={quote?.messages} />

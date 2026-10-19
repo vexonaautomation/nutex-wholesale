@@ -41,7 +41,7 @@ export const orderApi = {
   active: (orders) => api.post('/api/orders/active', { orders: orders.map(({ order_number, token }) => ({ order_number, token })) }),
   track: (order_number, mobile) => api.post('/api/orders/track', { order_number, mobile }),
   get: (n) => api.get(`/api/orders/${encodeURIComponent(n)}`, { headers: tokenHeader(n) }),
-  update: (n, items, client_final_payable) => api.put(`/api/orders/${encodeURIComponent(n)}`, { items, client_final_payable }, { headers: tokenHeader(n) }),
+  update: (n, items, client_final_payable, less_packing) => api.put(`/api/orders/${encodeURIComponent(n)}`, { items, client_final_payable, less_packing }, { headers: tokenHeader(n) }),
   recalculate: (n, items, opts) => api.post(`/api/orders/${encodeURIComponent(n)}/recalculate`, items ? { items } : {}, { ...opts, headers: tokenHeader(n) }),
   lock: (n) => api.post(`/api/orders/${encodeURIComponent(n)}/lock`, {}, { headers: tokenHeader(n) }),
   // order bill PDF (after the payment is submitted)

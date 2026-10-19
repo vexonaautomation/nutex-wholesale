@@ -109,7 +109,18 @@ function totalsFields(quote, deduction = 0) {
 // "Less: Packing charges" on an order: the customer's choice follows the
 // items (recalculated on every change); otherwise the admin's flat amount.
 const packingDeductionFor = (order, quote) => (order.less_packing === true ? quote.packing_charges : order.packing_deduction);
-const packingPatch = (order, quote) => (order.less_packing === true ? { packing_deduction: quote.packing_charges || null } : {});
+
+/**
+ * "Less packing charges" when an order is edited. `wanted` undefined = keep
+ * the order's choice; true / false = the customer (or admin) ticked / unticked
+ * it while editing. A flat amount the admin set by hand stays as it is.
+ */
+export function packingFor(order, quote, wanted) {
+  const less = wanted === undefined ? order.less_packing === true : wanted === true && quote.packing_choice === true;
+  if (less) return { less_packing: true, deduction: quote.packing_charges || 0, patch: { less_packing: true, packing_deduction: quote.packing_charges || null } };
+  if (order.less_packing === true) return { less_packing: false, deduction: 0, patch: { less_packing: false, packing_deduction: null } };
+  return { less_packing: false, deduction: Number(order.packing_deduction) || 0, patch: {} };
+}
 
 // An unpaid order placed by a verified existing customer keeps the exemption
 // while it is edited - as long as the number is still in the list.
@@ -477,7 +488,7 @@ export async function trackOrder({ order_number: orderNumber, mobile }) {
 }
 
 /** Customer edit of an unpaid order. Backend re-validates everything. */
-export async function updateOrderItems(orderNumber, token, { items, client_final_payable: clientFinal }, { ip } = {}) {
+export async function updateOrderItems(orderNumber, token, { items, client_final_payable: clientFinal, less_packing: lessPacking }, { ip } = {}) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany([...CATALOG_SHEETS, ...ORDER_SHEETS], { fresh: true });
     const order = data.Orders.find((o) => o.order_number === normalizeOrderNumber(orderNumber));
@@ -501,11 +512,12 @@ export async function updateOrderItems(orderNumber, token, { items, client_final
     }
     const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: ACTOR.CUSTOMER });
     const before = totalsView(order);
+    const packing = packingFor(order, quote, lessPacking);
     const ops = [
       ...inventory.ops,
       ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
       { op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) },
-      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totalsFields(quote, packingDeductionFor(order, quote)), ...packingPatch(order, quote), revision, stock_state: STOCK_STATE.RESERVED, updated_at: now } },
+      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totalsFields(quote, packing.deduction), ...packing.patch, revision, stock_state: STOCK_STATE.RESERVED, updated_at: now } },
       auditOp({
         actorType: ACTOR.CUSTOMER, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_CUSTOMER, entity_type: 'Order', entity_id: order.order_id,
         old_value: { revision: order.revision, final_payable: before.final_payable, items: current.length },
@@ -861,7 +873,7 @@ const adminEditQuote = ({ order, current, items, catalog }) => buildQuote({
 });
 
 /** Admin item edit preview (no writes; cached catalog - the save checks again). */
-export async function previewOrderItemsAdmin(id, { items } = {}) {
+export async function previewOrderItemsAdmin(id, { items, less_packing: lessPacking } = {}) {
   const [bundle, catalog] = await Promise.all([loadOrderBundle(id, { byId: true }), getCatalog()]);
   const { order } = bundle;
   assertAdminCanEditItems(order);
@@ -869,10 +881,11 @@ export async function previewOrderItemsAdmin(id, { items } = {}) {
   const quote = adminEditQuote({
     order, current, catalog, items: items ?? current.map((i) => ({ variant_id: i.variant_id, qty: i.qty })),
   });
-  const deduction = Number(packingDeductionFor(order, quote)) || 0;
+  const packing = packingFor(order, quote, lessPacking);
+  const deduction = packing.deduction;
   return {
     quote,
-    less_packing: order.less_packing === true,
+    less_packing: packing.less_packing,
     packing_deduction: deduction,
     current_final_payable: Number(order.final_payable) || 0,
     new_final_payable: roundRupee(Math.max(0, quote.final_payable - deduction)),
@@ -906,7 +919,9 @@ export async function orderProductOptionsAdmin(id, { q } = {}) {
   };
 }
 
-export async function updateOrderItemsAdmin(id, { items, client_final_payable: clientFinal, note }, { admin, ip }) {
+export async function updateOrderItemsAdmin(id, {
+  items, client_final_payable: clientFinal, note, less_packing: lessPacking,
+}, { admin, ip }) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany([...CATALOG_SHEETS, ...ORDER_SHEETS], { fresh: true });
     const order = data.Orders.find((o) => o.order_id === id || o.order_number === normalizeOrderNumber(id));
@@ -937,12 +952,13 @@ export async function updateOrderItemsAdmin(id, { items, client_final_payable: c
       if (d) deltas.set(v, deducted ? { stock: -d } : { reserved: d });
     }
     const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: admin.admin_id });
-    const totals = totalsFields(quote, packingDeductionFor(order, quote));
+    const packing = packingFor(order, quote, lessPacking);
+    const totals = totalsFields(quote, packing.deduction);
     await sheetsService.commit([
       ...inventory.ops,
       ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
       { op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) },
-      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totals, ...packingPatch(order, quote), revision, updated_at: now } },
+      { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totals, ...packing.patch, revision, updated_at: now } },
       auditOp({
         admin, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_ADMIN, entity_type: 'Order', entity_id: order.order_id,
         old_value: { revision: order.revision, final_payable: order.final_payable, items: current.length },

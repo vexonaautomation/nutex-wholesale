@@ -37,7 +37,7 @@ export function OrderTotals({ totals }) {
         <strong>{totals.customer_type === 'EXISTING' && !Number(totals.minimum_order_value) ? 'Not applicable (existing customer)' : formatINR(totals.minimum_order_value)}</strong>
       </div>
       {Number(totals.packing_deduction) > 0 && (
-        <div className="summary-row"><span>Less: Packing charges{totals.less_packing ? ' (chosen at checkout)' : ''}</span><strong style={{ color: 'var(--success-700)' }}>− {formatINR(totals.packing_deduction)}</strong></div>
+        <div className="summary-row"><span>Less: Packing charges{totals.less_packing ? ' (chosen by the customer)' : ''}</span><strong style={{ color: 'var(--success-700)' }}>− {formatINR(totals.packing_deduction)}</strong></div>
       )}
       {Number(totals.round_off) !== 0 && totals.round_off !== undefined && (
         <div className="summary-row"><span>Round off</span><strong>{totals.round_off > 0 ? '+' : '−'} {formatINR(Math.abs(totals.round_off))}</strong></div>
