@@ -187,4 +187,17 @@ export const MIGRATIONS = [
     version: 20,
     description: 'Packing team: packer per order + packing slip (no amounts) on WhatsApp',
   },
+  {
+    // The owner's decision: verified existing customers have a minimum order
+    // of Rs 1,000 (was 0 = no minimum). Set once on deploy; the owner changes
+    // it any time in Settings or on the Existing Customers page. A customer's
+    // own minimum in the Existing_Customers sheet still wins.
+    version: 21,
+    description: 'Minimum order for existing customers: Rs 1,000',
+    async up({ logger }) {
+      const { updateSettings } = await import('../services/settingsService.js');
+      await updateSettings({ existing_customer_minimum_order_value: 1000 }, { admin: { admin_id: 'SYSTEM' }, ip: '' });
+      logger.info('Migration v21: minimum order for existing customers set to 1000');
+    },
+  },
 ];

@@ -236,7 +236,7 @@ export default function Checkout() {
                       type="button"
                       className="link"
                       onClick={() => {
-                        if (window.confirm('Use a different number? The existing-customer exemption (no minimum) will be removed for this order.')) {
+                        if (window.confirm('Use a different number? The existing-customer benefits (lower minimum, loose pieces) will be removed for this order.')) {
                           customer.logout();
                           setForm((f) => ({ ...f, mobile: '' }));
                         }

@@ -233,7 +233,7 @@ export default function Product() {
               <Target />
               <div>
                 Minimum wholesale order: <strong>{formatINR(settings.minimum_order_value)}</strong> final value after discount. Mix any products to reach it.
-                {' '}Existing customer? <button type="button" className="link" onClick={customer.openLogin}>Verify on WhatsApp - no minimum, loose pieces allowed</button>
+                {' '}Existing customer? <button type="button" className="link" onClick={customer.openLogin}>Verify on WhatsApp - {Number(settings.existing_customer_minimum_order_value) > 0 ? `minimum only ${formatINR(settings.existing_customer_minimum_order_value)}` : 'no minimum'}, loose pieces allowed</button>
               </div>
             </div>
           ))}

@@ -21,7 +21,7 @@ function CustomerModal({ id, onClose, onChanged }) {
       await adminApi.post('/existing-customers', {
         mobile: c.mobile, alternate_mobiles: c.alternate_mobile || '', customer_name: c.customer_name, business_name: c.business_name, city: c.city, gstin: c.gstin,
       });
-      toast.success('Added to existing customers - no minimum order for this number.');
+      toast.success('Added to existing customers - the existing-customer minimum applies to this number.');
       reload();
       onChanged?.();
     } catch (err) {

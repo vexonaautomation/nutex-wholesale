@@ -19,7 +19,11 @@ export const PNG_BYTES = Buffer.concat([
 // pcsForAll: most suites test order mechanics with loose pieces as a NEW
 // customer, so they switch the 'pieces only for existing customers' rule off;
 // the rule itself is tested in sellMode.test.js.
-export async function freshStore({ masterData = true, pcsForAll = true } = {}) {
+// existingMinimum: the live site's existing-customer minimum (Rs 1,000, set by
+// migration v21) is put back to 0 so the suites test the existing-customer
+// mechanics on their own; null keeps what the migrations set
+// (existingMinimum.test.js).
+export async function freshStore({ masterData = true, pcsForAll = true, existingMinimum = 0 } = {}) {
   const sheetsTransport = new MemorySheetsTransport();
   const driveTransport = new MemoryDriveTransport();
   configureStorage(config, { sheetsTransport, driveTransport });
@@ -30,6 +34,7 @@ export async function freshStore({ masterData = true, pcsForAll = true } = {}) {
   const adminCtx = { admin, ip: '127.0.0.1' };
   if (masterData) await initializeMasterData(adminCtx);
   if (pcsForAll) await updateSettings({ pcs_for_existing_customers_only: false }, adminCtx);
+  if (existingMinimum !== null) await updateSettings({ existing_customer_minimum_order_value: existingMinimum }, adminCtx);
   return { sheetsTransport, driveTransport, adminCtx };
 }
 

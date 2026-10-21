@@ -288,6 +288,8 @@ export function ExistingCustomerLogin({ open, onClose }) {
 /** Small reusable call-to-action used on home, product page, cart and drawer. */
 export function ExistingCustomerPrompt({ compact = false }) {
   const { isExisting, auth, openLogin } = useCustomer();
+  const { settings } = useStore();
+  const min = Number(settings?.existing_customer_minimum_order_value) || 0;
   if (isExisting) {
     return (
       <div className="alert alert-success" style={{ alignItems: 'center' }}>
@@ -304,7 +306,7 @@ export function ExistingCustomerPrompt({ compact = false }) {
       <BadgeCheck />
       <div className="grow">
         <strong>Existing Nutex customer?</strong>
-        {!compact && <span className="small muted" style={{ display: 'block' }}>Verify your mobile on WhatsApp - no minimum order, and you can buy loose pieces in any colour.</span>}
+        {!compact && <span className="small muted" style={{ display: 'block' }}>Verify your mobile on WhatsApp - {min > 0 ? `minimum order only ${formatINR(min)}` : 'no minimum order'}, and you can buy loose pieces in any colour.</span>}
       </div>
       <button type="button" className="btn btn-sm btn-whatsapp" onClick={openLogin}><WhatsAppIcon size={16} /> Verify</button>
     </div>
