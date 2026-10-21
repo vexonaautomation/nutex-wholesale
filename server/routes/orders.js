@@ -24,6 +24,8 @@ publicRouter.post('/orders/:orderNumber/recalculate', quoteLimiter, orderToken, 
 publicRouter.post('/orders/:orderNumber/lock', orderToken, c.lock);
 // packing slip for the packer (signed link from WhatsApp, no login, no amounts)
 publicRouter.get('/packing-slip/:token', orderAccessLimiter, c.packingSlipPublic);
+// bill PDF link in the admins' new-order WhatsApp (signed, no login)
+publicRouter.get('/admin-bill/:token', orderAccessLimiter, c.adminBillPublic);
 
 export const adminRouter = Router();
 adminRouter.get('/orders', c.adminList);

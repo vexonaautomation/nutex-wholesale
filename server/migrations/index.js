@@ -212,4 +212,28 @@ export const MIGRATIONS = [
       logger.info('Migration v22: dates / order numbers converted', changed);
     },
   },
+  {
+    // New Orders columns BD..BG for the team. Filled for every order already
+    // in the sheet (only blank cells): doer (Ramesh existing / Mayank
+    // inbound), bill link, packing person (= packer chosen before), customer type.
+    version: 23,
+    description: 'Orders: doer, bill link, packing person, customer type',
+    // baseUrl: the site address for the links (default FRONTEND_URL / Render's own URL)
+    async up({ sheets, logger, baseUrl }) {
+      const { orderSheetColumns } = await import('../services/orderSheetColumns.js');
+      const { getSettings } = await import('../services/settingsService.js');
+      const settings = await getSettings({ fresh: true });
+      const data = await sheets.readMany(['Orders', 'Existing_Customers'], { fresh: true });
+      const ops = [];
+      for (const o of data.Orders) {
+        const cols = orderSheetColumns(o, { existingRows: data.Existing_Customers, settings, baseUrl });
+        const patch = {};
+        for (const [k, v] of Object.entries(cols)) if (!o[k] && v) patch[k] = v;
+        if (!o.packing_person && o.packer_name) patch.packing_person = o.packer_name;
+        if (Object.keys(patch).length) ops.push({ op: 'update', sheet: 'Orders', id: o.order_id, patch });
+      }
+      for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
+      logger.info(`Migration v23: ${ops.length} order(s) filled (doer, bill link, packing person, customer type)`);
+    },
+  },
 ];

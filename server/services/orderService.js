@@ -24,6 +24,7 @@ import { once } from '../utils/idempotency.js';
 import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
+import { orderSheetColumns } from './orderSheetColumns.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
 import {
   AppError, badRequest, conflict, notFound, unprocessable, MESSAGES,
@@ -314,7 +315,7 @@ export function customerOrderView({ order, items, payments, history }, settings 
 }
 
 // ---------------------------------------------------------------- customer
-export async function createDraftOrder(input, { ip, customerToken } = {}) {
+export async function createDraftOrder(input, { ip, customerToken, baseUrl } = {}) {
   return once('draft', input.idempotency_key, () => withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany([...CATALOG_SHEETS, 'Orders', 'Customers'], { fresh: true });
     const duplicate = data.Orders.find((o) => o.idempotency_key === input.idempotency_key);
@@ -374,6 +375,8 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
       created_at: now,
       updated_at: now,
     };
+    // Orders sheet BD..BG: doer, bill link, (packing person later), customer type
+    Object.assign(order, orderSheetColumns(order, { existingRows: data.Existing_Customers, settings: catalog.settings, baseUrl }));
     const deltas = new Map(Object.entries(qtyMap(quote.lines)).map(([v, n]) => [v, { reserved: n }]));
     const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: ACTOR.CUSTOMER });
 
@@ -392,6 +395,9 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
       }),
     ]);
     logger.info(`Order created ${order.order_number} (${formatINR(order.final_payable)})`);
+    // WhatsApp to every admin with the order details + bill PDF link (never delays the customer)
+    import('./orderAlertService.js').then((m) => m.queueNewOrderAlert(order.order_id, { baseUrl }))
+      .catch((err) => logger.error('New order alert failed', err));
     return { duplicate: false, order_number: order.order_number, access_token: orderAccessToken(order.order_id) };
   }));
 }
