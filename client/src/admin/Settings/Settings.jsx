@@ -232,6 +232,13 @@ export default function Settings() {
       <Field label="Admin numbers - order for customers" className="span-2" hint="Comma separated, e.g. 9876543210, 9123456789. Log in on the website with &quot;Existing customer?&quot; using this number (same OTP) - all existing-customer rules apply, and at checkout you can enter the customer's mobile number: the order and the bill show the customer's number.">
         <input className="input" value={draft.admin_order_mobiles ?? ''} onChange={set('admin_order_mobiles')} inputMode="tel" placeholder="Your admin / staff mobile number(s)" />
       </Field>
+      <h4 className="span-2 mb-0 mt-2">Orders sheet - doer</h4>
+      <Field label="Doer for existing customers" hint="Written in the Orders sheet (column doer) when the customer's mobile is in Existing Customers.">
+        <input className="input" value={draft.doer_existing_customer ?? ''} onChange={set('doer_existing_customer')} placeholder="Ramesh" />
+      </Field>
+      <Field label="Doer for inbound customers" hint="Written for every other (new) customer.">
+        <input className="input" value={draft.doer_inbound_customer ?? ''} onChange={set('doer_inbound_customer')} placeholder="Mayank" />
+      </Field>
       <h4 className="span-2 mb-0 mt-2">New order WhatsApp to admins</h4>
       <Field label="WhatsApp admins on every new order" hint="Order details + bill PDF link go to the admin numbers above, every sub admin with a mobile and the extra numbers.">
         <select className="select" value={String(draft.new_order_alert_enabled !== false)} onChange={(e) => setDraft((d) => ({ ...d, new_order_alert_enabled: e.target.value === 'true' }))}>

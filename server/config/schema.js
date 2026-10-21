@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 22;
+export const SCHEMA_VERSION = 23;
 
 const n = 'number';
 const b = 'boolean';
@@ -161,6 +161,10 @@ export const SCHEMA = {
       'aadhaar_last4',
       // v20: who packs the order (Packers sheet) and when the packing slip went out
       'packer_id', 'packer_name', 'packing_assigned_at', 'packing_slip_sent_at',
+      // v23 (columns BD..BG): who handles the order (Ramesh for existing
+      // customers, Mayank for inbound - Settings), bill PDF link, packing
+      // person, Existing Customer / Inbound Customer
+      'doer', 'bill_link', 'packing_person', 'customer_type',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,

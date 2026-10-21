@@ -112,7 +112,9 @@ export async function assignPacker(idOrNumber, { packer_id: packerId, send = tru
   if ((packer.status || RECORD_STATUS.ACTIVE) !== RECORD_STATUS.ACTIVE) throw badRequest(`${packer.name} is switched off in the packing team.`);
 
   const now = nowIso();
-  const patch = { packer_id: packer.packer_id, packer_name: packer.name, packing_assigned_at: now, updated_at: now };
+  const patch = {
+    packer_id: packer.packer_id, packer_name: packer.name, packing_person: packer.name, packing_assigned_at: now, updated_at: now,
+  };
   const link = `${String(baseUrl || '').replace(/\/+$/, '')}/api/packing-slip/${packingSlipToken(order.order_id)}`;
   const { slip } = await packingSlip(order.order_id, { packerName: packer.name });
   const message = slipMessage({ order, packer, slip, link });

@@ -24,6 +24,7 @@ import { once } from '../utils/idempotency.js';
 import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
+import { orderSheetColumns } from './orderSheetColumns.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
 import {
   AppError, badRequest, conflict, notFound, unprocessable, MESSAGES,
@@ -374,6 +375,8 @@ export async function createDraftOrder(input, { ip, customerToken, baseUrl } = {
       created_at: now,
       updated_at: now,
     };
+    // Orders sheet BD..BG: doer, bill link, (packing person later), customer type
+    Object.assign(order, orderSheetColumns(order, { existingRows: data.Existing_Customers, settings: catalog.settings, baseUrl }));
     const deltas = new Map(Object.entries(qtyMap(quote.lines)).map(([v, n]) => [v, { reserved: n }]));
     const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: ACTOR.CUSTOMER });
 
