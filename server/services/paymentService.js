@@ -60,7 +60,7 @@ export async function submitPayment(orderNumber, token, fields, file, { ip } = {
 
     return withLock(COMMERCE_LOCK, async () => {
       const data = await sheetsService.readMany(['Orders', 'Order_Items', 'Payments', 'Inventory'], { fresh: true });
-      const order = data.Orders.find((o) => o.order_number === normalizeOrderNumber(orderNumber));
+      const order = data.Orders.find((o) => normalizeOrderNumber(o.order_number) === normalizeOrderNumber(orderNumber));
       if (!order) throw notFound('Order not found.');
       if (data.Payments.some((p) => p.order_id === order.order_id && p.idempotency_key === fields.idempotency_key)) return null;
       if (!canSubmitPayment(order)) refuseSubmission(order);

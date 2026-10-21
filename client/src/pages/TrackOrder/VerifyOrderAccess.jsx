@@ -30,7 +30,7 @@ export function VerifyOrderAccess({ initialOrderNumber = '', onVerified, title =
       <h2 className="card-title"><ShieldCheck /> {title}</h2>
       <p className="small muted mb-0">Enter your order number and the mobile number used while ordering.</p>
       <Field label="Order number" required>
-        <input className="input" value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="e.g. NX-20261003-0001" style={{ textTransform: 'uppercase' }} required />
+        <input className="input" value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="e.g. 202610030001" inputMode="numeric" required />
       </Field>
       <Field label="Mobile number" required>
         <input className="input" value={mobile} onChange={(e) => setMobile(e.target.value)} inputMode="tel" placeholder="10-digit mobile" required />

@@ -1,42 +1,42 @@
 import { istDateKey } from './dates.js';
 
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Customer-facing order numbers are digits only: YYYYMMDD + a 4-digit number
+// for the day, e.g. 202610210001. Orders made before v22 were NX-20261021-0001;
+// those are converted in the sheet and still found when typed the old way.
+const LEGACY_RE = /^[A-Z0-9]{1,8}-(\d{8})-(\d{4,})$/;
 
-export function sanitizePrefix(prefix) {
-  const clean = String(prefix || 'NX').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-  return clean || 'NX';
+/** NX-20261015-0001 -> 202610150001; '' if the value is not an old-style number. */
+export function legacyOrderNumberDigits(value) {
+  const m = LEGACY_RE.exec(String(value ?? '').trim().toUpperCase());
+  return m ? `${m[1]}${m[2]}` : '';
 }
 
-export function formatOrderNumber(prefix, dateKey, seq) {
-  return `${sanitizePrefix(prefix)}-${dateKey}-${String(seq).padStart(4, '0')}`;
+export function formatOrderNumber(dateKey, seq) {
+  return `${dateKey}${String(seq).padStart(4, '0')}`;
 }
 
-/**
- * Customer-friendly order number: PREFIX-YYYYMMDD-NNNN (IST date).
- * Computed from a FRESH read of Orders inside the commerce lock, so the daily
- * sequence is unique. The internal order_id (stable random ID) remains the
- * primary key; the order number is a unique, human-friendly reference.
- */
-export function nextOrderNumber(existingOrders, prefix, now = new Date()) {
-  const p = sanitizePrefix(prefix);
+export function nextOrderNumber(existingOrders, now = new Date()) {
   const dateKey = istDateKey(now);
-  const re = new RegExp(`^${escapeRe(p)}-${dateKey}-(\\d+)$`);
+  const re = new RegExp(`^${dateKey}(\\d{4,})$`);
   let max = 0;
   const taken = new Set();
   for (const o of existingOrders) {
-    taken.add(o.order_number);
-    const m = re.exec(o.order_number || '');
+    const key = normalizeOrderNumber(o.order_number);
+    taken.add(key);
+    const m = re.exec(key);
     if (m) max = Math.max(max, Number(m[1]));
   }
   let seq = max + 1;
-  let candidate = formatOrderNumber(p, dateKey, seq);
+  let candidate = formatOrderNumber(dateKey, seq);
   while (taken.has(candidate)) {
     seq += 1;
-    candidate = formatOrderNumber(p, dateKey, seq);
+    candidate = formatOrderNumber(dateKey, seq);
   }
   return candidate;
 }
 
+/** The form order numbers are compared in: old NX-… numbers become digits. */
 export function normalizeOrderNumber(value) {
-  return String(value || '').trim().toUpperCase();
+  const s = String(value ?? '').trim().toUpperCase();
+  return legacyOrderNumberDigits(s) || s;
 }

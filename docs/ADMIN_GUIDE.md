@@ -129,7 +129,7 @@ Settings → System & backup → download CSV of any sheet. Also use Google Shee
 2. **Category / Shop** → filter by size, colour, stock; sort.
 3. **Product** → pick a colour, enter quantity for each size (or number of mix-colour boxes) → *Add to cart*. Unavailable combinations are disabled.
 4. **Cart** (drawer + page, sticky bar on mobile) → change qty/size/colour/box, see MRP total, discount %, discount amount, final wholesale total, slab progress, minimum-order progress and exactly how much more is needed. Checkout is disabled until the minimum is met.
-5. **Checkout** → business, contact, address, GSTIN (optional), notes; review lines → *Place order*. The server re-checks prices and stock (“Stock has changed. Please review your cart.” if needed) and creates order **NX-YYYYMMDD-NNNN**.
+5. **Checkout** → business, contact, address, GSTIN (optional), notes; review lines → *Place order*. The server re-checks prices and stock (“Stock has changed. Please review your cart.” if needed) and creates order **YYYYMMDDNNNN (digits only, e.g. 202610210001)**.
 6. **Payment page** → scan the company QR, pay the shown amount, submit UTR + screenshot. The order is now **locked**.
 7. **Confirm on WhatsApp** (pre-filled message) – optional; the Nutex team still verifies.
 8. **Order page / Track order** (order number + mobile) → status timeline: Payment submitted → verified → confirmed → processing → packed → dispatched (courier & tracking) → completed.

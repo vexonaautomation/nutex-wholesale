@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 const n = 'number';
 const b = 'boolean';
@@ -231,6 +231,30 @@ export const SCHEMA = {
     columns: ['version', 'applied_at', 'description', 'app_version'],
     types: { version: n },
   },
+};
+
+// v22: every *_at column (and Audit_Log.timestamp) is a real date-time cell
+// in the sheet (shown as 21/10/2026 15:45:08), not text. The website still
+// works with ISO strings - sheetsService converts on read and write.
+// Date-only slab windows typed in the sheet are read back as YYYY-MM-DD.
+for (const def of Object.values(SCHEMA)) {
+  for (const col of def.columns) {
+    if (!def.types[col] && (col.endsWith('_at') || col === 'timestamp')) def.types[col] = 'datetime';
+  }
+}
+SCHEMA.Discount_Slabs.types.start_date = 'date';
+SCHEMA.Discount_Slabs.types.end_date = 'date';
+
+// Columns typed by hand that must stay text (leading zeros, +91, long numbers)
+export const TEXT_COLUMNS = {
+  Existing_Customers: ['mobile', 'alternate_mobiles', 'gstin'],
+  Customers: ['mobile', 'whatsapp', 'pincode', 'gstin', 'alternate_mobile'],
+  Orders: ['order_number', 'mobile_snapshot', 'whatsapp_snapshot', 'pincode_snapshot', 'gstin_snapshot', 'alternate_mobile_snapshot'],
+  Order_Items: ['order_number'],
+  Payments: ['utr', 'order_number'],
+  Order_Status_History: ['order_number'],
+  Settings: ['setting_value'],
+  Packers: ['mobile'],
 };
 
 export const SHEET_NAMES = Object.keys(SCHEMA);

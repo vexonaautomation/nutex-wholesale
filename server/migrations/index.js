@@ -200,4 +200,16 @@ export const MIGRATIONS = [
       logger.info('Migration v21: minimum order for existing customers set to 1000');
     },
   },
+  {
+    // Dates in the sheet become real date-times (21/10/2026 15:45:08) instead
+    // of ISO text, and order numbers become digits only (202610150001 instead
+    // of NX-20261015-0001). Only those cells are rewritten - same value, new
+    // form. Old order numbers keep working when a customer types them.
+    version: 22,
+    description: 'Real date-time cells in the sheet; order numbers digits only',
+    async up({ sheets, logger }) {
+      const changed = await sheets.upgradeLegacyCells();
+      logger.info('Migration v22: dates / order numbers converted', changed);
+    },
+  },
 ];

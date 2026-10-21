@@ -44,7 +44,8 @@ export class GoogleSheetsTransport {
           ranges,
           majorDimension: 'ROWS',
           valueRenderOption: 'UNFORMATTED_VALUE',
-          dateTimeRenderOption: 'FORMATTED_STRING',
+          // date-time cells as numbers, whatever format the column shows
+          dateTimeRenderOption: 'SERIAL_NUMBER',
         },
         { timeout: 45000 },
       ),
