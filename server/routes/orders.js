@@ -26,6 +26,8 @@ publicRouter.post('/orders/:orderNumber/lock', orderToken, c.lock);
 publicRouter.get('/packing-slip/:token', orderAccessLimiter, c.packingSlipPublic);
 // bill PDF link in the admins' new-order WhatsApp (signed, no login)
 publicRouter.get('/admin-bill/:token', orderAccessLimiter, c.adminBillPublic);
+// bill PDF link in the customer's "order received" WhatsApp (signed, no login)
+publicRouter.get('/bill/:token', orderAccessLimiter, c.customerBillPublic);
 
 export const adminRouter = Router();
 adminRouter.get('/orders', c.adminList);

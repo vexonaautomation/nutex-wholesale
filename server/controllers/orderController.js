@@ -8,6 +8,7 @@ import {
 } from '../services/orderService.js';
 import { customerBill, adminBill, packingSlip } from '../services/billService.js';
 import { adminBillByToken } from '../services/orderAlertService.js';
+import { customerBillByToken } from '../services/customerOrderMessageService.js';
 import {
   listPackers, createPacker, updatePacker, assignPacker, packingSlipByToken,
 } from '../services/packingService.js';
@@ -68,6 +69,13 @@ export async function adminPackingSlip(req, res) {
 export async function adminBillPublic(req, res) {
   noStore(res);
   const { pdf, filename } = await adminBillByToken(req.params.token);
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${filename}"`, 'X-Content-Type-Options': 'nosniff' });
+  res.send(pdf);
+}
+
+export async function customerBillPublic(req, res) {
+  noStore(res);
+  const { pdf, filename } = await customerBillByToken(req.params.token);
   res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${filename}"`, 'X-Content-Type-Options': 'nosniff' });
   res.send(pdf);
 }

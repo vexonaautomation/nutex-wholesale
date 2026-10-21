@@ -398,6 +398,9 @@ export async function createDraftOrder(input, { ip, customerToken, baseUrl } = {
     // WhatsApp to every admin with the order details + bill PDF link (never delays the customer)
     import('./orderAlertService.js').then((m) => m.queueNewOrderAlert(order.order_id, { baseUrl }))
       .catch((err) => logger.error('New order alert failed', err));
+    // "Order received" WhatsApp to the customer (order link + bill PDF)
+    import('./customerOrderMessageService.js').then((m) => m.queueCustomerOrderMessage(order.order_id, { baseUrl }))
+      .catch((err) => logger.error('Customer order message failed', err));
     return { duplicate: false, order_number: order.order_number, access_token: orderAccessToken(order.order_id) };
   }));
 }

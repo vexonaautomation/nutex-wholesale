@@ -39,10 +39,17 @@ export function alertRecipients(settings, admins) {
   return [...out];
 }
 
-export function newOrderMessage({ order, items, link, adminLink, placedBy }) {
+/** Articles and pieces of an order's active lines (a box counts its pieces). */
+export function orderCounts(items) {
   const active = items.filter((i) => i.status === 'ACTIVE');
-  const pcs = active.reduce((s, i) => s + (Number(i.qty) || 0) * (i.inventory_mode_snapshot === 'BOX_WISE' ? Number(i.units_per_box_snapshot) || 1 : 1), 0);
-  const articles = new Set(active.map((i) => i.product_id)).size;
+  return {
+    articles: new Set(active.map((i) => i.product_id)).size,
+    pcs: active.reduce((s, i) => s + (Number(i.qty) || 0) * (i.inventory_mode_snapshot === 'BOX_WISE' ? Number(i.units_per_box_snapshot) || 1 : 1), 0),
+  };
+}
+
+export function newOrderMessage({ order, items, link, adminLink, placedBy }) {
+  const { articles, pcs } = orderCounts(items);
   const party = order.business_name_snapshot || order.customer_name_snapshot;
   return [
     '*Nutex - new order*',

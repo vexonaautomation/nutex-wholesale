@@ -239,6 +239,13 @@ export default function Settings() {
       <Field label="Doer for inbound customers" hint="Written for every other (new) customer.">
         <input className="input" value={draft.doer_inbound_customer ?? ''} onChange={set('doer_inbound_customer')} placeholder="Mayank" />
       </Field>
+      <h4 className="span-2 mb-0 mt-2">Order WhatsApp to the customer</h4>
+      <Field label="WhatsApp the customer when an order is placed" hint="Order number, items, total, how to pay (or: the team will confirm), order link and bill PDF link - to the customer's WhatsApp number (else mobile).">
+        <select className="select" value={String(draft.customer_order_message_enabled !== false)} onChange={(e) => setDraft((d) => ({ ...d, customer_order_message_enabled: e.target.value === 'true' }))}>
+          <option value="true">ON - send to every customer</option>
+          <option value="false">OFF - do not send</option>
+        </select>
+      </Field>
       <h4 className="span-2 mb-0 mt-2">New order WhatsApp to admins</h4>
       <Field label="WhatsApp admins on every new order" hint="Order details + bill PDF link go to the admin numbers above, every sub admin with a mobile and the extra numbers.">
         <select className="select" value={String(draft.new_order_alert_enabled !== false)} onChange={(e) => setDraft((d) => ({ ...d, new_order_alert_enabled: e.target.value === 'true' }))}>
