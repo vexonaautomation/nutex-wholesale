@@ -194,7 +194,7 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
     messages.push({
       type: 'success',
       code: 'EXISTING_CUSTOMER',
-      text: waived ? 'Existing customer verified - no minimum order value applies to you.' : 'Existing customer verified - your special minimum order value applies.',
+      text: waived ? 'Existing customer verified - no minimum order value applies to you.' : `Existing customer verified - your minimum order is ₹${Number(pricing.minimum_order_value).toLocaleString('en-IN')}.`,
     });
   }
   const { lines: _priced, ...totals } = pricing;

@@ -40,9 +40,12 @@ export function Header() {
   const [q, setQ] = useState('');
   const wa = waNumber(settings);
 
+  // existing customers: their own minimum, else the one in Settings (0 = no minimum)
+  const existingMin = Number(customer.auth?.minimum_order_value ?? settings?.existing_customer_minimum_order_value) || 0;
+  const loginMin = Number(settings?.existing_customer_minimum_order_value) || 0;
   const announcement = settings?.announcement_text
     || (settings ? (customer.isExisting
-      ? `Welcome back · Existing customer - no minimum order · ${discountHeadline(settings, slabs)}`
+      ? `Welcome back · Existing customer - ${existingMin > 0 ? `minimum order ${formatINR(existingMin)}` : 'no minimum order'} · ${discountHeadline(settings, slabs)}`
       : `Wholesale only · Minimum order ${formatINR(settings.minimum_order_value)} (final value after discount)`) : '');
 
   const onSearch = (e) => {
@@ -57,7 +60,7 @@ export function Header() {
         <div className="announce">
           <strong>{announcement}</strong>
           {!customer.isExisting && (
-            <button type="button" className="announce-cta" onClick={customer.openLogin}>Existing customer? Login for no minimum →</button>
+            <button type="button" className="announce-cta" onClick={customer.openLogin}>Existing customer? Login - {loginMin > 0 ? `minimum only ${formatINR(loginMin)}` : 'no minimum'} →</button>
           )}
         </div>
       )}

@@ -13,6 +13,35 @@ import { Alert, EmptyState, ErrorState, Field, PageLoader, Spinner, StatusBadge 
 import { formatDate, formatINR } from '../../utils/format.js';
 import { INDIAN_STATES } from '../../constants/index.js';
 import { ExcelImportDialog } from './ExcelImportDialog.jsx';
+import { useAdmin, allowed } from '../AdminApp.jsx';
+
+/** Owner: the minimum order for every verified existing customer (0 = none). */
+function ExistingMinimum({ value, onSaved }) {
+  const toast = useToast();
+  const [amount, setAmount] = useState(String(value ?? 0));
+  const [busy, setBusy] = useState(false);
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await adminApi.put('/settings', { existing_customer_minimum_order_value: Number(amount) || 0 });
+      toast.success(Number(amount) > 0 ? `Existing customers now have a minimum order of ${formatINR(Number(amount))}.` : 'Existing customers now have no minimum order.');
+      onSaved();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form className="card card-pad mb-2 row wrap" style={{ gap: 12, alignItems: 'flex-end' }} onSubmit={save}>
+      <Field label="Minimum order for existing customers ₹" hint="Final value after discount. 0 = no minimum. A customer's own minimum (Edit) wins.">
+        <input className="input" style={{ maxWidth: 180 }} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))} />
+      </Field>
+      <button type="submit" className="btn btn-primary" disabled={busy || String(Number(amount) || 0) === String(value ?? 0)}>{busy && <Spinner small />} Save minimum</button>
+    </form>
+  );
+}
 
 const EMPTY = {
   mobile: '', alternate_mobiles: '', customer_name: '', business_name: '', city: '', address: '', state: '', pincode: '', gstin: '', minimum_order_value: '', notes: '',
@@ -23,6 +52,7 @@ export default function ExistingCustomers() {
   const [q, setQ] = useState('');
   const dq = useDebounce(q, 300);
   const { data, loading, error, reload } = useAsync(() => adminApi.get(`/existing-customers${qs({ q: dq })}`), [dq]);
+  const { admin } = useAdmin();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -106,6 +136,7 @@ export default function ExistingCustomers() {
           </>
         )}
       />
+      {data && allowed(admin, 'full') && <ExistingMinimum key={data.default_minimum} value={data.default_minimum} onSaved={reload} />}
       {data && (
         <Alert type="info" className="mb-2">
           Minimum for existing customers: <strong>{data.default_minimum ? formatINR(data.default_minimum) : 'none (₹0)'}</strong> · WhatsApp OTP: <strong>{data.otp_enabled ? 'ON' : 'OFF'}</strong> · <Link className="link" to="/admin/settings">Change in Settings</Link>.
