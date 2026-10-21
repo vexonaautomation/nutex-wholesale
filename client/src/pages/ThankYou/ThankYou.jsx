@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Pencil } from 'lucide-react';
-import { orderApi, getOrderToken } from '../../services/order.js';
+import { orderApi, adoptOrderTokenFromUrl, getOrderToken } from '../../services/order.js';
 import { useStore } from '../../context/StoreContext.jsx';
 import { useSeo } from '../../hooks/index.js';
 import { ErrorState, PageLoader } from '../../components/common/ui.jsx';
@@ -20,6 +20,7 @@ export default function ThankYou() {
   useSeo({ title: `Thank you - order ${orderNumber} | Nutex Wholesale`, noindex: true });
 
   const load = async () => {
+    adoptOrderTokenFromUrl(orderNumber);
     if (!getOrderToken(orderNumber)) {
       setState({ loading: false, order: null, error: { code: 'ORDER_ACCESS_REQUIRED' } });
       return;

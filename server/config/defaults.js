@@ -48,6 +48,7 @@ export const DEFAULT_SETTINGS = [
   // ---- Existing customers (listed in the Existing_Customers sheet) ----
   { key: 'existing_customer_minimum_order_value', value: 0, type: 'number', public: true, description: 'Minimum order for verified existing customers (0 = no minimum). A value in the Existing_Customers sheet overrides this per customer.' },
   { key: 'admin_order_mobiles', value: '', type: 'string', public: false, description: 'Admin / staff mobile numbers (comma separated). They log in like an existing customer and can enter the mobile number of the customer at checkout - the order and bill then show that customer number.' },
+  { key: 'customer_order_message_enabled', value: true, type: 'boolean', public: false, description: 'WhatsApp the customer when their order is placed: order number, items, total, payment / next step, order link and bill PDF link.' },
   { key: 'new_order_alert_enabled', value: true, type: 'boolean', public: false, description: 'WhatsApp every admin when a new order is placed on the website: order details + bill PDF link. Admins = admin order numbers, admin users with a mobile, and the extra alert numbers.' },
   { key: 'new_order_alert_mobiles', value: '', type: 'string', public: false, description: 'Extra mobile numbers (comma separated) that also get the new-order WhatsApp.' },
   { key: 'doer_existing_customer', value: 'Ramesh', type: 'string', public: false, description: 'Orders sheet "doer" for orders of existing customers (mobile in the Existing_Customers list).' },

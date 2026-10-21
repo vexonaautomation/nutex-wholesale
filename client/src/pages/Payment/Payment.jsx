@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { CheckCircle2, FileImage, Lock, Upload, Info } from 'lucide-react';
-import { orderApi, getOrderToken, newIdempotencyKey } from '../../services/order.js';
+import { orderApi, adoptOrderTokenFromUrl, getOrderToken, newIdempotencyKey } from '../../services/order.js';
 import { useStore } from '../../context/StoreContext.jsx';
 import { useSeo } from '../../hooks/index.js';
 import { PaymentQR } from '../../components/PaymentQR/PaymentQR.jsx';
@@ -29,6 +29,7 @@ export default function Payment() {
   useSeo({ title: `Payment for ${orderNumber} | Nutex Wholesale`, noindex: true });
 
   const load = async () => {
+    adoptOrderTokenFromUrl(orderNumber);
     if (!getOrderToken(orderNumber)) {
       setState({ loading: false, order: null, error: { code: 'ORDER_ACCESS_REQUIRED' } });
       return;

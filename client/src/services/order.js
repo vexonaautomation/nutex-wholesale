@@ -27,6 +27,23 @@ export function getOrderToken(orderNumber) {
   return readAll()[orderNumber]?.token || '';
 }
 
+/**
+ * The order link in the customer's WhatsApp carries the access token (?t=):
+ * remember it on this phone and take it out of the address bar.
+ */
+export function adoptOrderTokenFromUrl(orderNumber) {
+  try {
+    const url = new URL(window.location.href);
+    const t = url.searchParams.get('t');
+    if (!t) return;
+    if (/^[\w-]{20,100}$/.test(t)) saveOrderAccess(orderNumber, t);
+    url.searchParams.delete('t');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function listSavedOrders() {
   return Object.entries(readAll())
     .map(([order_number, v]) => ({ order_number, ...v }))
