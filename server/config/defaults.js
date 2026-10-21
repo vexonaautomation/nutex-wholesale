@@ -40,7 +40,6 @@ export const DEFAULT_SETTINGS = [
   { key: 'discount_slab_basis', value: SLAB_BASIS.MRP_SUBTOTAL, type: 'enum', options: Object.values(SLAB_BASIS), public: true, description: 'Which cart amount selects the slab' },
   { key: 'price_display_mode', value: PRICE_DISPLAY_MODE.SHOW_BOTH, type: 'enum', options: Object.values(PRICE_DISPLAY_MODE), public: true, description: 'Prices shown on product cards/pages' },
   { key: 'currency', value: 'INR', type: 'string', public: true, description: 'Currency code' },
-  { key: 'order_prefix', value: 'NX', type: 'string', public: false, description: 'Prefix of customer-facing order numbers, e.g. NX-20261003-0001' },
   { key: 'low_stock_threshold', value: 5, type: 'number', public: false, description: 'Variants at or below this available quantity are flagged as low stock' },
   { key: 'packing_choice_enabled', value: true, type: 'boolean', public: true, description: 'Ask at checkout: "Do you wish to less packing charges?" - ticked = the packing charges (per category, Admin > Categories) are taken off the order.' },
   { key: 'gst_percent', value: 5, type: 'number', public: true, description: 'GST % included in the prices. Only the line "5% GST included" is shown (no GST amount) on the bill, checkout and order totals. 0 = not shown.' },

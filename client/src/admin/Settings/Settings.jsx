@@ -211,7 +211,6 @@ export default function Settings() {
       <Field label="Slab calculation basis"><select className="select" value={draft.discount_slab_basis} onChange={set('discount_slab_basis')}>{Object.entries(SLAB_BASIS_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
       <Field label="Price display mode"><select className="select" value={draft.price_display_mode} onChange={set('price_display_mode')}>{Object.entries(PRICE_DISPLAY_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
       <Field label="Currency"><input className="input" value={draft.currency ?? 'INR'} disabled /></Field>
-      {text('order_prefix', 'Order number prefix', 'e.g. NX → NX-20261003-0001', { maxLength: 8, style: { textTransform: 'uppercase' } })}
       <Field label="Low stock threshold"><input className="input" inputMode="numeric" value={draft.low_stock_threshold ?? ''} onChange={set('low_stock_threshold')} /></Field>
       <Field label="Auto-cancel unpaid orders after (hours)" hint="Releases reserved stock. 0 = never. Orders with any payment are never auto-cancelled." className="span-2"><input className="input" inputMode="numeric" value={draft.reservation_expiry_hours ?? ''} onChange={set('reservation_expiry_hours')} /></Field>
       <h4 className="span-2 mb-0 mt-2">Packing charges &amp; GST</h4>

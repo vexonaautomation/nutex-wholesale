@@ -80,7 +80,7 @@ test('full lifecycle: draft -> edit -> pay (lock) -> reject -> resubmit -> verif
 
   // 1. draft order reserves stock
   const created = await draft([{ variant_id: black32, qty: 50 }]);
-  assert.match(created.order_number, /^NX-\d{8}-0001$/);
+  assert.match(created.order_number, /^\d{8}0001$/);
   const token = created.access_token;
   assert.deepEqual(await inventoryOf(black32), { stock: 100, reserved: 50, available: 50 });
 

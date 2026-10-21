@@ -148,7 +148,7 @@ v3 also adds `Customers.alternate_mobile` and `Orders.alternate_mobile_snapshot`
 ## 11. Orders
 | Group | Columns |
 |---|---|
-| IDs | `order_id` (internal, `ORD-…`), `order_number` (customer-facing `NX-YYYYMMDD-NNNN`), `customer_id` |
+| IDs | `order_id` (internal, `ORD-…`), `order_number` (customer-facing `YYYYMMDDNNNN (digits only, e.g. 202610210001)`), `customer_id` |
 | Customer snapshot | `customer_name_snapshot, business_name_snapshot, mobile_snapshot, whatsapp_snapshot, email_snapshot, billing_address_snapshot, shipping_address_snapshot, city_snapshot, state_snapshot, pincode_snapshot, gstin_snapshot, order_notes` |
 | Pricing snapshot | `mrp_subtotal, discount_mode_snapshot, discount_basis_snapshot, discount_basis_amount, discount_percent, slab_id_snapshot, discount_amount, final_payable, total_qty, minimum_order_value_snapshot, minimum_order_met` |
 | State | `order_status, payment_status, locked, stock_state (RESERVED/DEDUCTED/RELEASED), revision, idempotency_key` |

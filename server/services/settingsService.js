@@ -113,12 +113,11 @@ function validateSetting(key, value) {
       const s = String(value ?? '').trim();
       const max = def.type === 'text' ? 40000 : 500;
       if (s.length > max) throw badRequest(`${key} is too long`);
-      if (key === 'order_prefix' && !/^[A-Z0-9]{1,8}$/.test(s.toUpperCase())) throw badRequest('Order prefix must be 1-8 letters/digits');
       if (key === 'upi_id' && s && !/^[\w.-]{2,256}@[A-Za-z][A-Za-z0-9.-]{1,64}$/.test(s)) throw badRequest('Enter a valid UPI ID, e.g. nutex@okaxis');
       if (key === 'company_email' && s && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s)) throw badRequest('Enter a valid email address');
       if (key === 'otp_message_template' && !s.includes('{{otp}}')) throw badRequest('The OTP message must contain {{otp}}');
       if (key === 'admin_order_mobiles') return mobileList(s);
-      return key === 'order_prefix' ? s.toUpperCase() : s;
+      return s;
     }
   }
 }

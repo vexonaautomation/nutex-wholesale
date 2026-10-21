@@ -178,7 +178,7 @@ function paymentTotals(order, payments) {
 export async function loadOrderBundle(orderNumberOrId, { fresh = true, byId = false } = {}) {
   const data = await sheetsService.readMany(ORDER_SHEETS, { fresh });
   const key = byId ? orderNumberOrId : normalizeOrderNumber(orderNumberOrId);
-  const order = data.Orders.find((o) => (byId ? o.order_id === key || o.order_number === normalizeOrderNumber(key) : o.order_number === key));
+  const order = data.Orders.find((o) => (byId ? o.order_id === key || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(key) : normalizeOrderNumber(o.order_number) === key));
   if (!order) throw notFound('Order not found. Please check the order number.');
   return {
     order,
@@ -342,7 +342,7 @@ export async function createDraftOrder(input, { ip, customerToken } = {}) {
     const now = nowIso();
     const order = {
       order_id: newId(ID_PREFIX.order),
-      order_number: nextOrderNumber(data.Orders, catalog.settings.order_prefix),
+      order_number: nextOrderNumber(data.Orders),
       customer_id: customerId,
       customer_name_snapshot: c.customer_name,
       business_name_snapshot: c.business_name,
@@ -422,7 +422,7 @@ export async function activeOrderSummaries(entries) {
   const data = await sheetsService.readMany(['Orders', 'Order_Items', 'Payments'], { fresh: false });
   const out = [];
   for (const { order_number: n, token } of entries) {
-    const order = data.Orders.find((o) => o.order_number === normalizeOrderNumber(n));
+    const order = data.Orders.find((o) => normalizeOrderNumber(o.order_number) === normalizeOrderNumber(n));
     if (!order || !verifyOrderAccessToken(order.order_id, token)) continue;
     const items = activeItems(data.Order_Items, order.order_id);
     const totals = paymentTotals(order, data.Payments.filter((p) => p.order_id === order.order_id));
@@ -491,7 +491,7 @@ export async function trackOrder({ order_number: orderNumber, mobile }) {
 export async function updateOrderItems(orderNumber, token, { items, client_final_payable: clientFinal, less_packing: lessPacking }, { ip } = {}) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany([...CATALOG_SHEETS, ...ORDER_SHEETS], { fresh: true });
-    const order = data.Orders.find((o) => o.order_number === normalizeOrderNumber(orderNumber));
+    const order = data.Orders.find((o) => normalizeOrderNumber(o.order_number) === normalizeOrderNumber(orderNumber));
     if (!order) throw notFound('Order not found.');
     authorizeOrder(order, token);
     assertOrderEditable(order);
@@ -631,7 +631,7 @@ export async function listOrdersAdmin({
 export async function getOrderAdmin(idOrNumber) {
   const [data, settings, names] = await Promise.all([sheetsService.readMany([...ORDER_SHEETS, 'Audit_Log'], { fresh: true }), getSettings(), adminNamesByMobile()]);
   const key = String(idOrNumber);
-  const order = data.Orders.find((o) => o.order_id === key || o.order_number === normalizeOrderNumber(key));
+  const order = data.Orders.find((o) => o.order_id === key || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(key));
   if (!order) throw notFound('Order not found.');
   const items = data.Order_Items.filter((i) => i.order_id === order.order_id);
   const payments = data.Payments.filter((p) => p.order_id === order.order_id).sort((a, b) => (a.submitted_at > b.submitted_at ? 1 : -1));
@@ -661,7 +661,7 @@ export async function getOrderAdmin(idOrNumber) {
 export async function updateOrderStatusAdmin(id, body, { admin, ip }) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany(['Orders', 'Payments', 'Order_Items', 'Inventory', 'Existing_Customers', 'Settings'], { fresh: true });
-    const order = data.Orders.find((o) => o.order_id === id || o.order_number === normalizeOrderNumber(id));
+    const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
     if (!order) throw notFound('Order not found.');
     const totals = paymentTotals(order, data.Payments.filter((p) => p.order_id === order.order_id));
     const check = canAdminTransition(order, body.status, { balanceDue: totals.balance_due });
@@ -730,7 +730,7 @@ function releaseDeltas(order, items) {
 export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = ACTOR.ADMIN } = {}) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany(['Orders', 'Order_Items', 'Inventory'], { fresh: true });
-    const order = data.Orders.find((o) => o.order_id === id || o.order_number === normalizeOrderNumber(id));
+    const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
     if (!order) throw notFound('Order not found.');
     const check = canCancel(order);
     if (!check.ok) throw conflict('INVALID_TRANSITION', check.reason);
@@ -768,7 +768,7 @@ export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = 
 export async function setPackingDeduction(id, { amount, note }, { admin, ip }) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany(['Orders', 'Payments'], { fresh: true });
-    const order = data.Orders.find((o) => o.order_id === id || o.order_number === normalizeOrderNumber(id));
+    const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
     if (!order) throw notFound('Order not found.');
     if ([ORDER_STATUS.CANCELLED, ORDER_STATUS.COMPLETED].includes(order.order_status)) {
       throw conflict('INVALID_TRANSITION', `Packing charges cannot be changed on a ${STATE_LABELS[order.order_status]} order.`);
@@ -803,7 +803,7 @@ export async function setPackingDeduction(id, { amount, note }, { admin, ip }) {
 export async function reopenOrderAdmin(id, { reason }, { admin, ip }) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany(['Orders', 'Order_Items', 'Inventory'], { fresh: true });
-    const order = data.Orders.find((o) => o.order_id === id || o.order_number === normalizeOrderNumber(id));
+    const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
     if (!order) throw notFound('Order not found.');
     const check = canReopen(order);
     if (!check.ok) throw conflict('INVALID_TRANSITION', check.reason);
@@ -924,7 +924,7 @@ export async function updateOrderItemsAdmin(id, {
 }, { admin, ip }) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany([...CATALOG_SHEETS, ...ORDER_SHEETS], { fresh: true });
-    const order = data.Orders.find((o) => o.order_id === id || o.order_number === normalizeOrderNumber(id));
+    const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
     if (!order) throw notFound('Order not found.');
     assertAdminCanEditItems(order);
     const current = activeItems(data.Order_Items, order.order_id);

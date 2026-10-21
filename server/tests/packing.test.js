@@ -46,7 +46,7 @@ test('assigning a packer sends the slip link; the slip has quantities and addres
   const res = await assignPacker(order.order_number, { packer_id: raju.packer_id, send: true }, { ...adminCtx, baseUrl: 'https://b2b.nutex.in' });
   assert.equal(res.sent, true, 'WhatsApp sent (console in tests)');
   assert.match(res.link, /^https:\/\/b2b\.nutex\.in\/api\/packing-slip\/[\w-]+\.[\w-]+$/);
-  assert.match(decodeURIComponent(res.wa_link), /Order: NX-.*\n.*Packing by: Raju/s, 'fallback link has the message');
+  assert.match(decodeURIComponent(res.wa_link), /Order: \d{12}.*\n.*Packing by: Raju/s, 'fallback link has the message');
 
   const detail = await getOrderAdmin(order.order_number);
   assert.equal(detail.order.packer_name, 'Raju');

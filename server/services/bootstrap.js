@@ -101,6 +101,17 @@ export function startBackgroundJobs() {
     }
   };
   setTimeout(run, 60 * 1000).unref();
+
+  // rows an old server copy wrote during a deploy: dates / order numbers to the new form
+  setTimeout(async () => {
+    if (!runtime.ready) return;
+    try {
+      const changed = await sheetsService.upgradeLegacyCells();
+      if (Object.keys(changed).length) logger.info('Converted leftover old-style dates / order numbers', changed);
+    } catch (err) {
+      logger.error('Converting old-style dates / order numbers failed', err);
+    }
+  }, 5 * 60 * 1000).unref();
   setInterval(run, 10 * 60 * 1000).unref();
 
   // never let the hosting put the site to sleep (self ping, touches no data)

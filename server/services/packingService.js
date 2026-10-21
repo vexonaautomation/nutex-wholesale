@@ -121,7 +121,7 @@ const slipMessage = ({ order, packer, slip, link }) => [
 export async function assignPacker(idOrNumber, { packer_id: packerId, send = true }, { admin, ip, baseUrl = config.frontendUrl }) {
   const [orders, packers] = await Promise.all([sheetsService.read('Orders', { fresh: true }), sheetsService.read(SHEET, { fresh: true })]);
   const key = String(idOrNumber);
-  const order = orders.find((o) => o.order_id === key || o.order_number === normalizeOrderNumber(key));
+  const order = orders.find((o) => o.order_id === key || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(key));
   if (!order) throw notFound('Order not found.');
   const packer = packers.find((p) => p.packer_id === packerId);
   if (!packer) throw badRequest('Choose a packer from the packing team.');

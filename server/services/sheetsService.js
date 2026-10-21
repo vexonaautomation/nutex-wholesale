@@ -1,10 +1,32 @@
-import { SCHEMA, CATALOG_SHEETS, SCHEMA_VERSION } from '../config/schema.js';
+import { SCHEMA, CATALOG_SHEETS, SCHEMA_VERSION, TEXT_COLUMNS } from '../config/schema.js';
 import { logger } from '../utils/logger.js';
 import { notFound, AppError } from '../utils/errors.js';
 import { quoteSheet, toCellData } from './storage/sheetsGuard.js';
+import { toSheetSerial, fromSheetSerial, serialToDateString, DATETIME_FORMAT } from '../utils/sheetDates.js';
+import { legacyOrderNumberDigits } from '../utils/orderNumber.js';
 
 const CATALOG = new Set(CATALOG_SHEETS);
 const MICRO_TTL_MS = 3000; // non-catalog sheets: absorb request bursts only
+
+const APPEND_FIELDS = 'userEnteredValue,userEnteredFormat.numberFormat';
+const TEXT_FORMAT = Object.freeze({ type: 'TEXT' });
+const LEGACY_ORDER_NUMBER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_Status_History'];
+
+/**
+ * CellData for one column. Date-time columns get a real date-time value
+ * (shown as 21/10/2026 15:45:08); `withFormat` (appends) also keeps hand-typed
+ * text columns in text format.
+ */
+function cellFor(sheet, column, value, { withFormat = false } = {}) {
+  const type = SCHEMA[sheet]?.types?.[column];
+  if (type === 'datetime') {
+    const serial = toSheetSerial(value);
+    if (serial !== null) return { userEnteredValue: { numberValue: serial }, userEnteredFormat: { numberFormat: DATETIME_FORMAT } };
+  }
+  const cell = toCellData(value);
+  if (withFormat && TEXT_COLUMNS[sheet]?.includes(column)) cell.userEnteredFormat = { numberFormat: TEXT_FORMAT };
+  return cell;
+}
 
 const TRUE_VALUES = new Set(['true', 'yes', '1', 'y']);
 export const parseBool = (v) => v === true || TRUE_VALUES.has(String(v ?? '').trim().toLowerCase());
@@ -19,6 +41,9 @@ function coerce(sheetSchema, column, raw) {
   }
   if (type === 'boolean') return parseBool(raw);
   if (raw === null || raw === undefined) return '';
+  // date-time cells come back as serial numbers; older rows may still be ISO text
+  if (type === 'datetime' && typeof raw === 'number') return fromSheetSerial(raw);
+  if (type === 'date' && typeof raw === 'number') return serialToDateString(raw);
   return typeof raw === 'string' ? raw.trim() : String(raw);
 }
 
@@ -231,8 +256,8 @@ export class SheetsService {
         requests.push({
           appendCells: {
             sheetId: c.sheetId,
-            rows: op.rows.map((obj) => ({ values: c.headers.map((h) => toCellData(h ? obj[h] : undefined)) })),
-            fields: 'userEnteredValue',
+            rows: op.rows.map((obj) => ({ values: c.headers.map((h) => (h ? cellFor(op.sheet, h, obj[h], { withFormat: true }) : {})) })),
+            fields: APPEND_FIELDS,
           },
         });
         continue;
@@ -249,17 +274,19 @@ export class SheetsService {
           if (k === idField) throw new Error(`Refusing to modify immutable ID column ${idField}`);
           const col = c.headers.indexOf(k);
           if (col < 0) throw new Error(`Column "${k}" missing in sheet ${op.sheet}; run migrations`);
-          return { col, v };
+          return { col, cell: cellFor(op.sheet, k, v) };
         })
         .sort((a, b) => a.col - b.col);
-      // merge contiguous cells into a single request
+      // merge contiguous cells into a single request (date-time cells also
+      // set their format, so they only merge with each other)
       let run = null;
-      for (const cell of cells) {
-        if (run && cell.col === run.start + run.values.length) {
-          run.values.push(toCellData(cell.v));
+      for (const { col, cell } of cells) {
+        const formatted = Boolean(cell.userEnteredFormat);
+        if (run && col === run.start + run.values.length && formatted === run.formatted) {
+          run.values.push(cell);
         } else {
           if (run) requests.push(cellRun(c.sheetId, rowIndex, run));
-          run = { start: cell.col, values: [toCellData(cell.v)] };
+          run = { start: col, values: [cell], formatted };
         }
       }
       if (run) requests.push(cellRun(c.sheetId, rowIndex, run));
@@ -268,6 +295,79 @@ export class SheetsService {
     await this.transport.batchUpdate(requests);
     this.invalidate(sheetNames);
     return { requests: requests.length };
+  }
+
+  /**
+   * One-time tidy-up of rows written before v22 (also run again a few minutes
+   * after every start, for rows an old server copy wrote during a deploy):
+   *  - ISO text in date-time columns -> real date-time values;
+   *  - old order numbers NX-20261015-0001 -> 202610150001.
+   * Only those cells are written (same value, new form); nothing else changes.
+   * Each sheet is read just before it is written.
+   */
+  async upgradeLegacyCells() {
+    this.#requireTransport();
+    await this.loadMeta();
+    const changed = {};
+    const orderKeys = new Set();
+    for (const name of Object.keys(SCHEMA)) {
+      if (!this.meta.has(name)) continue;
+      const types = SCHEMA[name].types;
+      const dateCols = Object.keys(types).filter((k) => types[k] === 'datetime');
+      const numberCol = LEGACY_ORDER_NUMBER_SHEETS.includes(name);
+      if (!dateCols.length && !numberCol) continue;
+      const [values] = await this.transport.readRanges([quoteSheet(name)]);
+      const headers = (values[0] || []).map((h) => String(h ?? '').trim());
+      const sheetId = this.meta.get(name).sheetId;
+      const requests = [];
+      let count = 0;
+      const columnRuns = (col, convert, fields) => {
+        let run = null;
+        const flush = () => {
+          if (run) requests.push({ updateCells: { start: { sheetId, rowIndex: run.row, columnIndex: col }, rows: run.cells.map((cell) => ({ values: [cell] })), fields } });
+          run = null;
+        };
+        for (let r = 1; r < values.length; r += 1) {
+          const cell = convert(values[r]?.[col]);
+          if (!cell) { flush(); continue; }
+          count += 1;
+          if (run && r === run.row + run.cells.length) run.cells.push(cell);
+          else { flush(); run = { row: r, cells: [cell] }; }
+        }
+        flush();
+      };
+      for (const colName of dateCols) {
+        const col = headers.indexOf(colName);
+        if (col < 0) continue;
+        columnRuns(col, (raw) => {
+          const serial = typeof raw === 'string' ? toSheetSerial(raw) : null;
+          return serial === null ? null : { userEnteredValue: { numberValue: serial }, userEnteredFormat: { numberFormat: DATETIME_FORMAT } };
+        }, APPEND_FIELDS);
+      }
+      const col = numberCol ? headers.indexOf('order_number') : -1;
+      if (col >= 0) {
+        if (name === 'Orders') {
+          for (let r = 1; r < values.length; r += 1) {
+            const raw = String(values[r]?.[col] ?? '').trim();
+            if (/^\d+$/.test(raw)) orderKeys.add(raw);
+          }
+        }
+        columnRuns(col, (raw) => {
+          const digits = legacyOrderNumberDigits(raw);
+          if (!digits) return null;
+          // never create a duplicate order number (Orders sheet decides)
+          if (name === 'Orders') {
+            if (orderKeys.has(digits)) return null;
+            orderKeys.add(digits);
+          }
+          return { userEnteredValue: { stringValue: digits } };
+        }, 'userEnteredValue');
+      }
+      for (let i = 0; i < requests.length; i += 200) await this.transport.batchUpdate(requests.slice(i, i + 200));
+      if (count) changed[name] = count;
+    }
+    this.invalidate();
+    return changed;
   }
 
   /** READ-ONLY schema check (used by scripts/validateProduction.js). Writes nothing. */
@@ -361,7 +461,7 @@ function cellRun(sheetId, rowIndex, run) {
     updateCells: {
       start: { sheetId, rowIndex, columnIndex: run.start },
       rows: [{ values: run.values }],
-      fields: 'userEnteredValue',
+      fields: run.formatted ? APPEND_FIELDS : 'userEnteredValue',
     },
   };
 }

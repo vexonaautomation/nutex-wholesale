@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v21).
+ *  GENERATED from server/config/schema.js (schema v22).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -27,7 +27,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 21;
+var NUTEX_SCHEMA_VERSION = 22;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -57,10 +57,18 @@ var NUTEX_TEXT_COLUMNS = {
   "Existing_Customers": ["mobile","alternate_mobiles","gstin"],
   "Customers": ["mobile","whatsapp","pincode","gstin","alternate_mobile"],
   "Orders": ["order_number","mobile_snapshot","whatsapp_snapshot","pincode_snapshot","gstin_snapshot","alternate_mobile_snapshot"],
+  "Order_Items": ["order_number"],
   "Payments": ["utr","order_number"],
+  "Order_Status_History": ["order_number"],
   "Settings": ["setting_value"],
   "Packers": ["mobile"]
 };
+
+/** *_at columns and Audit_Log.timestamp hold real date-times (India time). */
+var NUTEX_DATETIME_FORMAT = 'dd/mm/yyyy hh:mm:ss';
+function nutexIsDateTimeColumn_(col) { return /_at$/.test(col) || col === 'timestamp'; }
+/** "Now" as a sheet date-time value in India time (same as the website writes). */
+function nutexNow_() { return (Date.now() + 330 * 60000) / 86400000 + 25569; }
 
 var NUTEX_DROPDOWNS = {
   "Existing_Customers": {"status":["ACTIVE","INACTIVE"]},
@@ -97,7 +105,6 @@ var NUTEX_DEFAULT_SETTINGS = [
   ["discount_slab_basis","MRP_SUBTOTAL","enum","Which cart amount selects the slab"],
   ["price_display_mode","SHOW_BOTH","enum","Prices shown on product cards/pages"],
   ["currency","INR","string","Currency code"],
-  ["order_prefix","NX","string","Prefix of customer-facing order numbers, e.g. NX-20261003-0001"],
   ["low_stock_threshold",5,"number","Variants at or below this available quantity are flagged as low stock"],
   ["packing_choice_enabled",true,"boolean","Ask at checkout: \"Do you wish to less packing charges?\" - ticked = the packing charges (per category, Admin > Categories) are taken off the order."],
   ["gst_percent",5,"number","GST % included in the prices. Only the line \"5% GST included\" is shown (no GST amount) on the bill, checkout and order totals. 0 = not shown."],
@@ -143,7 +150,8 @@ var NUTEX_MIGRATIONS = [
   [18,"Bill: party details, Aadhaar (last 4 digits) when no GST, made by"],
   [19,"Size-wise MRP rule for bras, panties, vests and underwear (not sets)"],
   [20,"Packing team: packer per order + packing slip (no amounts) on WhatsApp"],
-  [21,"Minimum order for existing customers: Rs 1,000"]
+  [21,"Minimum order for existing customers: Rs 1,000"],
+  [22,"Real date-time cells in the sheet; order numbers digits only"]
 ];
 
 var NUTEX_MASTER_DATA = {
@@ -370,6 +378,7 @@ function nutexFormatColumns_(sheet, name, columns, startCol) {
   columns.forEach(function (col, i) {
     var range = sheet.getRange(2, startCol + i, rows, 1);
     if (textCols.indexOf(col) !== -1) range.setNumberFormat('@');
+    else if (nutexIsDateTimeColumn_(col)) range.setNumberFormat(NUTEX_DATETIME_FORMAT);
     if (dropdowns[col]) {
       range.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(dropdowns[col], true).setAllowInvalid(true).build());
     }
@@ -389,7 +398,11 @@ function nutexAppendObjects_(sheet, objects) {
   var rows = objects.map(function (o) {
     return header.map(function (h) { return Object.prototype.hasOwnProperty.call(o, h) ? o[h] : ''; });
   });
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, header.length).setValues(rows);
+  var first = sheet.getLastRow() + 1;
+  sheet.getRange(first, 1, rows.length, header.length).setValues(rows);
+  header.forEach(function (h, i) {
+    if (nutexIsDateTimeColumn_(h)) sheet.getRange(first, i + 1, rows.length, 1).setNumberFormat(NUTEX_DATETIME_FORMAT);
+  });
 }
 
 function nutexColumnValues_(sheet, columnName) {
@@ -402,7 +415,7 @@ function nutexColumnValues_(sheet, columnName) {
 function nutexEnsureSettings_(ss) {
   var sheet = ss.getSheetByName('Settings');
   var present = nutexColumnValues_(sheet, 'setting_key');
-  var now = new Date().toISOString();
+  var now = nutexNow_();
   var rows = NUTEX_DEFAULT_SETTINGS
     .filter(function (s) { return present.indexOf(s[0]) === -1; })
     .map(function (s) {
@@ -415,7 +428,7 @@ function nutexEnsureSettings_(ss) {
 function nutexEnsureVersions_(ss) {
   var sheet = ss.getSheetByName('Schema_Version');
   var present = nutexColumnValues_(sheet, 'version').map(Number);
-  var now = new Date().toISOString();
+  var now = nutexNow_();
   var added = [];
   var rows = NUTEX_MIGRATIONS
     .filter(function (m) { return present.indexOf(m[0]) === -1; })
@@ -434,7 +447,7 @@ function loadNutexMasterData() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     setupNutexSheetsQuiet_(ss);
-    var now = new Date().toISOString();
+    var now = nutexNow_();
     var lines = [];
 
     var cats = ss.getSheetByName('Categories');

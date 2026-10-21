@@ -5,22 +5,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SCHEMA, SCHEMA_VERSION } from '../server/config/schema.js';
+import { SCHEMA, SCHEMA_VERSION, TEXT_COLUMNS } from '../server/config/schema.js';
+import { DATETIME_PATTERN } from '../server/utils/sheetDates.js';
 import { DEFAULT_SETTINGS, INITIAL_MASTER_DATA } from '../server/config/defaults.js';
 import { MIGRATIONS } from '../server/migrations/index.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const OUTPUT = path.join(ROOT, 'google-sheets', 'setup.gs');
-
-// Columns typed by hand that must stay text (leading zeros, +91, long numbers)
-const TEXT_COLUMNS = {
-  Existing_Customers: ['mobile', 'alternate_mobiles', 'gstin'],
-  Customers: ['mobile', 'whatsapp', 'pincode', 'gstin', 'alternate_mobile'],
-  Orders: ['order_number', 'mobile_snapshot', 'whatsapp_snapshot', 'pincode_snapshot', 'gstin_snapshot', 'alternate_mobile_snapshot'],
-  Payments: ['utr', 'order_number'],
-  Settings: ['setting_value'],
-  Packers: ['mobile'],
-};
 
 // Dropdowns that make hand-editing safer (invalid values are allowed but flagged)
 const DROPDOWNS = {
@@ -80,6 +71,12 @@ var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 var NUTEX_SCHEMA = ${json(schema)};
 
 var NUTEX_TEXT_COLUMNS = ${json(TEXT_COLUMNS)};
+
+/** *_at columns and Audit_Log.timestamp hold real date-times (India time). */
+var NUTEX_DATETIME_FORMAT = '${DATETIME_PATTERN}';
+function nutexIsDateTimeColumn_(col) { return /_at$/.test(col) || col === 'timestamp'; }
+/** "Now" as a sheet date-time value in India time (same as the website writes). */
+function nutexNow_() { return (Date.now() + 330 * 60000) / 86400000 + 25569; }
 
 var NUTEX_DROPDOWNS = ${json(DROPDOWNS)};
 
@@ -308,6 +305,7 @@ function nutexFormatColumns_(sheet, name, columns, startCol) {
   columns.forEach(function (col, i) {
     var range = sheet.getRange(2, startCol + i, rows, 1);
     if (textCols.indexOf(col) !== -1) range.setNumberFormat('@');
+    else if (nutexIsDateTimeColumn_(col)) range.setNumberFormat(NUTEX_DATETIME_FORMAT);
     if (dropdowns[col]) {
       range.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(dropdowns[col], true).setAllowInvalid(true).build());
     }
@@ -327,7 +325,11 @@ function nutexAppendObjects_(sheet, objects) {
   var rows = objects.map(function (o) {
     return header.map(function (h) { return Object.prototype.hasOwnProperty.call(o, h) ? o[h] : ''; });
   });
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, header.length).setValues(rows);
+  var first = sheet.getLastRow() + 1;
+  sheet.getRange(first, 1, rows.length, header.length).setValues(rows);
+  header.forEach(function (h, i) {
+    if (nutexIsDateTimeColumn_(h)) sheet.getRange(first, i + 1, rows.length, 1).setNumberFormat(NUTEX_DATETIME_FORMAT);
+  });
 }
 
 function nutexColumnValues_(sheet, columnName) {
@@ -340,7 +342,7 @@ function nutexColumnValues_(sheet, columnName) {
 function nutexEnsureSettings_(ss) {
   var sheet = ss.getSheetByName('Settings');
   var present = nutexColumnValues_(sheet, 'setting_key');
-  var now = new Date().toISOString();
+  var now = nutexNow_();
   var rows = NUTEX_DEFAULT_SETTINGS
     .filter(function (s) { return present.indexOf(s[0]) === -1; })
     .map(function (s) {
@@ -353,7 +355,7 @@ function nutexEnsureSettings_(ss) {
 function nutexEnsureVersions_(ss) {
   var sheet = ss.getSheetByName('Schema_Version');
   var present = nutexColumnValues_(sheet, 'version').map(Number);
-  var now = new Date().toISOString();
+  var now = nutexNow_();
   var added = [];
   var rows = NUTEX_MIGRATIONS
     .filter(function (m) { return present.indexOf(m[0]) === -1; })
@@ -372,7 +374,7 @@ function loadNutexMasterData() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     setupNutexSheetsQuiet_(ss);
-    var now = new Date().toISOString();
+    var now = nutexNow_();
     var lines = [];
 
     var cats = ss.getSheetByName('Categories');
