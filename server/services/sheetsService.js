@@ -1,4 +1,4 @@
-import { SCHEMA, CATALOG_SHEETS, SCHEMA_VERSION, TEXT_COLUMNS } from '../config/schema.js';
+import { SCHEMA, CATALOG_SHEETS, SCHEMA_VERSION, TEXT_COLUMNS, ARCHIVES } from '../config/schema.js';
 import { logger } from '../utils/logger.js';
 import { notFound, AppError } from '../utils/errors.js';
 import { quoteSheet, toCellData } from './storage/sheetsGuard.js';
@@ -10,7 +10,14 @@ const MICRO_TTL_MS = 3000; // non-catalog sheets: absorb request bursts only
 
 const APPEND_FIELDS = 'userEnteredValue,userEnteredFormat.numberFormat';
 const TEXT_FORMAT = Object.freeze({ type: 'TEXT' });
-const LEGACY_ORDER_NUMBER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_Status_History'];
+const LEGACY_ORDER_NUMBER_SHEETS = ['Orders', 'Cancelled_Orders', 'Order_Items', 'Payments', 'Order_Status_History'];
+
+// main sheet <-> archive sheet (Orders <-> Cancelled_Orders)
+const FAMILY = {};
+for (const [main, a] of Object.entries(ARCHIVES)) {
+  FAMILY[main] = { main, ...a };
+  FAMILY[a.archive] = FAMILY[main];
+}
 
 /**
  * CellData for one column. Date-time columns get a real date-time value
@@ -20,7 +27,8 @@ const LEGACY_ORDER_NUMBER_SHEETS = ['Orders', 'Order_Items', 'Payments', 'Order_
 function cellFor(sheet, column, value, { withFormat = false } = {}) {
   const type = SCHEMA[sheet]?.types?.[column];
   if (type === 'datetime') {
-    const serial = toSheetSerial(value);
+    // a number is a date-time read from the sheet (a row being moved)
+    const serial = typeof value === 'number' ? value : toSheetSerial(value);
     if (serial !== null) return { userEnteredValue: { numberValue: serial }, userEnteredFormat: { numberFormat: DATETIME_FORMAT } };
   }
   const cell = toCellData(value);
@@ -54,7 +62,11 @@ function coerce(sheetSchema, column, raw) {
  *  - `commit()` writes a list of operations in ONE atomic Google batch:
  *      { op: 'append', sheet, rows: [obj, ...] }
  *      { op: 'update', sheet, id, patch: { column: value } }   (only listed cells change)
- *  - There is deliberately NO delete / clear / replace capability.
+ *  - There is deliberately NO delete / clear / replace capability. The only
+ *    row that ever leaves a sheet is a MOVED one: an order whose status
+ *    becomes CANCELLED goes to Cancelled_Orders (and back when reopened) -
+ *    the copy and the removal are one atomic batch. Reading 'Orders'
+ *    returns the orders of both sheets.
  */
 export class SheetsService {
   constructor() {
@@ -116,6 +128,7 @@ export class SheetsService {
       for (const col of schema.columns) if (!(col in obj)) obj[col] = coerce(schema, col, undefined);
       if (schema.idField && (obj[schema.idField] === '' || obj[schema.idField] === null)) continue;
       Object.defineProperty(obj, '_row', { value: i + 1, enumerable: false });
+      Object.defineProperty(obj, '_sheet', { value: name, enumerable: false });
       rows.push(obj);
     }
     return { headers, rows };
@@ -125,7 +138,20 @@ export class SheetsService {
    * Read several sheets in ONE API request.
    * fresh=true bypasses the cache (checkout, payment, inventory writes).
    */
-  async readMany(names, { fresh = false } = {}) {
+  async readMany(names, opts) {
+    // 'Orders' = live orders + cancelled orders (moved to Cancelled_Orders)
+    const archives = names.map((n) => ARCHIVES[n]?.archive).filter(Boolean);
+    if (!archives.length) return this.#readMany(names, opts);
+    const result = await this.#readMany([...new Set([...names, ...archives])], opts);
+    for (const [main, a] of Object.entries(ARCHIVES)) {
+      if (!names.includes(main)) continue;
+      result[main] = [...result[main], ...result[a.archive]];
+      if (!names.includes(a.archive)) delete result[a.archive];
+    }
+    return result;
+  }
+
+  async #readMany(names, { fresh = false } = {}) {
     this.#requireTransport();
     for (const n of names) if (!SCHEMA[n]) throw new Error(`Unknown sheet ${n}`);
     const now = Date.now();
@@ -178,7 +204,8 @@ export class SheetsService {
   }
 
   versionKey(names) {
-    return names.map((n) => `${n}:${this.versions.get(n) || 0}`).join('|');
+    const all = names.flatMap((n) => (ARCHIVES[n] ? [n, ARCHIVES[n].archive] : [n]));
+    return all.map((n) => `${n}:${this.versions.get(n) || 0}`).join('|');
   }
 
   invalidate(names) {
@@ -193,10 +220,13 @@ export class SheetsService {
    * Rows to update are located by their immutable ID immediately before the
    * write (never by a remembered row number). Only the patched cells change -
    * unrelated rows and columns (including admin-added columns) are untouched.
+   * An update of an order (sheet 'Orders') is applied wherever the order is;
+   * when its order_status becomes / stops being CANCELLED the whole row moves
+   * to / from Cancelled_Orders in the same batch.
    */
   async commit(operations) {
     this.#requireTransport();
-    const ops = operations.flat().filter(Boolean);
+    const ops = operations.flat().filter(Boolean).map((op) => ({ ...op }));
     if (!ops.length) return { requests: 0 };
     for (const op of ops) {
       if (!SCHEMA[op.sheet]) throw new Error(`Unknown sheet ${op.sheet}`);
@@ -204,10 +234,16 @@ export class SheetsService {
       if (op.op === 'update' && (!op.id || !op.patch)) throw new Error('update requires id and patch');
       if (!['append', 'update'].includes(op.op)) throw new Error(`Unsupported operation ${op.op}`);
     }
-    const sheetNames = [...new Set(ops.map((o) => o.sheet))];
+    const updateSheets = new Set();
+    for (const op of ops) {
+      if (op.op !== 'update') continue;
+      updateSheets.add(op.sheet);
+      const f = FAMILY[op.sheet];
+      if (f) { updateSheets.add(f.main); updateSheets.add(f.archive); }
+    }
+    const sheetNames = [...new Set([...ops.map((o) => o.sheet), ...updateSheets])];
     await this.#ensureMeta(sheetNames);
 
-    const updateSheets = new Set(ops.filter((o) => o.op === 'update').map((o) => o.sheet));
     const ranges = [];
     const index = {};
     for (const s of sheetNames) {
@@ -244,8 +280,66 @@ export class SheetsService {
       ctx[s] = { headers, idRows, sheetId: this.meta.get(s).sheetId };
     }
 
-    const requests = [];
+    // updates of a moving family (Orders): apply where the row is now, and
+    // collect rows whose status moves them to the other sheet
+    const moves = new Map();
     for (const op of ops) {
+      const f = op.op === 'update' && FAMILY[op.sheet];
+      if (!f) continue;
+      const id = String(op.id);
+      const inMain = ctx[f.main].idRows.has(id);
+      const inArchive = ctx[f.archive].idRows.has(id);
+      if (inMain && inArchive) throw new AppError(500, 'DATA_INTEGRITY', `ID ${id} is in both ${f.main} and ${f.archive}. Refusing to write; please fix the sheet.`);
+      if (inArchive) op.sheet = f.archive;
+      else if (inMain) op.sheet = f.main;
+      // every patch of the row in this batch (a move writes them all)
+      const m = moves.get(id) || { f, from: op.sheet, patch: {} };
+      Object.assign(m.patch, op.patch);
+      moves.set(id, m);
+    }
+    for (const [id, m] of moves) {
+      if (!(m.f.column in m.patch)) { moves.delete(id); continue; }
+      m.to = String(m.patch[m.f.column]) === m.f.value ? m.f.archive : m.f.main;
+      if (m.to === m.from) moves.delete(id);
+    }
+
+    const requests = [];
+    const deletions = [];
+    if (moves.size) {
+      const sources = [...new Set([...moves.values()].map((m) => m.from))];
+      const full = await this.transport.readRanges(sources.map((s) => quoteSheet(s)));
+      for (const [id, m] of moves) {
+        const src = ctx[m.from];
+        const dst = ctx[m.to];
+        const rows = full[sources.indexOf(m.from)];
+        const idCol = src.headers.indexOf(SCHEMA[m.from].idField);
+        const at = [];
+        rows.forEach((r, i) => { if (i > 0 && String(r?.[idCol] ?? '').trim() === id) at.push(i); });
+        if (!at.length) throw notFound(`${m.from} record ${id} was not found.`);
+        if (at.length > 1) throw new AppError(500, 'DATA_INTEGRITY', `Duplicate ID ${id} in ${m.from}. Refusing to write; please fix the sheet.`);
+        const obj = {};
+        src.headers.forEach((h, j) => { if (h) obj[h] = rows[at[0]][j]; });
+        Object.assign(obj, m.patch);
+        // columns added by hand in the source sheet come along
+        const extra = src.headers.filter((h) => h && !dst.headers.includes(h));
+        if (extra.length) {
+          requests.push(...widen(this.meta.get(m.to), dst.headers.length + extra.length));
+          requests.push(headerCells(dst.sheetId, dst.headers.length, extra));
+          dst.headers.push(...extra);
+        }
+        requests.push({
+          appendCells: {
+            sheetId: dst.sheetId,
+            rows: [{ values: dst.headers.map((h) => (h ? cellFor(m.to, h, obj[h], { withFormat: true }) : {})) }],
+            fields: APPEND_FIELDS,
+          },
+        });
+        deletions.push({ sheetId: src.sheetId, rowIndex: at[0] });
+      }
+    }
+
+    for (const op of ops) {
+      if (op.op === 'update' && FAMILY[op.sheet] && moves.has(String(op.id))) continue; // written by the move
       const c = ctx[op.sheet];
       if (op.op === 'append') {
         for (const obj of op.rows) {
@@ -290,6 +384,13 @@ export class SheetsService {
         }
       }
       if (run) requests.push(cellRun(c.sheetId, rowIndex, run));
+    }
+
+    // moved rows leave their old sheet last, bottom row first, so every row
+    // number used above is still right
+    deletions.sort((a, b) => b.rowIndex - a.rowIndex);
+    for (const d of deletions) {
+      requests.push({ deleteDimension: { range: { sheetId: d.sheetId, dimension: 'ROWS', startIndex: d.rowIndex, endIndex: d.rowIndex + 1 } } }); // ROW-MOVE
     }
 
     await this.transport.batchUpdate(requests);
@@ -346,7 +447,7 @@ export class SheetsService {
       }
       const col = numberCol ? headers.indexOf('order_number') : -1;
       if (col >= 0) {
-        if (name === 'Orders') {
+        if (name === 'Orders' || name === 'Cancelled_Orders') {
           for (let r = 1; r < values.length; r += 1) {
             const raw = String(values[r]?.[col] ?? '').trim();
             if (/^\d+$/.test(raw)) orderKeys.add(raw);
@@ -356,7 +457,7 @@ export class SheetsService {
           const digits = legacyOrderNumberDigits(raw);
           if (!digits) return null;
           // never create a duplicate order number (Orders sheet decides)
-          if (name === 'Orders') {
+          if (name === 'Orders' || name === 'Cancelled_Orders') {
             if (orderKeys.has(digits)) return null;
             orderKeys.add(digits);
           }

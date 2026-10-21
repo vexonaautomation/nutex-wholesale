@@ -7,7 +7,7 @@ import {
 } from '../middleware/rateLimit.js';
 import {
   quoteSchema, draftOrderSchema, trackOrderSchema, activeOrdersSchema, updateOrderSchema, recalculateSchema,
-  orderStatusSchema, reopenSchema, cancelSchema, packingDeductionSchema, adminOrderItemsSchema,
+  orderStatusSchema, reopenSchema, cancelSchema, customerCancelSchema, packingDeductionSchema, adminOrderItemsSchema,
   packerSchema, assignPackerSchema,
 } from '../utils/validation.js';
 import { requireRole } from '../middleware/adminAuth.js';
@@ -22,6 +22,7 @@ publicRouter.get('/orders/:orderNumber/bill', orderAccessLimiter, orderToken, c.
 publicRouter.put('/orders/:orderNumber', orderToken, validate(updateOrderSchema), c.updateOrder);
 publicRouter.post('/orders/:orderNumber/recalculate', quoteLimiter, orderToken, validate(recalculateSchema), c.recalculate);
 publicRouter.post('/orders/:orderNumber/lock', orderToken, c.lock);
+publicRouter.post('/orders/:orderNumber/cancel', orderAccessLimiter, orderToken, validate(customerCancelSchema), c.customerCancel);
 // packing slip for the packer (signed link from WhatsApp, no login, no amounts)
 publicRouter.get('/packing-slip/:token', orderAccessLimiter, c.packingSlipPublic);
 // bill PDF link in the admins' new-order WhatsApp (signed, no login)

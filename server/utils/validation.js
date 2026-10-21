@@ -454,6 +454,7 @@ export const reopenSchema = z.object({
 });
 
 export const cancelSchema = z.object({ reason: text(500, 5) });
+export const customerCancelSchema = z.object({ reason: optText(300) });
 export const verifyPaymentSchema = z.object({ remarks: optText(500) });
 export const rejectPaymentSchema = z.object({ remarks: text(500, 3) });
 

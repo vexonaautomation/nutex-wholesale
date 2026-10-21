@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CreditCard, Lock, Pencil, Truck } from 'lucide-react';
+import { CreditCard, Lock, Pencil, Truck, XCircle } from 'lucide-react';
 import { orderApi, adoptOrderTokenFromUrl, getOrderToken } from '../../services/order.js';
 import { useStore } from '../../context/StoreContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
@@ -10,6 +10,8 @@ import { Alert, ErrorState, PageLoader, StatusBadge } from '../../components/com
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { VerifyOrderAccess } from '../TrackOrder/VerifyOrderAccess.jsx';
 import { DownloadBillButton } from '../../components/DownloadBill/DownloadBillButton.jsx';
+import { Modal } from '../../components/common/Modal.jsx';
+import { useToast } from '../../context/ToastContext.jsx';
 import { formatDateTime, formatINR } from '../../utils/format.js';
 import { paymentConfirmationMessage, waLink, waNumber } from '../../utils/whatsapp.js';
 import { PAYMENT_STATUS } from '../../constants/index.js';
@@ -25,6 +27,50 @@ export function OrderTimeline({ timeline }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+/** The customer cancels their own order (only before payment / confirmation). */
+function CancelOrderButton({ orderNumber, onCancelled }) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const cancel = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const { order } = await orderApi.cancel(orderNumber, reason.trim());
+      setOpen(false);
+      toast.success(`Order ${orderNumber} has been cancelled.`);
+      onCancelled(order);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <button type="button" className="btn btn-ghost" onClick={() => setOpen(true)}><XCircle /> Cancel order</button>
+      <Modal
+        open={open}
+        title={`Cancel order ${orderNumber}?`}
+        onClose={() => !busy && setOpen(false)}
+        footer={(
+          <>
+            <button type="button" className="btn" onClick={() => setOpen(false)} disabled={busy}>Keep my order</button>
+            <button type="button" className="btn btn-danger-solid" onClick={cancel} disabled={busy}>{busy ? 'Cancelling…' : 'Yes, cancel order'}</button>
+          </>
+        )}
+      >
+        <p className="mb-2">The order will be cancelled and the reserved stock released. This cannot be undone online.</p>
+        <label className="label" htmlFor="cancel-reason">Reason (optional)</label>
+        <textarea id="cancel-reason" className="textarea" rows={3} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. ordered by mistake" />
+        {error && <Alert type="error" className="mt-2">{error}</Alert>}
+      </Modal>
+    </>
   );
 }
 
@@ -90,6 +136,7 @@ export default function Order() {
           )}
           {order.permissions.can_edit && <button type="button" className="btn" onClick={startEdit}><Pencil /> Edit order</button>}
           {order.permissions.can_download_bill && <DownloadBillButton orderNumber={order.order_number} />}
+          {order.permissions.can_cancel && <CancelOrderButton orderNumber={order.order_number} onCancelled={(o) => setState({ loading: false, order: o, error: null })} />}
         </div>
       </div>
 

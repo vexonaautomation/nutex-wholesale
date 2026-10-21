@@ -2,7 +2,7 @@ import { getCatalog } from '../services/catalogService.js';
 import { buildQuote } from '../services/quoteService.js';
 import { customerFromToken } from '../services/existingCustomerService.js';
 import {
-  createDraftOrder, getCustomerOrder, trackOrder, activeOrderSummaries, updateOrderItems, recalculateOrder, lockOrder,
+  createDraftOrder, cancelOrderCustomer, getCustomerOrder, trackOrder, activeOrderSummaries, updateOrderItems, recalculateOrder, lockOrder,
   listOrdersAdmin, getOrderAdmin, updateOrderStatusAdmin, reopenOrderAdmin, cancelOrderAdmin, setPackingDeduction,
   previewOrderItemsAdmin, orderProductOptionsAdmin, updateOrderItemsAdmin,
 } from '../services/orderService.js';
@@ -107,6 +107,15 @@ export async function updateOrder(req, res) {
 export async function recalculate(req, res) {
   noStore(res);
   res.json(await recalculateOrder(req.params.orderNumber, req.orderToken, req.body));
+}
+
+export async function customerCancel(req, res) {
+  noStore(res);
+  res.json({
+    order: await cancelOrderCustomer(req.params.orderNumber, req.orderToken, {
+      reason: req.body.reason, ip: req.ip, baseUrl: config.frontendUrl || `${req.protocol}://${req.get('host')}`,
+    }),
+  });
 }
 
 export async function lock(req, res) {

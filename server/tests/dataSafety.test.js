@@ -89,7 +89,8 @@ test('update touches only the patched cells of the matching row', async () => {
 test('destructive Google Sheets operations are blocked at the transport', async () => {
   const t = new MemorySheetsTransport();
   await assert.rejects(t.batchUpdate([{ deleteSheet: { sheetId: 1 } }]), /Blocked non-additive/);
-  await assert.rejects(t.batchUpdate([{ deleteDimension: { range: {} } }]), /Blocked non-additive/);
+  // deleteDimension only for moving ONE data row whose copy is in the same batch (cancelledOrders.test.js)
+  await assert.rejects(t.batchUpdate([{ deleteDimension: { range: {} } }]), /Blocked deleteDimension/);
   await assert.rejects(t.batchUpdate([{ appendDimension: { sheetId: 1, dimension: 'ROWS', length: 1 } }]), /Blocked/);
 });
 

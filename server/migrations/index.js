@@ -236,4 +236,19 @@ export const MIGRATIONS = [
       logger.info(`Migration v23: ${ops.length} order(s) filled (doer, bill link, packing person, customer type)`);
     },
   },
+  {
+    // The new Cancelled_Orders sheet is created by the schema. Orders already
+    // cancelled move there now (the whole row, in one atomic step each batch);
+    // from now on every order that gets cancelled moves there by itself.
+    version: 24,
+    description: 'Cancelled orders move to the Cancelled_Orders sheet',
+    async up({ sheets, logger }) {
+      const orders = await sheets.read('Orders', { fresh: true });
+      const ids = orders.filter((o) => o._sheet === 'Orders' && o.order_status === 'CANCELLED').map((o) => o.order_id);
+      for (let i = 0; i < ids.length; i += 25) {
+        await sheets.commit(ids.slice(i, i + 25).map((id) => ({ op: 'update', sheet: 'Orders', id, patch: { order_status: 'CANCELLED' } })));
+      }
+      logger.info(`Migration v24: ${ids.length} cancelled order(s) moved to Cancelled_Orders`);
+    },
+  },
 ];

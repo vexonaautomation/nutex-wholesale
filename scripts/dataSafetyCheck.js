@@ -21,6 +21,10 @@ const RULES = [
 // Files allowed to *mention* these words (guards, comments, test doubles).
 const ALLOW = new Set(['services/storage/sheetsGuard.js', 'services/storage/memorySheetsTransport.js']);
 const STARTUP_FILES = ['server.js', 'app.js'];
+// The single allowed row removal: sheetsService moves a cancelled order to
+// Cancelled_Orders (copy appended in the same atomic batch, checked by
+// sheetsGuard). Only a line marked ROW-MOVE in that file is accepted.
+const ROW_MOVE = { file: 'services/sheetsService.js', marker: 'ROW-MOVE' };
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -41,7 +45,11 @@ export function runDataSafetyScan() {
     const lines = fs.readFileSync(file, 'utf8').split('\n');
     lines.forEach((line, i) => {
       const code = line.replace(/\/\/.*$/, '');
-      for (const r of RULES) if (r.re.test(code)) violations.push({ file: `server/${rel}`, line: i + 1, rule: r.rule });
+      for (const r of RULES) {
+        if (!r.re.test(code)) continue;
+        if (r.rule === 'delete* Sheets request' && rel === ROW_MOVE.file && line.includes(ROW_MOVE.marker)) continue;
+        violations.push({ file: `server/${rel}`, line: i + 1, rule: r.rule });
+      }
     });
     const codeOnly = lines.map((l) => l.replace(/\/\/.*$/, '')).join('\n');
     if (STARTUP_FILES.includes(rel) && /(import|require)\b[^;]*(demoData|seedDemo)|seedDemoData\s*\(/.test(codeOnly)) {
