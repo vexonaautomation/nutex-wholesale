@@ -232,6 +232,16 @@ export default function Settings() {
       <Field label="Admin numbers - order for customers" className="span-2" hint="Comma separated, e.g. 9876543210, 9123456789. Log in on the website with &quot;Existing customer?&quot; using this number (same OTP) - all existing-customer rules apply, and at checkout you can enter the customer's mobile number: the order and the bill show the customer's number.">
         <input className="input" value={draft.admin_order_mobiles ?? ''} onChange={set('admin_order_mobiles')} inputMode="tel" placeholder="Your admin / staff mobile number(s)" />
       </Field>
+      <h4 className="span-2 mb-0 mt-2">New order WhatsApp to admins</h4>
+      <Field label="WhatsApp admins on every new order" hint="Order details + bill PDF link go to the admin numbers above, every sub admin with a mobile and the extra numbers.">
+        <select className="select" value={String(draft.new_order_alert_enabled !== false)} onChange={(e) => setDraft((d) => ({ ...d, new_order_alert_enabled: e.target.value === 'true' }))}>
+          <option value="true">ON - send on every new order</option>
+          <option value="false">OFF - do not send</option>
+        </select>
+      </Field>
+      <Field label="Extra numbers for the new-order WhatsApp" hint="Comma separated, e.g. the owner's or the accountant's number.">
+        <input className="input" value={draft.new_order_alert_mobiles ?? ''} onChange={set('new_order_alert_mobiles')} inputMode="tel" placeholder="Optional" />
+      </Field>
       <Field label="Loose pieces for new customers" hint="Existing customers can always choose box or loose pieces. Per article you can open loose pieces for new customers (product wizard step 5 or Products → Box / pieces).">
         <select className="select" value={String(draft.pcs_for_existing_customers_only)} onChange={(e) => setDraft((d) => ({ ...d, pcs_for_existing_customers_only: e.target.value === 'true' }))}>
           <option value="true">Only on articles where I allow it - otherwise full boxes</option>

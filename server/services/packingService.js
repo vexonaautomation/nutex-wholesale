@@ -2,7 +2,6 @@
 // "Processing" the admin picks a packer; the packer gets a WhatsApp message
 // with the order summary and a link to the packing slip PDF (articles,
 // colours, sizes, quantities, address - no rates, no amounts).
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sheetsService } from './sheetsService.js';
 import { auditOp } from './auditService.js';
 import { sendWhatsAppText } from './whatsappService.js';
@@ -12,6 +11,7 @@ import { AUDIT_ACTION, RECORD_STATUS } from '../config/constants.js';
 import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso } from '../utils/dates.js';
 import { normalizeOrderNumber } from '../utils/orderNumber.js';
+import { signedOrderToken, readSignedOrderToken } from '../utils/signedLink.js';
 import { normalizeMobile } from '../utils/orderToken.js';
 import { badRequest, notFound } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
@@ -77,24 +77,8 @@ export async function updatePacker(id, input, { admin, ip }) {
 
 // ---------------------------------------------------------- slip link
 /** Signed link token: order id + expiry (no login needed, cannot be guessed). */
-export function packingSlipToken(orderId, { days = LINK_DAYS, now = Date.now(), secret = config.sessionSecret } = {}) {
-  const exp = Math.floor(now / 1000) + days * 86400;
-  const body = `${orderId}.${exp}`;
-  const sig = createHmac('sha256', secret).update(`packing-slip:${body}`).digest('base64url');
-  return `${Buffer.from(body).toString('base64url')}.${sig}`;
-}
-
-export function readPackingSlipToken(token, { now = Date.now(), secret = config.sessionSecret } = {}) {
-  const [b, sig] = String(token || '').split('.');
-  if (!b || !sig) return null;
-  const body = Buffer.from(b, 'base64url').toString();
-  const expected = Buffer.from(createHmac('sha256', secret).update(`packing-slip:${body}`).digest('base64url'));
-  const given = Buffer.from(sig);
-  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
-  const [orderId, exp] = body.split('.');
-  if (!orderId || !(Number(exp) * 1000 > now)) return null;
-  return orderId;
-}
+export const packingSlipToken = (orderId, opts = {}) => signedOrderToken('packing-slip', orderId, { days: LINK_DAYS, ...opts });
+export const readPackingSlipToken = (token, opts) => readSignedOrderToken('packing-slip', token, opts);
 
 export async function packingSlipByToken(token) {
   const orderId = readPackingSlipToken(token);

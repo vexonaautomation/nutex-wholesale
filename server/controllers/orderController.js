@@ -7,6 +7,7 @@ import {
   previewOrderItemsAdmin, orderProductOptionsAdmin, updateOrderItemsAdmin,
 } from '../services/orderService.js';
 import { customerBill, adminBill, packingSlip } from '../services/billService.js';
+import { adminBillByToken } from '../services/orderAlertService.js';
 import {
   listPackers, createPacker, updatePacker, assignPacker, packingSlipByToken,
 } from '../services/packingService.js';
@@ -23,7 +24,9 @@ export async function quoteCart(req, res) {
 }
 
 export async function createDraft(req, res) {
-  const created = await createDraftOrder(req.body, { ip: req.ip, customerToken: req.customerToken });
+  const created = await createDraftOrder(req.body, {
+    ip: req.ip, customerToken: req.customerToken, baseUrl: config.frontendUrl || `${req.protocol}://${req.get('host')}`,
+  });
   const order = await getCustomerOrder(created.order_number, created.access_token);
   noStore(res);
   res.status(created.duplicate ? 200 : 201).json({ ...created, order });
@@ -60,6 +63,13 @@ export async function adminBillPdf(req, res) {
 // ------------------------------------------------------------ packing team
 export async function adminPackingSlip(req, res) {
   sendPdf(res, await packingSlip(req.params.id));
+}
+
+export async function adminBillPublic(req, res) {
+  noStore(res);
+  const { pdf, filename } = await adminBillByToken(req.params.token);
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${filename}"`, 'X-Content-Type-Options': 'nosniff' });
+  res.send(pdf);
 }
 
 export async function packingSlipPublic(req, res) {

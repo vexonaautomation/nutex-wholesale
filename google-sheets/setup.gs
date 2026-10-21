@@ -111,6 +111,8 @@ var NUTEX_DEFAULT_SETTINGS = [
   ["reservation_expiry_hours",72,"number","Unpaid orders (no payment submitted) are auto-cancelled after this many hours and their stock released. 0 = never."],
   ["existing_customer_minimum_order_value",0,"number","Minimum order for verified existing customers (0 = no minimum). A value in the Existing_Customers sheet overrides this per customer."],
   ["admin_order_mobiles","","string","Admin / staff mobile numbers (comma separated). They log in like an existing customer and can enter the mobile number of the customer at checkout - the order and bill then show that customer number."],
+  ["new_order_alert_enabled",true,"boolean","WhatsApp every admin when a new order is placed on the website: order details + bill PDF link. Admins = admin order numbers, admin users with a mobile, and the extra alert numbers."],
+  ["new_order_alert_mobiles","","string","Extra mobile numbers (comma separated) that also get the new-order WhatsApp."],
   ["existing_customer_otp_enabled",true,"boolean","Verify existing customers with a WhatsApp OTP (recommended). If off, the mobile number alone is enough."],
   ["pcs_for_existing_customers_only",true,"boolean","TRUE = new customers buy full boxes; loose pieces only where the product allows it (Products > pieces for new customers). FALSE = loose pieces for everyone on every product. Existing customers always choose box or pieces."],
   ["auto_existing_after_first_order",true,"boolean","When the first payment of a new customer is verified, add their mobile to Existing_Customers automatically (pieces allowed and no minimum order from then on)."],
