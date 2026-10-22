@@ -107,6 +107,44 @@ export async function sendNewOrderAlert(orderId, { baseUrl = config.frontendUrl 
   return { sent, failed };
 }
 
+/** Admins: the customer cancelled their order on the website. */
+export async function sendOrderCancelledAlert(orderId, { baseUrl = config.frontendUrl } = {}) {
+  const [settings, data] = await Promise.all([
+    getSettings({ fresh: true }),
+    sheetsService.readMany(['Orders', 'Admin_Users'], { fresh: true }),
+  ]);
+  if (settings.new_order_alert_enabled === false) return { sent: 0, skipped: 'off' };
+  const order = data.Orders.find((o) => o.order_id === orderId);
+  if (!order) return { sent: 0, skipped: 'no order' };
+  const base = String(baseUrl || '').replace(/\/+$/, '');
+  const message = [
+    '*Nutex - order cancelled by the customer*',
+    `Order: ${order.order_number}`,
+    `Party: ${order.business_name_snapshot || order.customer_name_snapshot}${order.city_snapshot ? `, ${order.city_snapshot}` : ''}`,
+    `Mobile: ${order.mobile_snapshot}`,
+    `Total was: ${formatINR(order.final_payable)}`,
+    order.cancel_reason ? `Reason: ${order.cancel_reason}` : null,
+    'Reserved stock is released. The order is now in the Cancelled_Orders sheet.',
+    base ? `Admin: ${base}/admin/orders/${order.order_id}` : null,
+  ].filter((line) => line !== null).join('\n');
+  let sent = 0;
+  for (const mobile of alertRecipients(settings, data.Admin_Users)) {
+    try {
+      await sendWhatsAppText(mobile, message);
+      sent += 1;
+    } catch (err) {
+      logger.warn('Order cancelled alert not sent', { order: order.order_number, error: err.message });
+    }
+  }
+  return { sent };
+}
+
+export function queueOrderCancelledAlert(orderId, opts) {
+  setImmediate(() => {
+    sendOrderCancelledAlert(orderId, opts).catch((err) => logger.error('Order cancelled alert failed', err));
+  });
+}
+
 /** Fire and forget: the customer never waits for (or sees) the alert. */
 export function queueNewOrderAlert(orderId, opts) {
   setImmediate(() => {

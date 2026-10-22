@@ -61,6 +61,7 @@ export const orderApi = {
   update: (n, items, client_final_payable, less_packing) => api.put(`/api/orders/${encodeURIComponent(n)}`, { items, client_final_payable, less_packing }, { headers: tokenHeader(n) }),
   recalculate: (n, items, opts) => api.post(`/api/orders/${encodeURIComponent(n)}/recalculate`, items ? { items } : {}, { ...opts, headers: tokenHeader(n) }),
   lock: (n) => api.post(`/api/orders/${encodeURIComponent(n)}/lock`, {}, { headers: tokenHeader(n) }),
+  cancel: (n, reason) => api.post(`/api/orders/${encodeURIComponent(n)}/cancel`, { reason }, { headers: tokenHeader(n) }),
   // order bill PDF (after the payment is submitted)
   bill: async (n) => {
     const res = await fetch(`/api/orders/${encodeURIComponent(n)}/bill`, { headers: tokenHeader(n), credentials: 'same-origin' });

@@ -306,6 +306,7 @@ export function customerOrderView({ order, items, payments, history }, settings 
     },
     permissions: {
       can_edit: editable,
+      can_cancel: editable,
       can_submit_payment: canSubmitPayment(order) && totals.balance_due > 0,
       can_download_bill: billAvailable(order),
     },
@@ -736,13 +737,14 @@ function releaseDeltas(order, items) {
   return deltas;
 }
 
-export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = ACTOR.ADMIN } = {}) {
+export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = ACTOR.ADMIN, onlyIf } = {}) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany(['Orders', 'Order_Items', 'Inventory'], { fresh: true });
     const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
     if (!order) throw notFound('Order not found.');
     const check = canCancel(order);
     if (!check.ok) throw conflict('INVALID_TRANSITION', check.reason);
+    if (onlyIf) onlyIf(order);
     const items = activeItems(data.Order_Items, order.order_id);
     const inventory = inventoryDeltaOps(data.Inventory, releaseDeltas(order, items), { by: admin?.admin_id || actorType, clamp: true });
     const now = nowIso();
@@ -762,6 +764,29 @@ export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = 
     ]);
     return getOrderAdmin(order.order_id);
   });
+}
+
+/**
+ * The customer cancels their own order - only while they may still edit it
+ * (before payment is submitted / the team confirms it). Stock is released,
+ * the order moves to the Cancelled_Orders sheet and the admins get a WhatsApp.
+ */
+export async function cancelOrderCustomer(orderNumber, token, { reason, ip, baseUrl } = {}) {
+  const { order } = await loadOrderBundle(orderNumber);
+  authorizeOrder(order, token);
+  const why = String(reason || '').trim().slice(0, 300);
+  await cancelOrderAdmin(order.order_id, { reason: `Cancelled by the customer${why ? `: ${why}` : ''}` }, {
+    ip,
+    actorType: ACTOR.CUSTOMER,
+    onlyIf: (fresh) => {
+      if (!isOrderEditable(fresh)) {
+        throw conflict('ORDER_LOCKED', 'This order can no longer be cancelled here because payment was submitted or it was confirmed. Please contact us on WhatsApp.');
+      }
+    },
+  });
+  import('./orderAlertService.js').then((m) => m.queueOrderCancelledAlert(order.order_id, { baseUrl }))
+    .catch((err) => logger.error('Order cancelled alert failed', err));
+  return getCustomerOrder(order.order_number, token);
 }
 
 /**

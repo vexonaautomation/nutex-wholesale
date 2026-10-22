@@ -1,9 +1,13 @@
 // DATA-SAFETY GUARD
 // Every structural/batch write to the spreadsheet passes through here.
 // Only additive or targeted-cell operations are allowed. Requests that can
-// delete or clear data (deleteSheet, deleteDimension, deleteRange,
-// updateSheetProperties, clear, ...) are rejected before reaching Google.
-export const ALLOWED_SHEET_REQUESTS = Object.freeze(['addSheet', 'updateCells', 'appendCells', 'appendDimension']);
+// delete or clear data (deleteSheet, deleteRange, updateSheetProperties,
+// clear, ...) are rejected before reaching Google.
+// The one exception is MOVING a row (a cancelled order to Cancelled_Orders):
+// deleteDimension of exactly one data row, only in the same atomic batch
+// that appends at least as many rows elsewhere - the copy is written first,
+// and Google applies both or neither.
+export const ALLOWED_SHEET_REQUESTS = Object.freeze(['addSheet', 'updateCells', 'appendCells', 'appendDimension', 'deleteDimension']);
 
 export function assertSafeRequests(requests) {
   if (!Array.isArray(requests)) throw new Error('Sheets batch must be an array of requests');
@@ -15,6 +19,17 @@ export function assertSafeRequests(requests) {
     if (keys[0] === 'appendDimension' && req.appendDimension.dimension !== 'COLUMNS') {
       throw new Error('Blocked appendDimension: only COLUMNS may be appended by migrations');
     }
+    if (keys[0] === 'deleteDimension') {
+      const r = req.deleteDimension.range || {};
+      if (r.dimension !== 'ROWS' || !(r.startIndex >= 1) || r.endIndex !== r.startIndex + 1) {
+        throw new Error('Blocked deleteDimension: only one data row may be moved at a time');
+      }
+    }
+  }
+  const deletes = requests.filter((r) => r.deleteDimension).length;
+  if (deletes) {
+    const appended = requests.reduce((s, r) => s + (r.appendCells ? r.appendCells.rows.length : 0), 0);
+    if (appended < deletes) throw new Error('Blocked deleteDimension: a row may only be removed when its copy is appended in the same batch');
   }
 }
 

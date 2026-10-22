@@ -88,7 +88,11 @@ export class MemorySheetsTransport {
       this.sheets.set(title, { sheetId, title, columnCount: gridProperties?.columnCount || 26, rows: [] });
       return;
     }
-    const sheet = this.#byId(type === 'updateCells' ? body.start.sheetId : body.sheetId);
+    const sheet = this.#byId(type === 'updateCells' ? body.start.sheetId : type === 'deleteDimension' ? body.range.sheetId : body.sheetId);
+    if (type === 'deleteDimension') {
+      sheet.rows.splice(body.range.startIndex, body.range.endIndex - body.range.startIndex);
+      return;
+    }
     if (type === 'appendDimension') {
       sheet.columnCount += body.length;
       return;

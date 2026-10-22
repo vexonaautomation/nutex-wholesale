@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 const n = 'number';
 const b = 'boolean';
@@ -172,6 +172,14 @@ export const SCHEMA = {
       locked: b, revision: n, packing_deduction: n, less_packing: b,
     },
   },
+  // v24: cancelled orders are MOVED here from Orders (same columns), so the
+  // Orders sheet only shows live orders. Reopened orders move back.
+  // The website reads both sheets as one list of orders.
+  Cancelled_Orders: {
+    idField: 'order_id',
+    columns: [],
+    types: {},
+  },
   Order_Items: {
     idField: 'order_item_id',
     columns: [
@@ -237,6 +245,17 @@ export const SCHEMA = {
   },
 };
 
+SCHEMA.Cancelled_Orders.columns = SCHEMA.Orders.columns;
+SCHEMA.Cancelled_Orders.types = SCHEMA.Orders.types;
+
+/**
+ * Sheets whose rows move between a main sheet and an archive sheet when one
+ * column gets a value (sheetsService.commit does the move, atomically).
+ */
+export const ARCHIVES = {
+  Orders: { archive: 'Cancelled_Orders', column: 'order_status', value: 'CANCELLED' },
+};
+
 // v22: every *_at column (and Audit_Log.timestamp) is a real date-time cell
 // in the sheet (shown as 21/10/2026 15:45:08), not text. The website still
 // works with ISO strings - sheetsService converts on read and write.
@@ -254,6 +273,7 @@ export const TEXT_COLUMNS = {
   Existing_Customers: ['mobile', 'alternate_mobiles', 'gstin'],
   Customers: ['mobile', 'whatsapp', 'pincode', 'gstin', 'alternate_mobile'],
   Orders: ['order_number', 'mobile_snapshot', 'whatsapp_snapshot', 'pincode_snapshot', 'gstin_snapshot', 'alternate_mobile_snapshot'],
+  Cancelled_Orders: ['order_number', 'mobile_snapshot', 'whatsapp_snapshot', 'pincode_snapshot', 'gstin_snapshot', 'alternate_mobile_snapshot'],
   Order_Items: ['order_number'],
   Payments: ['utr', 'order_number'],
   Order_Status_History: ['order_number'],
