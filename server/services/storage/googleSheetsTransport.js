@@ -57,9 +57,9 @@ export class GoogleSheetsTransport {
 
   // All requests are applied atomically by Google: either every request in
   // the batch succeeds or none is applied.
-  async batchUpdate(requests) {
+  async batchUpdate(requests, guard = {}) {
     if (!requests.length) return null;
-    assertSafeRequests(requests);
+    assertSafeRequests(requests, guard);
     const res = await withRetry(
       () => this.api.spreadsheets.batchUpdate(
         { spreadsheetId: this.spreadsheetId, requestBody: { requests } },

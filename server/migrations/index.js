@@ -251,4 +251,26 @@ export const MIGRATIONS = [
       logger.info(`Migration v24: ${ids.length} cancelled order(s) moved to Cancelled_Orders`);
     },
   },
+  {
+    // New sheet Order_Items_Summary (created by the schema): the active items
+    // of live orders in pieces like the IMS, with bill number and party.
+    // Filled now for every order already in the sheets (rows not there yet only).
+    version: 25,
+    description: 'Order_Items_Summary: items in pieces with bill number and party',
+    async up({ sheets, logger }) {
+      const { summaryRow, SUMMARY_SHEET } = await import('../services/itemSummaryService.js');
+      const data = await sheets.readMany(['Orders', 'Order_Items', SUMMARY_SHEET], { fresh: true });
+      const orders = new Map(data.Orders.map((o) => [o.order_id, o]));
+      const have = new Set(data[SUMMARY_SHEET].map((r) => r.order_item_id));
+      const rows = [];
+      for (const item of data.Order_Items) {
+        const order = orders.get(item.order_id);
+        if (!order || have.has(item.order_item_id)) continue;
+        if ((item.status || 'ACTIVE') !== 'ACTIVE' || order.order_status === 'CANCELLED') continue;
+        rows.push(summaryRow(order, item));
+      }
+      for (let i = 0; i < rows.length; i += 500) await sheets.commit([{ op: 'append', sheet: SUMMARY_SHEET, rows: rows.slice(i, i + 500) }]);
+      logger.info(`Migration v25: ${rows.length} order item(s) written to ${SUMMARY_SHEET}`);
+    },
+  },
 ];

@@ -25,6 +25,7 @@ import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
 import { orderSheetColumns } from './orderSheetColumns.js';
+import { summaryAppendOp, summaryRemoveOps } from './itemSummaryService.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
 import {
   AppError, badRequest, conflict, notFound, unprocessable, MESSAGES,
@@ -85,6 +86,18 @@ function itemRows(order, revision, quote, now) {
     created_at: now,
   }));
 }
+
+/** New item rows of an order: Order_Items + Order_Items_Summary (pieces). */
+function itemOps(order, revision, quote, now) {
+  const rows = itemRows(order, revision, quote, now);
+  return [{ op: 'append', sheet: 'Order_Items', rows }, summaryAppendOp(order, rows)];
+}
+
+/** The order's current items are replaced by an edit. */
+const replaceItemOps = (current) => [
+  ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
+  ...summaryRemoveOps(current),
+];
 
 // `deduction` = "Less: Packing charges" the admin set on the order (kept when
 // the customer edits the order; the minimum order is checked before it).
@@ -384,7 +397,7 @@ export async function createDraftOrder(input, { ip, customerToken, baseUrl } = {
     await sheetsService.commit([
       ...inventory.ops,
       { op: 'append', sheet: 'Orders', rows: [order] },
-      { op: 'append', sheet: 'Order_Items', rows: itemRows(order, 1, quote, now) },
+      ...itemOps(order, 1, quote, now),
       historyOp(order, '', ORDER_STATUS.PAYMENT_PENDING, ACTOR.CUSTOMER, customerId, 'Order placed - awaiting payment'),
       ...customerOps,
       auditOp({
@@ -525,8 +538,8 @@ export async function updateOrderItems(orderNumber, token, { items, client_final
     const packing = packingFor(order, quote, lessPacking);
     const ops = [
       ...inventory.ops,
-      ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
-      { op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) },
+      ...replaceItemOps(current),
+      ...itemOps(order, revision, quote, now),
       { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totalsFields(quote, packing.deduction), ...packing.patch, revision, stock_state: STOCK_STATE.RESERVED, updated_at: now } },
       auditOp({
         actorType: ACTOR.CUSTOMER, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_CUSTOMER, entity_type: 'Order', entity_id: order.order_id,
@@ -755,6 +768,7 @@ export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = 
     await sheetsService.commit([
       ...inventory.ops,
       { op: 'update', sheet: 'Orders', id: order.order_id, patch },
+      ...summaryRemoveOps(items),
       historyOp(order, order.order_status, ORDER_STATUS.CANCELLED, actorType, admin?.admin_id, reason),
       auditOp({
         admin, ip, actorType, action: AUDIT_ACTION.ORDER_CANCELLED, entity_type: 'Order', entity_id: order.order_id, reason,
@@ -990,8 +1004,8 @@ export async function updateOrderItemsAdmin(id, {
     const totals = totalsFields(quote, packing.deduction);
     await sheetsService.commit([
       ...inventory.ops,
-      ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
-      { op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) },
+      ...replaceItemOps(current),
+      ...itemOps(order, revision, quote, now),
       { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totals, ...packing.patch, revision, updated_at: now } },
       auditOp({
         admin, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_ADMIN, entity_type: 'Order', entity_id: order.order_id,
@@ -1026,6 +1040,7 @@ export async function expireUnpaidOrders() {
     const now = nowIso();
     const reason = `Payment not received within ${hours} hours - reserved stock released.`;
     for (const order of candidates) {
+      ops.push(...summaryRemoveOps(activeItems(data.Order_Items, order.order_id)));
       for (const [v, d] of releaseDeltas(order, activeItems(data.Order_Items, order.order_id))) {
         const prev = deltas.get(v) || { stock: 0, reserved: 0 };
         prev.reserved += d.reserved;

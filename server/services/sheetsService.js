@@ -62,8 +62,10 @@ function coerce(sheetSchema, column, raw) {
  *  - `commit()` writes a list of operations in ONE atomic Google batch:
  *      { op: 'append', sheet, rows: [obj, ...] }
  *      { op: 'update', sheet, id, patch: { column: value } }   (only listed cells change)
- *  - There is deliberately NO delete / clear / replace capability. The only
- *    row that ever leaves a sheet is a MOVED one: an order whose status
+ *      { op: 'remove', sheet, id }  (DERIVED report sheets only, e.g. Order_Items_Summary)
+ *  - There is deliberately NO delete / clear / replace capability for
+ *    business data. The only row that ever leaves a sheet is a MOVED one
+ *    (or a row of a derived report sheet): an order whose status
  *    becomes CANCELLED goes to Cancelled_Orders (and back when reopened) -
  *    the copy and the removal are one atomic batch. Reading 'Orders'
  *    returns the orders of both sheets.
@@ -232,10 +234,12 @@ export class SheetsService {
       if (!SCHEMA[op.sheet]) throw new Error(`Unknown sheet ${op.sheet}`);
       if (op.op === 'append' && (!Array.isArray(op.rows) || !op.rows.length)) throw new Error('append requires rows');
       if (op.op === 'update' && (!op.id || !op.patch)) throw new Error('update requires id and patch');
-      if (!['append', 'update'].includes(op.op)) throw new Error(`Unsupported operation ${op.op}`);
+      if (op.op === 'remove' && (!op.id || !SCHEMA[op.sheet].derived)) throw new Error(`remove is only for rows of a derived sheet (not ${op.sheet})`);
+      if (!['append', 'update', 'remove'].includes(op.op)) throw new Error(`Unsupported operation ${op.op}`);
     }
     const updateSheets = new Set();
     for (const op of ops) {
+      if (op.op === 'remove') { updateSheets.add(op.sheet); continue; }
       if (op.op !== 'update') continue;
       updateSheets.add(op.sheet);
       const f = FAMILY[op.sheet];
@@ -358,11 +362,18 @@ export class SheetsService {
       }
       const idField = SCHEMA[op.sheet].idField;
       const found = c.idRows.get(String(op.id));
-      if (!found) throw notFound(`${op.sheet} record ${op.id} was not found.`);
+      if (!found) {
+        if (op.optional) continue; // e.g. a summary row older than the summary sheet
+        throw notFound(`${op.sheet} record ${op.id} was not found.`);
+      }
       if (found.length > 1) {
         throw new AppError(500, 'DATA_INTEGRITY', `Duplicate ID ${op.id} in ${op.sheet}. Refusing to write; please fix the sheet.`);
       }
       const rowIndex = found[0] - 1;
+      if (op.op === 'remove') {
+        deletions.push({ sheetId: c.sheetId, rowIndex });
+        continue;
+      }
       const cells = Object.entries(op.patch)
         .map(([k, v]) => {
           if (k === idField) throw new Error(`Refusing to modify immutable ID column ${idField}`);
@@ -386,14 +397,15 @@ export class SheetsService {
       if (run) requests.push(cellRun(c.sheetId, rowIndex, run));
     }
 
-    // moved rows leave their old sheet last, bottom row first, so every row
-    // number used above is still right
+    // moved / removed rows go last, bottom row first, so every row number
+    // used above is still right
     deletions.sort((a, b) => b.rowIndex - a.rowIndex);
     for (const d of deletions) {
       requests.push({ deleteDimension: { range: { sheetId: d.sheetId, dimension: 'ROWS', startIndex: d.rowIndex, endIndex: d.rowIndex + 1 } } }); // ROW-MOVE
     }
 
-    await this.transport.batchUpdate(requests);
+    const removableSheetIds = sheetNames.filter((s) => SCHEMA[s].derived).map((s) => ctx[s].sheetId);
+    await this.transport.batchUpdate(requests, { removableSheetIds });
     this.invalidate(sheetNames);
     return { requests: requests.length };
   }
