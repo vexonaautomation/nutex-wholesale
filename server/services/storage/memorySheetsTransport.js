@@ -26,9 +26,9 @@ export class MemorySheetsTransport {
     return ranges.map((r) => this.#read(r));
   }
 
-  async batchUpdate(requests) {
+  async batchUpdate(requests, guard = {}) {
     if (!requests.length) return null;
-    assertSafeRequests(requests);
+    assertSafeRequests(requests, guard);
     this.stats.writes += 1;
     const snapshot = this.#snapshot();
     try {

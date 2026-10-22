@@ -1,19 +1,20 @@
-// Order_Items_Summary: every order item on one row, the way the IMS counts
+// Order_Items_Summary: each active order item on one row, the way the IMS counts
 // stock - in pieces - with the bill number and party:
 //  - sold in pieces: the colour and the number of pieces
 //  - sold in boxes:  "Mix Color", pieces = boxes x pieces per box (+ boxes,
 //                    pieces per box)
-// MRP and rate are per piece. item_status: ACTIVE / REPLACED (order edited)
-// / CANCELLED. Written in the same batch as the order's own sheets.
+// MRP and rate are per piece. Only ACTIVE items of live orders are here: when
+// an order is edited its old rows are removed and the new ones added; when it
+// is cancelled its rows are removed (Order_Items keeps everything).
+// Written in the same atomic batch as the order's own sheets.
 import { pcsColumns } from '../utils/itemPcs.js';
 import { round2 } from '../utils/money.js';
 
 export const SUMMARY_SHEET = 'Order_Items_Summary';
-export const SUMMARY_STATUS = Object.freeze({ ACTIVE: 'ACTIVE', REPLACED: 'REPLACED', CANCELLED: 'CANCELLED' });
 
 const perPc = (total, pcs) => (pcs > 0 ? round2((Number(total) || 0) / pcs) : null);
 
-export function summaryRow(order, item, status = item.status || SUMMARY_STATUS.ACTIVE) {
+export function summaryRow(order, item) {
   const pcs = pcsColumns(item);
   return {
     order_item_id: item.order_item_id,
@@ -38,7 +39,6 @@ export function summaryRow(order, item, status = item.status || SUMMARY_STATUS.A
     rate_per_pc: perPc(item.line_total, pcs.qty_pcs),
     mrp_total: item.line_mrp_total,
     amount: item.line_total,
-    item_status: status,
     revision: item.revision,
     created_at: item.created_at,
   };
@@ -48,7 +48,7 @@ export const summaryAppendOp = (order, items) => (items.length
   ? { op: 'append', sheet: SUMMARY_SHEET, rows: items.map((i) => summaryRow(order, i)) }
   : null);
 
-// optional: an item written before the summary existed is simply skipped
-export const summaryStatusOps = (items, status) => items.map((i) => ({
-  op: 'update', sheet: SUMMARY_SHEET, id: i.order_item_id, patch: { item_status: status }, optional: true,
+// optional: an item without a summary row is simply skipped
+export const summaryRemoveOps = (items) => items.map((i) => ({
+  op: 'remove', sheet: SUMMARY_SHEET, id: i.order_item_id, optional: true,
 }));

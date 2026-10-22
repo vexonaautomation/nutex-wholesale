@@ -25,7 +25,7 @@ import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
 import { orderSheetColumns } from './orderSheetColumns.js';
-import { summaryAppendOp, summaryStatusOps, SUMMARY_STATUS } from './itemSummaryService.js';
+import { summaryAppendOp, summaryRemoveOps } from './itemSummaryService.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
 import {
   AppError, badRequest, conflict, notFound, unprocessable, MESSAGES,
@@ -96,7 +96,7 @@ function itemOps(order, revision, quote, now) {
 /** The order's current items are replaced by an edit. */
 const replaceItemOps = (current) => [
   ...current.map((i) => ({ op: 'update', sheet: 'Order_Items', id: i.order_item_id, patch: { status: ITEM_STATUS.REPLACED } })),
-  ...summaryStatusOps(current, SUMMARY_STATUS.REPLACED),
+  ...summaryRemoveOps(current),
 ];
 
 // `deduction` = "Less: Packing charges" the admin set on the order (kept when
@@ -768,7 +768,7 @@ export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = 
     await sheetsService.commit([
       ...inventory.ops,
       { op: 'update', sheet: 'Orders', id: order.order_id, patch },
-      ...summaryStatusOps(items, SUMMARY_STATUS.CANCELLED),
+      ...summaryRemoveOps(items),
       historyOp(order, order.order_status, ORDER_STATUS.CANCELLED, actorType, admin?.admin_id, reason),
       auditOp({
         admin, ip, actorType, action: AUDIT_ACTION.ORDER_CANCELLED, entity_type: 'Order', entity_id: order.order_id, reason,
@@ -1040,7 +1040,7 @@ export async function expireUnpaidOrders() {
     const now = nowIso();
     const reason = `Payment not received within ${hours} hours - reserved stock released.`;
     for (const order of candidates) {
-      ops.push(...summaryStatusOps(activeItems(data.Order_Items, order.order_id), SUMMARY_STATUS.CANCELLED));
+      ops.push(...summaryRemoveOps(activeItems(data.Order_Items, order.order_id)));
       for (const [v, d] of releaseDeltas(order, activeItems(data.Order_Items, order.order_id))) {
         const prev = deltas.get(v) || { stock: 0, reserved: 0 };
         prev.reserved += d.reserved;
