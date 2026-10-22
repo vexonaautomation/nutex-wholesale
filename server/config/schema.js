@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 25;
 
 const n = 'number';
 const b = 'boolean';
@@ -197,6 +197,21 @@ export const SCHEMA = {
       discount_percent_snapshot: n, wholesale_unit_snapshot: n, line_mrp_total: n, line_total: n,
     },
   },
+  // v25: every order item in pieces, like the IMS, with bill number and party
+  // (boxes = "Mix Color", pieces = boxes x pieces per box). One row per
+  // Order_Items row (same order_item_id).
+  Order_Items_Summary: {
+    idField: 'order_item_id',
+    columns: [
+      'order_item_id', 'order_id', 'bill_no', 'order_date', 'party_name', 'customer_name', 'mobile', 'city',
+      'sku', 'product_name', 'category', 'size', 'item_colour', 'qty_pcs', 'sold_in', 'boxes', 'pcs_per_box',
+      'mrp_per_pc', 'discount_percent', 'rate_per_pc', 'mrp_total', 'amount', 'item_status', 'revision', 'created_at',
+    ],
+    types: {
+      qty_pcs: n, boxes: n, pcs_per_box: n, mrp_per_pc: n, discount_percent: n, rate_per_pc: n, mrp_total: n, amount: n, revision: n,
+      order_date: 'datetime',
+    },
+  },
   Payments: {
     idField: 'payment_id',
     columns: [
@@ -275,6 +290,7 @@ export const TEXT_COLUMNS = {
   Orders: ['order_number', 'mobile_snapshot', 'whatsapp_snapshot', 'pincode_snapshot', 'gstin_snapshot', 'alternate_mobile_snapshot'],
   Cancelled_Orders: ['order_number', 'mobile_snapshot', 'whatsapp_snapshot', 'pincode_snapshot', 'gstin_snapshot', 'alternate_mobile_snapshot'],
   Order_Items: ['order_number'],
+  Order_Items_Summary: ['bill_no', 'mobile'],
   Payments: ['utr', 'order_number'],
   Order_Status_History: ['order_number'],
   Settings: ['setting_value'],

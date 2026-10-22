@@ -358,7 +358,10 @@ export class SheetsService {
       }
       const idField = SCHEMA[op.sheet].idField;
       const found = c.idRows.get(String(op.id));
-      if (!found) throw notFound(`${op.sheet} record ${op.id} was not found.`);
+      if (!found) {
+        if (op.optional) continue; // e.g. a summary row older than the summary sheet
+        throw notFound(`${op.sheet} record ${op.id} was not found.`);
+      }
       if (found.length > 1) {
         throw new AppError(500, 'DATA_INTEGRITY', `Duplicate ID ${op.id} in ${op.sheet}. Refusing to write; please fix the sheet.`);
       }
