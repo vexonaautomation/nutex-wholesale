@@ -2,7 +2,8 @@
   min-height: 100vh;
   background: #f5f4f7;
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr): wide tables never widen the page on phones */
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 1024px) { .admin { grid-template-columns: 248px minmax(0, 1fr); } }
 
@@ -95,9 +96,11 @@ a.stat:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
 .stat.tone-success .stat-value { color: var(--success-700); }
 .stat.tone-info .stat-value { color: var(--info-700); }
 
-.adm-grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.adm-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 @media (min-width: 1100px) { .adm-grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
-.adm-grid-main { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+/* minmax(0, 1fr): a wide table scrolls inside its box instead of widening the
+   whole page on phones (which pushed bottom sheets off the screen) */
+.adm-grid-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (min-width: 1100px) { .adm-grid-main { grid-template-columns: minmax(0, 1fr) 380px; } }
 
 .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
