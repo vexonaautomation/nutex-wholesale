@@ -3,10 +3,10 @@
 //  - sold in pieces: the colour and the number of pieces
 //  - sold in boxes:  "Mix Color", pieces = boxes x pieces per box (+ boxes,
 //                    pieces per box)
-// MRP and rate are per piece. Only ACTIVE items of live orders are here: when
-// an order is edited its old rows are removed and the new ones added; when it
-// is cancelled its rows are removed (Order_Items keeps everything).
-// Written in the same atomic batch as the order's own sheets.
+// MRP and rate are per piece. An order's ACTIVE items are written once, when
+// the order is marked HANDED OVER (COMPLETED): it can no longer be edited,
+// cancelled or reopened then. Written in the same atomic batch as the status.
+// Order_Items keeps the full history.
 import { pcsColumns } from '../utils/itemPcs.js';
 import { round2 } from '../utils/money.js';
 
@@ -41,14 +41,10 @@ export function summaryRow(order, item) {
     amount: item.line_total,
     revision: item.revision,
     created_at: item.created_at,
+    handover_date: order.completed_at || '',
   };
 }
 
 export const summaryAppendOp = (order, items) => (items.length
   ? { op: 'append', sheet: SUMMARY_SHEET, rows: items.map((i) => summaryRow(order, i)) }
   : null);
-
-// optional: an item without a summary row is simply skipped
-export const summaryRemoveOps = (items) => items.map((i) => ({
-  op: 'remove', sheet: SUMMARY_SHEET, id: i.order_item_id, optional: true,
-}));

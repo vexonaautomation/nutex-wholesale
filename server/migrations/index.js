@@ -273,4 +273,34 @@ export const MIGRATIONS = [
       logger.info(`Migration v25: ${rows.length} order item(s) written to ${SUMMARY_SHEET}`);
     },
   },
+  {
+    // Order_Items_Summary only for HANDED OVER orders, with the new
+    // handover_date column: rows of orders not handed over yet are taken out
+    // (they come back when the order is handed over); handed-over orders get
+    // their rows and handover date. Order_Items is not touched.
+    version: 26,
+    description: 'Order_Items_Summary: only handed-over orders, with handover date',
+    async up({ sheets, logger }) {
+      const { summaryRow, SUMMARY_SHEET } = await import('../services/itemSummaryService.js');
+      const data = await sheets.readMany(['Orders', 'Order_Items', SUMMARY_SHEET], { fresh: true });
+      const orders = new Map(data.Orders.map((o) => [o.order_id, o]));
+      const handedOver = (o) => o && o.order_status === 'COMPLETED';
+      const ops = [];
+      const have = new Set();
+      for (const r of data[SUMMARY_SHEET]) {
+        const o = orders.get(r.order_id);
+        if (!handedOver(o)) ops.push({ op: 'remove', sheet: SUMMARY_SHEET, id: r.order_item_id, optional: true });
+        else {
+          have.add(r.order_item_id);
+          if (!r.handover_date && o.completed_at) ops.push({ op: 'update', sheet: SUMMARY_SHEET, id: r.order_item_id, patch: { handover_date: o.completed_at } });
+        }
+      }
+      const rows = data.Order_Items
+        .filter((i) => (i.status || 'ACTIVE') === 'ACTIVE' && handedOver(orders.get(i.order_id)) && !have.has(i.order_item_id))
+        .map((i) => summaryRow(orders.get(i.order_id), i));
+      for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
+      for (let i = 0; i < rows.length; i += 500) await sheets.commit([{ op: 'append', sheet: SUMMARY_SHEET, rows: rows.slice(i, i + 500) }]);
+      logger.info(`Migration v26: ${ops.length} summary change(s), ${rows.length} row(s) added for handed-over orders`);
+    },
+  },
 ];
