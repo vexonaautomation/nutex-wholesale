@@ -361,6 +361,8 @@
 .modal-head h3 { margin: 0; font-size: 17px; }
 .modal-body { padding: 20px; overflow-y: auto; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--ink-50); border-radius: 0 0 var(--radius-xl) var(--radius-xl); flex-wrap: wrap; }
+/* phones: keep the buttons above the home / gesture bar */
+@media (max-width: 639px) { .modal-foot { padding-bottom: max(14px, env(safe-area-inset-bottom)); border-radius: 0; } }
 
 /* ------------------------------------------------------------- Drawer */
 .drawer {
