@@ -596,6 +596,7 @@ const orderSummary = (o, names = new Map()) => ({
   total_qty: o.total_qty,
   less_packing: o.less_packing === true,
   packing_deduction: Number(o.packing_deduction) || 0,
+  packer_name: o.packer_name || '',
   order_status: o.order_status,
   payment_status: o.payment_status,
   payment_mode_snapshot: isOfflineOrder(o) ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
@@ -721,7 +722,11 @@ export async function updateOrderStatusAdmin(id, body, { admin, ip }) {
         tracking_number: body.tracking_number || order.tracking_number, dispatch_note: body.dispatch_note || order.dispatch_note,
       });
     }
-    if (body.status === ORDER_STATUS.COMPLETED) patch.completed_at = now;
+    if (body.status === ORDER_STATUS.COMPLETED) {
+      // the packer must be known before an order is handed over
+      if (!order.packer_id) throw conflict('PACKER_REQUIRED', 'Choose who packed this order before marking it Handed over.');
+      patch.completed_at = now;
+    }
     await sheetsService.commit([
       ...stockOps,
       // handed over: the order's items go to Order_Items_Summary (pieces, for the IMS)

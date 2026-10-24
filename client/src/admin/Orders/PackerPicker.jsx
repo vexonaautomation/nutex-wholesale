@@ -20,7 +20,11 @@ export function usePackers(enabled = true) {
 }
 
 /** "Who will pack?" + send the slip on WhatsApp (used in the Processing dialog). */
-export function PackerFields({ value, onChange }) {
+/**
+ * Packer picker. `required` (Handed over): the packer must be chosen and no
+ * slip is sent - the order is already packed.
+ */
+export function PackerFields({ value, onChange, required = false }) {
   const packers = usePackers();
   if (packers === null) return <Spinner small />;
   if (!packers.length) {
@@ -28,15 +32,17 @@ export function PackerFields({ value, onChange }) {
   }
   return (
     <div className="form-grid">
-      <Field label="Who will pack this order?" hint="They get the packing slip (no amounts) on WhatsApp.">
+      <Field label={required ? 'Who packed this order? (required)' : 'Who will pack this order?'} hint={required ? 'Needed before the order is marked Handed over.' : 'They get the packing slip (no amounts) on WhatsApp.'}>
         <select className="select" value={value.packer_id} onChange={(e) => onChange({ ...value, packer_id: e.target.value })}>
-          <option value="">Decide later</option>
+          <option value="">{required ? 'Choose the packer…' : 'Decide later'}</option>
           {packers.map((p) => <option key={p.packer_id} value={p.packer_id}>{p.name}{p.packing_now ? ` (${p.packing_now} open)` : ''}</option>)}
         </select>
       </Field>
-      <label className="check" style={{ alignSelf: 'end', paddingBottom: 10 }}>
-        <input type="checkbox" checked={value.send} disabled={!value.packer_id} onChange={(e) => onChange({ ...value, send: e.target.checked })} /> Send packing slip on WhatsApp
-      </label>
+      {!required && (
+        <label className="check" style={{ alignSelf: 'end', paddingBottom: 10 }}>
+          <input type="checkbox" checked={value.send} disabled={!value.packer_id} onChange={(e) => onChange({ ...value, send: e.target.checked })} /> Send packing slip on WhatsApp
+        </label>
+      )}
     </div>
   );
 }

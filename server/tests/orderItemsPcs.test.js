@@ -8,11 +8,12 @@ import {
   createDraftOrder, updateOrderItems, getCustomerOrder, updateOrderStatusAdmin, updateOrderItemsAdmin,
 } from '../services/orderService.js';
 import { submitPayment, verifyPayment, listPayments } from '../services/paymentService.js';
+import { createPacker, assignPacker } from '../services/packingService.js';
 import { updateSettings } from '../services/settingsService.js';
 import { sheetsService } from '../services/sheetsService.js';
 import { MIGRATIONS } from '../migrations/index.js';
 import {
-  draftOrderSchema, paymentSubmitSchema, orderStatusSchema, adminOrderItemsSchema,
+  draftOrderSchema, paymentSubmitSchema, orderStatusSchema, adminOrderItemsSchema, packerSchema,
 } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 
@@ -43,7 +44,12 @@ async function setup() {
     const pending = (await listPayments({})).items.find((p) => p.order_number === o.order_number && p.status !== 'VERIFIED');
     await verifyPayment(pending.payment_id, { remarks: 'ok' }, store.adminCtx);
   };
-  const to = (o, status) => updateOrderStatusAdmin(o.order_number, orderStatusSchema.parse({ status, courier_name: 'DTDC', tracking_number: 'D123' }), store.adminCtx);
+  // Handed over needs the packer
+  const raju = await createPacker(packerSchema.parse({ name: 'Raju', mobile: '9811122334' }), store.adminCtx);
+  const to = async (o, status) => {
+    if (status === 'COMPLETED') await assignPacker(o.order_number, { packer_id: raju.packer_id, send: false }, store.adminCtx);
+    return updateOrderStatusAdmin(o.order_number, orderStatusSchema.parse({ status, courier_name: 'DTDC', tracking_number: 'D123' }), store.adminCtx);
+  };
   const handOver = async (o) => { for (const s of ['PROCESSING', 'PACKED', 'DISPATCHED', 'COMPLETED']) await to(o, s); };
   return { ...store, created, items, variant, pay, to, handOver };
 }
