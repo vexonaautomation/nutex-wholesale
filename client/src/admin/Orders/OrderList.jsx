@@ -78,7 +78,7 @@ export default function OrderList() {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Order no</th><th>Date</th><th>Customer</th><th>Mobile</th><th>City</th><th className="right">Order value</th><th>Payment</th><th>Order status</th><th>Made by</th><th>Locked</th><th>Updated</th></tr>
+                <tr><th>Order no</th><th>Date</th><th>Customer</th><th>Mobile</th><th>City</th><th className="right">Order value</th><th>Payment</th><th>Order status</th><th>Made by</th><th>Packed by</th><th>Locked</th><th>Updated</th></tr>
               </thead>
               <tbody>
                 {data.items.map((o) => (
@@ -92,6 +92,7 @@ export default function OrderList() {
                     <td>{o.payment_mode_snapshot === 'OFFLINE' ? <span className="badge badge-gold">No online payment</span> : <StatusBadge kind="payment" status={o.payment_status} />}</td>
                     <td><StatusBadge status={o.order_status} /></td>
                     <td><MadeBy order={o} /></td>
+                    <td>{o.packer_name ? <span className="small">{o.packer_name}</span> : <span className="soft small">-</span>}</td>
                     <td>{o.locked ? <Lock size={16} color="var(--ink-700)" aria-label="Locked" /> : <span className="soft small">Open</span>}</td>
                     <td className="small nowrap">{formatDateTime(o.updated_at)}</td>
                   </tr>

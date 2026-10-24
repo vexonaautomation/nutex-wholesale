@@ -9,7 +9,8 @@ import {
 } from '../services/orderService.js';
 import { submitPayment, verifyPayment, listPayments } from '../services/paymentService.js';
 import { updateSettings } from '../services/settingsService.js';
-import { draftOrderSchema, activeOrdersSchema } from '../utils/validation.js';
+import { createPacker, assignPacker } from '../services/packingService.js';
+import { draftOrderSchema, activeOrdersSchema, packerSchema } from '../utils/validation.js';
 
 // Cart "Your orders": every order placed on the device stays visible until
 // it is handed over (COMPLETED) or cancelled.
@@ -51,6 +52,10 @@ test('your orders: pay first, then visible until handed over', async () => {
   [card] = await activeOrderSummaries([entry(o)]);
   assert.equal(card.closed, false, 'dispatched is not handed over yet');
 
+  // Handed over only once the packer is known
+  await assert.rejects(updateOrderStatusAdmin(o.order_number, { status: 'COMPLETED' }, adminCtx), (err) => err.code === 'PACKER_REQUIRED');
+  const raju = await createPacker(packerSchema.parse({ name: 'Raju', mobile: '9811122334' }), adminCtx);
+  await assignPacker(o.order_number, { packer_id: raju.packer_id, send: false }, adminCtx);
   await updateOrderStatusAdmin(o.order_number, { status: 'COMPLETED' }, adminCtx);
   [card] = await activeOrderSummaries([entry(o)]);
   assert.equal(card.status_label, 'Handed over');

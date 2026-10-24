@@ -122,16 +122,20 @@ export default function OrderDetail() {
   if (error) return <ErrorState error={error} onRetry={reload} />;
   const { order } = data;
 
+  // Handed over needs the packer: chosen here when it was not chosen before
+  const needsPacker = statusForm?.status === 'COMPLETED' && !order.packer_id;
+
   const changeStatus = async () => {
     setSaving(true);
     try {
       const { packing, ...body } = statusForm;
+      if (needsPacker) await adminApi.post(`/orders/${encodeURIComponent(order.order_id)}/packer`, { packer_id: packing.packer_id, send: false });
       const res = await adminApi.put(`/orders/${order.order_id}/status`, body);
       setData(res);
       setStatusForm(null);
       toast.success(`Order moved to ${ORDER_STATUS[res.order.order_status]?.label}.`);
       // Processing: the chosen packer gets the packing slip
-      if (packing?.packer_id) {
+      if (statusForm.status === 'PROCESSING' && packing?.packer_id) {
         const sent = await sendToPacker(order.order_id, packing, toast).catch((err) => { toast.error(err.message); return null; });
         if (sent && packing.send && !sent.sent && sent.wa_link) window.open(sent.wa_link, '_blank', 'noopener');
         reload();
@@ -332,13 +336,17 @@ export default function OrderDetail() {
         open={!!statusForm}
         title={`Mark order ${statusForm ? ORDER_STATUS[statusForm.status]?.label : ''}`}
         onClose={() => setStatusForm(null)}
-        footer={<><button type="button" className="btn" onClick={() => setStatusForm(null)}>Cancel</button><button type="button" className="btn btn-primary" onClick={changeStatus} disabled={saving}>{saving && <Spinner small />} Confirm</button></>}
+        footer={<><button type="button" className="btn" onClick={() => setStatusForm(null)}>Cancel</button><button type="button" className="btn btn-primary" onClick={changeStatus} disabled={saving || (needsPacker && !statusForm.packing.packer_id)}>{saving && <Spinner small />} Confirm</button></>}
       >
         {statusForm && (
           <div className="stack">
             {statusForm.status === 'PROCESSING' && (
               <PackerFields value={statusForm.packing} onChange={(packing) => setStatusForm({ ...statusForm, packing })} />
             )}
+            {needsPacker && (
+              <PackerFields required value={statusForm.packing} onChange={(packing) => setStatusForm({ ...statusForm, packing })} />
+            )}
+            {statusForm.status === 'COMPLETED' && order.packer_id && <p className="small muted mb-0">Packed by <strong>{order.packer_name}</strong>.</p>}
             {statusForm.status === 'DISPATCHED' && (
               <div className="form-grid">
                 <Field label="Courier name"><input className="input" value={statusForm.courier_name} onChange={(e) => setStatusForm({ ...statusForm, courier_name: e.target.value })} /></Field>
