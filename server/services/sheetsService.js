@@ -25,7 +25,18 @@ for (const [main, a] of Object.entries(ARCHIVES)) {
  * text columns in text format.
  */
 function cellFor(sheet, column, value, { withFormat = false } = {}) {
-  const type = SCHEMA[sheet]?.types?.[column];
+  const def = SCHEMA[sheet];
+  // fixed sheet formulas from the schema (never user input)
+  const formula = def?.formulas?.[column];
+  if (formula) return { userEnteredValue: { formulaValue: formula } };
+  const options = withFormat && def?.dropdowns?.[column];
+  if (options) {
+    return {
+      ...toCellData(value),
+      dataValidation: { condition: { type: 'ONE_OF_LIST', values: options.map((v) => ({ userEnteredValue: v })) }, showCustomUi: true, strict: false },
+    };
+  }
+  const type = def?.types?.[column];
   if (type === 'datetime') {
     // a number is a date-time read from the sheet (a row being moved)
     const serial = typeof value === 'number' ? value : toSheetSerial(value);
@@ -355,7 +366,7 @@ export class SheetsService {
           appendCells: {
             sheetId: c.sheetId,
             rows: op.rows.map((obj) => ({ values: c.headers.map((h) => (h ? cellFor(op.sheet, h, obj[h], { withFormat: true }) : {})) })),
-            fields: APPEND_FIELDS,
+            fields: SCHEMA[op.sheet].dropdowns ? `${APPEND_FIELDS},dataValidation` : APPEND_FIELDS,
           },
         });
         continue;

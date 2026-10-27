@@ -303,4 +303,25 @@ export const MIGRATIONS = [
       logger.info(`Migration v26: ${ops.length} summary change(s), ${rows.length} row(s) added for handed-over orders`);
     },
   },
+  {
+    // New sheet GBNutex (sales register) and Products.cost_price, both made by
+    // the schema. Orders handed over before v27 are written now (once).
+    version: 27,
+    description: 'GBNutex sales register for handed-over orders; Products.cost_price',
+    async up({ sheets, logger }) {
+      const { gbNutexRows, GB_SHEET } = await import('../services/gbNutexService.js');
+      const data = await sheets.readMany(['Orders', 'Order_Items', 'Products', 'Categories', GB_SHEET], { fresh: true });
+      const done = new Set(data[GB_SHEET].map((r) => String(r.BILL)));
+      const ctx = {
+        products: new Map(data.Products.map((p) => [p.product_id, p])),
+        categories: new Map(data.Categories.map((x) => [x.category_id, x])),
+      };
+      const rows = data.Orders
+        .filter((o) => o.order_status === 'COMPLETED' && !done.has(String(o.order_number)))
+        .sort((a, b) => (a.completed_at > b.completed_at ? 1 : -1))
+        .flatMap((o) => gbNutexRows(o, data.Order_Items.filter((i) => i.order_id === o.order_id && (i.status || 'ACTIVE') === 'ACTIVE'), ctx));
+      for (let i = 0; i < rows.length; i += 500) await sheets.commit([{ op: 'append', sheet: GB_SHEET, rows: rows.slice(i, i + 500) }]);
+      logger.info(`Migration v27: ${rows.length} GBNutex row(s) for handed-over orders`);
+    },
+  },
 ];

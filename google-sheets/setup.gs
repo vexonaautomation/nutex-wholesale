@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v26).
+ *  GENERATED from server/config/schema.js (schema v27).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -27,7 +27,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 26;
+var NUTEX_SCHEMA_VERSION = 27;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -36,7 +36,7 @@ var NUTEX_SCHEMA = {
   "Categories": ["category_id","category_name","parent_category","slug","description","image_file_id","image_url","status","sort_order","seo_title","seo_description","created_at","updated_at","packing_charge"],
   "Colors": ["color_id","color_name","color_code","hex_code","swatch_image","status","sort_order","created_at","updated_at"],
   "Sizes": ["size_id","size_name","sort_order","status","created_at","updated_at"],
-  "Products": ["product_id","sku","product_name","slug","category_id","subcategory","description","mrp","discount_mode","fixed_discount_percent","inventory_mode","size_ids","color_ids","status","out_of_stock","featured","sort_order","seo_title","seo_description","created_at","updated_at","created_by","updated_by","sell_mode","units_per_box","pcs_for_new_customers","box_extra_color","collections"],
+  "Products": ["product_id","sku","product_name","slug","category_id","subcategory","description","mrp","discount_mode","fixed_discount_percent","inventory_mode","size_ids","color_ids","status","out_of_stock","featured","sort_order","seo_title","seo_description","created_at","updated_at","created_by","updated_by","sell_mode","units_per_box","pcs_for_new_customers","box_extra_color","collections","cost_price"],
   "Product_Images": ["image_id","product_id","drive_file_id","file_url","image_type","alt_text","sort_order","status","created_at","updated_at"],
   "Product_Variants": ["variant_id","product_id","sku","size_id","color_id","box_id","inventory_mode","units_per_box","box_mrp","mixed_color_description","status","sort_order","created_at","updated_at","variant_mrp"],
   "Inventory": ["inventory_id","variant_id","product_id","color_id","size_id","box_id","stock_qty","reserved_qty","available_qty","status","updated_at","updated_by"],
@@ -47,6 +47,7 @@ var NUTEX_SCHEMA = {
   "Cancelled_Orders": ["order_id","order_number","customer_id","customer_name_snapshot","business_name_snapshot","mobile_snapshot","whatsapp_snapshot","email_snapshot","billing_address_snapshot","shipping_address_snapshot","city_snapshot","state_snapshot","pincode_snapshot","gstin_snapshot","order_notes","mrp_subtotal","discount_mode_snapshot","discount_basis_snapshot","discount_basis_amount","discount_percent","slab_id_snapshot","discount_amount","final_payable","total_qty","minimum_order_value_snapshot","minimum_order_met","order_status","payment_status","locked","stock_state","revision","idempotency_key","courier_name","tracking_number","dispatch_note","cancel_reason","created_at","updated_at","locked_at","payment_submitted_at","verified_at","dispatched_at","completed_at","cancelled_at","customer_type_snapshot","alternate_mobile_snapshot","payment_mode_snapshot","packing_deduction","placed_by_mobile","less_packing","aadhaar_last4","packer_id","packer_name","packing_assigned_at","packing_slip_sent_at","doer","bill_link","packing_person","customer_type"],
   "Order_Items": ["order_item_id","order_id","order_number","revision","product_id","variant_id","sku_snapshot","product_name_snapshot","category_snapshot","inventory_mode_snapshot","size_snapshot","color_snapshot","box_snapshot","units_per_box_snapshot","qty","mrp_unit_snapshot","discount_percent_snapshot","wholesale_unit_snapshot","line_mrp_total","line_total","status","created_at","stock_components"],
   "Order_Items_Summary": ["order_item_id","order_id","bill_no","order_date","party_name","customer_name","mobile","city","sku","product_name","category","size","item_colour","qty_pcs","sold_in","boxes","pcs_per_box","mrp_per_pc","discount_percent","rate_per_pc","mrp_total","amount","revision","created_at","handover_date"],
+  "GBNutex": ["DATE","BILL","S NO","MODE","PLATFORM","CLIENT NAME","PRODUCT","PRODUCT UNIT","Unit","QTY","PRICE","REVENUE","COST","ONLINE PACKING","PACKING COST","FINAL REVENUE","FINAL COST","GROSS PROFIT","GP PERCENTAGE"],
   "Payments": ["payment_id","order_id","order_number","amount","expected_amount","payment_method","utr","proof_file_id","proof_url","status","idempotency_key","customer_note","submitted_at","verified_at","verified_by","remarks"],
   "Order_Status_History": ["history_id","order_id","order_number","from_status","to_status","actor_type","actor_id","note","created_at"],
   "Packers": ["packer_id","name","mobile","status","notes","created_at","updated_at"],
@@ -81,7 +82,8 @@ var NUTEX_DROPDOWNS = {
   "Sizes": {"status":["ACTIVE","INACTIVE","ARCHIVED"]},
   "Products": {"status":["ACTIVE","INACTIVE","ARCHIVED"],"inventory_mode":["COLOR_WISE","BOX_WISE"],"discount_mode":["GLOBAL","CUSTOM"]},
   "Inventory": {"status":["ACTIVE","OUT_OF_STOCK"]},
-  "Packers": {"status":["ACTIVE","INACTIVE"]}
+  "Packers": {"status":["ACTIVE","INACTIVE"]},
+  "GBNutex": {"MODE":["Online","Offline","Ecom Client"],"PLATFORM":["Meesho NAL","Meesho NKF","Flipkart NAL","Flipkart NKF","Myntra NAL","Myntra NKF","Snapdeal","Amazon","Website"]}
 };
 
 /** [setting_key, default value, data_type, description] - added only if missing. */
@@ -164,7 +166,8 @@ var NUTEX_MIGRATIONS = [
   [23,"Orders: doer, bill link, packing person, customer type"],
   [24,"Cancelled orders move to the Cancelled_Orders sheet"],
   [25,"Order_Items_Summary: items in pieces with bill number and party"],
-  [26,"Order_Items_Summary: only handed-over orders, with handover date"]
+  [26,"Order_Items_Summary: only handed-over orders, with handover date"],
+  [27,"GBNutex sales register for handed-over orders; Products.cost_price"]
 ];
 
 var NUTEX_MASTER_DATA = {

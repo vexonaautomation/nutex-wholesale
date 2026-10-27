@@ -26,6 +26,7 @@ import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
 import { orderSheetColumns } from './orderSheetColumns.js';
 import { summaryAppendOp } from './itemSummaryService.js';
+import { gbNutexRows, GB_SHEET } from './gbNutexService.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
 import {
   AppError, badRequest, conflict, notFound, unprocessable, MESSAGES,
@@ -726,6 +727,13 @@ export async function updateOrderStatusAdmin(id, body, { admin, ip }) {
       // the packer must be known before an order is handed over
       if (!order.packer_id) throw conflict('PACKER_REQUIRED', 'Choose who packed this order before marking it Handed over.');
       patch.completed_at = now;
+      // GBNutex sales register: product unit, cost and packing rate need the catalogue
+      const cat = await sheetsService.readMany(['Products', 'Categories']);
+      const rows = gbNutexRows({ ...order, ...patch }, activeItems(data.Order_Items, order.order_id), {
+        products: new Map(cat.Products.map((p) => [p.product_id, p])),
+        categories: new Map(cat.Categories.map((x) => [x.category_id, x])),
+      });
+      if (rows.length) stockOps.push({ op: 'append', sheet: GB_SHEET, rows });
     }
     await sheetsService.commit([
       ...stockOps,
