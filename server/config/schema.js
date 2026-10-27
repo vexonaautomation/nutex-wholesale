@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 const n = 'number';
 const b = 'boolean';
@@ -59,8 +59,11 @@ export const SCHEMA = {
       // v14: collections the article is also shown in, comma separated
       // (e.g. "online" = Online Collection page); blank = none
       'collections',
+      // v27: cost price per piece, typed in the sheet (GBNutex COST); not on the website
+      'cost_price',
     ],
     types: {
+      cost_price: n,
       mrp: n, fixed_discount_percent: n, sort_order: n, out_of_stock: b, featured: b, units_per_box: n, pcs_for_new_customers: b,
     },
   },
@@ -218,6 +221,20 @@ export const SCHEMA = {
       order_date: 'datetime', handover_date: 'datetime',
     },
   },
+  // v27: sales register, one row per item of every HANDED OVER order. The
+  // team fills MODE / PLATFORM (dropdowns) and PACKING COST; the formula
+  // columns (below) are written as sheet formulas.
+  GBNutex: {
+    idField: 'BILL',
+    columns: [
+      'DATE', 'BILL', 'S NO', 'MODE', 'PLATFORM', 'CLIENT NAME', 'PRODUCT', 'PRODUCT UNIT', 'Unit', 'QTY',
+      'PRICE', 'REVENUE', 'COST', 'ONLINE PACKING', 'PACKING COST', 'FINAL REVENUE', 'FINAL COST',
+      'GROSS PROFIT', 'GP PERCENTAGE',
+    ],
+    types: {
+      DATE: 'datetime', QTY: n, PRICE: n, REVENUE: n, COST: n, 'ONLINE PACKING': n, 'PACKING COST': n,
+    },
+  },
   Payments: {
     idField: 'payment_id',
     columns: [
@@ -287,6 +304,29 @@ for (const def of Object.values(SCHEMA)) {
   }
 }
 SCHEMA.Discount_Slabs.types.start_date = 'date';
+
+// GBNutex: dropdowns and per-row formulas (they refer to their own row, so
+// they work in any row the website appends to)
+{
+  const cols = SCHEMA.GBNutex.columns;
+  const letter = (name) => {
+    let s = '';
+    for (let x = cols.indexOf(name) + 1; x; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s;
+    return s;
+  };
+  const at = (name) => `INDIRECT("${letter(name)}"&ROW())`;
+  SCHEMA.GBNutex.dropdowns = {
+    MODE: ['Online', 'Offline', 'Ecom Client'],
+    PLATFORM: ['Meesho NAL', 'Meesho NKF', 'Flipkart NAL', 'Flipkart NKF', 'Myntra NAL', 'Myntra NKF', 'Snapdeal', 'Amazon', 'Website'],
+  };
+  SCHEMA.GBNutex.formulas = {
+    'S NO': '=ROW()-1',
+    'FINAL REVENUE': `=IF(${at('REVENUE')}="","",${at('REVENUE')}-N(${at('ONLINE PACKING')}))`,
+    'FINAL COST': `=IF(${at('COST')}="","",${at('COST')}+N(${at('PACKING COST')}))`,
+    'GROSS PROFIT': `=IF(OR(${at('FINAL REVENUE')}="",${at('FINAL COST')}=""),"",${at('FINAL REVENUE')}-${at('FINAL COST')})`,
+    'GP PERCENTAGE': `=IF(${at('GROSS PROFIT')}="","",IFERROR(${at('GROSS PROFIT')}/${at('FINAL REVENUE')}*100,""))`,
+  };
+}
 SCHEMA.Discount_Slabs.types.end_date = 'date';
 
 // Columns typed by hand that must stay text (leading zeros, +91, long numbers)

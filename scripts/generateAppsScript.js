@@ -22,6 +22,7 @@ const DROPDOWNS = {
   Products: { status: ['ACTIVE', 'INACTIVE', 'ARCHIVED'], inventory_mode: ['COLOR_WISE', 'BOX_WISE'], discount_mode: ['GLOBAL', 'CUSTOM'] },
   Inventory: { status: ['ACTIVE', 'OUT_OF_STOCK'] },
   Packers: { status: ['ACTIVE', 'INACTIVE'] },
+  GBNutex: SCHEMA.GBNutex.dropdowns,
 };
 
 // one entry per line - compact and easy to read in the Apps Script editor
