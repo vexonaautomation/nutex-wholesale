@@ -39,7 +39,12 @@ export function sizeColumn(raw) {
   return { key: `X:${name}`, label: name, sub: '', order: 100 + (Number.isFinite(n) ? n : 900) };
 }
 
-const columnFor = (key) => (key === 'FREE' ? sizeColumn('Free Size') : sizeColumn(key));
+// column from its key: "X:48" is size 48 (a size outside the letter sizes) -
+// it must keep the key "X:48", or that size's cells print blank
+const columnFor = (key) => {
+  if (key === 'FREE') return sizeColumn('Free Size');
+  return sizeColumn(key.startsWith('X:') ? key.slice(2) : key);
+};
 
 // ------------------------------------------------------------ bill data
 export const formatDzn = (pcs) => `${Number((pcs / 12).toFixed(2))} Dzn`;

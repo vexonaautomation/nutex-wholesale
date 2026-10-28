@@ -66,6 +66,26 @@ async function setup() {
   return { adminCtx, order };
 }
 
+test('sizes outside the letter sizes (48, 85) get their own column and their pieces', () => {
+  const item = (size, mode, qty, units) => ({
+    product_id: 'P1', product_name_snapshot: 'Lavender', sku_snapshot: 'LAV', inventory_mode_snapshot: mode, units_per_box_snapshot: units,
+    qty, mrp_unit_snapshot: 100, discount_percent_snapshot: 60, color_snapshot: 'Pink', size_snapshot: size, line_total: 240, status: 'ACTIVE',
+  });
+  const bill = buildBill({
+    order: { order_number: '1', created_at: new Date().toISOString() },
+    items: [item('48', 'COLOR_WISE', 6, null), item('48', 'BOX_WISE', 1, 6), item('85', 'COLOR_WISE', 2, null)],
+    settings: {},
+  });
+  const col48 = bill.columns.find((c) => c.label === '48');
+  const col85 = bill.columns.find((c) => c.label === '85');
+  assert.ok(col48 && col85, 'columns labelled 48 and 85');
+  const pink = bill.rows.find((r) => r.colour === 'Pink');
+  const mix = bill.rows.find((r) => r.colour === 'Mix');
+  assert.equal(pink.sizes[col48.key], 6, '6 loose pieces in size 48');
+  assert.equal(mix.sizes[col48.key], 6, 'box of 6 in size 48');
+  assert.equal(pink.sizes[col85.key], 2);
+});
+
 test('bill rows follow the estimate: boxes as "Mix" with pieces per size, loose pieces per colour', async () => {
   const { order } = await setup();
   const view = await getCustomerOrder(order.order_number, order.access_token);
