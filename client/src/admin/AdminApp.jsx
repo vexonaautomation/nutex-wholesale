@@ -24,6 +24,7 @@ import AuditLog from './AuditLog/AuditLog.jsx';
 import CatalogImport from './CatalogImport/CatalogImport.jsx';
 import SubAdmins from './SubAdmins/SubAdmins.jsx';
 import Packers from './Packers/Packers.jsx';
+import Analytics from './Analytics/Analytics.jsx';
 import { MyAccount } from './Settings/Settings.jsx';
 import { PageHeader } from './components.jsx';
 
@@ -118,6 +119,7 @@ export default function AdminApp() {
           <Route path="discount-slabs" element={<Need permission="pricing"><DiscountSlabs /></Need>} />
           <Route path="orders" element={<OrderList />} />
           <Route path="orders/:id" element={<OrderDetail />} />
+          <Route path="analytics" element={<Need permission="manager"><Analytics /></Need>} />
           <Route path="payments" element={<Need permission="payments"><Payments /></Need>} />
           <Route path="customers" element={<Need permission="customers"><Customers /></Need>} />
           <Route path="existing-customers" element={<Need permission="customers"><ExistingCustomers /></Need>} />

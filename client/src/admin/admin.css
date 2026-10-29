@@ -324,3 +324,10 @@ label.choice { cursor: pointer; }
 .chip svg { width: 16px; height: 16px; }
 .chip:disabled { opacity: 0.5; cursor: not-allowed; }
 .packing-box { margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--radius); display: grid; gap: 8px; background: var(--surface-muted); }
+
+/* ------------------------------------------------------------ analytics */
+.an-bars { display: flex; align-items: flex-end; gap: 6px; height: 180px; overflow-x: auto; padding-top: 18px; }
+.an-bar { flex: 1 0 34px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 34px; }
+.an-bar-fill { width: 70%; max-width: 38px; background: var(--brand-500, #8b1d4f); border-radius: 4px 4px 0 0; }
+.an-bar-value { font-size: 10px; color: var(--text-soft); white-space: nowrap; margin-bottom: 2px; }
+.an-bar-label { font-size: 11px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; }
