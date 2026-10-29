@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as auth from '../controllers/authController.js';
 import * as misc from '../controllers/adminMiscController.js';
+import { salesAnalytics } from '../services/analyticsService.js';
 import * as catalogImport from '../controllers/catalogImportController.js';
 import { requireAdmin, requireRole, subAdminGate } from '../middleware/adminAuth.js';
 import { validate } from '../middleware/validation.js';
@@ -45,6 +46,8 @@ router.post('/sub-admins', requireRole('OWNER', 'ADMIN'), validate(subAdminSchem
 router.put('/sub-admins/:id', requireRole('OWNER', 'ADMIN'), validate(subAdminUpdateSchema), auth.subAdminsUpdate);
 
 router.get('/dashboard', misc.dashboard);
+// sales analytics: owner / admin only (never sub admins)
+router.get('/analytics', requireRole('OWNER', 'ADMIN'), async (req, res) => res.json(await salesAnalytics(req.query)));
 router.get('/audit-log', misc.audit);
 router.get('/system', misc.systemStatus);
 router.get('/export', misc.exportList);
