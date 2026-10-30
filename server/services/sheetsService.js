@@ -494,6 +494,31 @@ export class SheetsService {
     return changed;
   }
 
+  /**
+   * Fill one column where it is still blank: valueOf(row) for each data row
+   * (parsed by header name). Only those cells are written; a value someone
+   * typed is never changed. For sheets whose rows have no unique ID.
+   */
+  async fillBlanks(name, column, valueOf) {
+    this.#requireTransport();
+    await this.#ensureMeta([name]);
+    const [values] = await this.transport.readRanges([quoteSheet(name)]);
+    const { headers, rows } = this.parse(name, values);
+    const col = headers.indexOf(column);
+    if (col < 0) return 0;
+    const sheetId = this.meta.get(name).sheetId;
+    const requests = [];
+    for (const row of rows) {
+      if (String(values[row._row - 1]?.[col] ?? '').trim() !== '') continue;
+      const v = valueOf(row);
+      if (v === '' || v === null || v === undefined) continue;
+      requests.push({ updateCells: { start: { sheetId, rowIndex: row._row - 1, columnIndex: col }, rows: [{ values: [toCellData(v)] }], fields: 'userEnteredValue' } });
+    }
+    for (let i = 0; i < requests.length; i += 200) await this.transport.batchUpdate(requests.slice(i, i + 200));
+    this.invalidate([name]);
+    return requests.length;
+  }
+
   /** READ-ONLY schema check (used by scripts/validateProduction.js). Writes nothing. */
   async schemaStatus() {
     this.#requireTransport();

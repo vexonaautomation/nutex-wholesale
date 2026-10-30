@@ -1,6 +1,6 @@
 // GBNutex: the sales register (one row per item) written when an order is
-// marked HANDED OVER, like Order_Items_Summary. The team fills MODE, PLATFORM
-// (dropdowns) and PACKING COST; S NO, FINAL REVENUE, FINAL COST, GROSS PROFIT
+// marked HANDED OVER, like Order_Items_Summary. MODE is set from the order
+// (gbMode); the team can change MODE / PLATFORM (dropdowns) and fills PACKING COST; S NO, FINAL REVENUE, FINAL COST, GROSS PROFIT
 // and GP PERCENTAGE are sheet formulas (config/schema.js), so they follow
 // what the team types. Nothing of this is shown on the website.
 //  - QTY: dozens (pieces / 12); PRICE: net rate per piece after discount
@@ -14,6 +14,14 @@ import { round2 } from '../utils/money.js';
 export const GB_SHEET = 'GBNutex';
 export const GB_PLATFORMS = Object.freeze(['Meesho NAL', 'Meesho NKF', 'Flipkart NAL', 'Flipkart NKF', 'Myntra NAL', 'Myntra NKF', 'Snapdeal', 'Amazon', 'Website']);
 export const GB_MODES = Object.freeze(['Online', 'Offline', 'Ecom Client']);
+
+/**
+ * MODE: packing charges taken off (the customer chose "less packing", or the
+ * team took them off) = Online; sent with the boxes = Offline.
+ */
+export function gbMode(order) {
+  return order.less_packing === true || (Number(order.packing_deduction) || 0) > 0 ? 'Online' : 'Offline';
+}
 
 /** Set / Bra / Panty / Underwear / Vest from the category (else its name). */
 export function productUnit(categoryName) {
@@ -47,7 +55,7 @@ export function gbNutexRows(order, items, { products, categories }) {
     return {
       DATE: order.created_at,
       BILL: order.order_number,
-      MODE: '',
+      MODE: gbMode(order),
       PLATFORM: 'Website',
       'CLIENT NAME': order.business_name_snapshot || order.customer_name_snapshot,
       PRODUCT: l.item.product_name_snapshot,
