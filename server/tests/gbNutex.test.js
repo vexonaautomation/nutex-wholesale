@@ -9,7 +9,7 @@ import { submitPayment, verifyPayment, listPayments } from '../services/paymentS
 import { createPacker, assignPacker } from '../services/packingService.js';
 import { updateSettings } from '../services/settingsService.js';
 import { sheetsService } from '../services/sheetsService.js';
-import { productUnit } from '../services/gbNutexService.js';
+import { productUnit, gbMode } from '../services/gbNutexService.js';
 import { MIGRATIONS } from '../migrations/index.js';
 import { draftOrderSchema, paymentSubmitSchema, packerSchema } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
@@ -19,14 +19,14 @@ import { logger } from '../utils/logger.js';
 let n = 0;
 const idem = () => `gb-${Date.now()}-${(n += 1)}`;
 
-async function setup() {
+async function setup({ lessPacking = true } = {}) {
   const store = await freshStore();
   await updateSettings({ minimum_order_value: 0 }, store.adminCtx);
   const { variant, saved } = await createColorProduct(store.adminCtx); // ABC Bra, MRP 500, 60% off = 200 a piece
   // cost price typed in the Products sheet by the team
   await sheetsService.commit([{ op: 'update', sheet: 'Products', id: saved.product.product_id, patch: { cost_price: 120 } }]);
   const created = await createDraftOrder(draftOrderSchema.parse({
-    customer: CUSTOMER, items: [{ variant_id: variant('Black', '32').variant_id, qty: 24 }], less_packing: true, idempotency_key: idem(),
+    customer: CUSTOMER, items: [{ variant_id: variant('Black', '32').variant_id, qty: 24 }], less_packing: lessPacking, idempotency_key: idem(),
   }));
   const view = await getCustomerOrder(created.order_number, created.access_token);
   await submitPayment(created.order_number, created.access_token, paymentSubmitSchema.parse({ amount: String(view.amount_to_pay), idempotency_key: idem() }), { buffer: PNG_BYTES });
@@ -58,6 +58,7 @@ test('GBNutex: rows only on Handed over; dozens, net rate, revenue, cost, online
   const [row] = await sheetsService.read('GBNutex', { fresh: true });
   assert.equal(row.BILL, created.order_number);
   assert.equal(row.PLATFORM, 'Website');
+  assert.equal(row.MODE, 'Online', 'packing charges taken off');
   assert.equal(row['CLIENT NAME'], 'Riya Fashion Store');
   assert.equal(row.PRODUCT, 'ABC Bra');
   assert.equal(row['PRODUCT UNIT'], 'Bra');
@@ -88,4 +89,22 @@ test('migration v27 writes orders handed over before it (once)', async () => {
   await up({ sheets: sheetsService, logger });
   await up({ sheets: sheetsService, logger });
   assert.equal((await sheetsService.read('GBNutex', { fresh: true })).length, 1);
+});
+
+test('MODE: with the boxes (no less packing) = Offline; v28 fills only blank MODE cells', async () => {
+  assert.equal(gbMode({ less_packing: false, packing_deduction: 0 }), 'Offline');
+  assert.equal(gbMode({ less_packing: false, packing_deduction: 50 }), 'Online', 'the team took packing charges off');
+  const { to, sheetsTransport } = await setup({ lessPacking: false });
+  for (const s of ['PROCESSING', 'PACKED', 'DISPATCHED', 'COMPLETED']) await to(s);
+  assert.equal((await sheetsService.read('GBNutex', { fresh: true }))[0].MODE, 'Offline');
+
+  // a row from before v28 (MODE blank) and one the team typed
+  const sheet = sheetsTransport.sheets.get('GBNutex');
+  const col = sheet.rows[0].indexOf('MODE');
+  sheet.rows.push([...sheet.rows[1]]);
+  sheet.rows[1][col] = '';
+  sheet.rows[2][col] = 'Ecom Client';
+  sheetsService.invalidate();
+  await MIGRATIONS.find((m) => m.version === 28).up({ sheets: sheetsService, logger });
+  assert.deepEqual(sheet.rows.slice(1).map((r) => r[col]), ['Offline', 'Ecom Client']);
 });

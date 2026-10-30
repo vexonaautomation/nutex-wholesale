@@ -324,4 +324,20 @@ export const MIGRATIONS = [
       logger.info(`Migration v27: ${rows.length} GBNutex row(s) for handed-over orders`);
     },
   },
+  {
+    // GBNutex MODE from the order: packing charges taken off = Online, sent
+    // with the boxes = Offline. Only blank MODE cells are filled.
+    version: 28,
+    description: 'GBNutex: MODE Online (less packing) / Offline (with boxes)',
+    async up({ sheets, logger }) {
+      const { gbMode, GB_SHEET } = await import('../services/gbNutexService.js');
+      const orders = await sheets.read('Orders', { fresh: true });
+      const byBill = new Map(orders.map((o) => [String(o.order_number), o]));
+      const filled = await sheets.fillBlanks(GB_SHEET, 'MODE', (r) => {
+        const o = byBill.get(String(r.BILL));
+        return o ? gbMode(o) : '';
+      });
+      logger.info(`Migration v28: MODE filled on ${filled} GBNutex row(s)`);
+    },
+  },
 ];

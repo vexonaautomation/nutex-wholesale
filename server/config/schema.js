@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 27;
+export const SCHEMA_VERSION = 28;
 
 const n = 'number';
 const b = 'boolean';
