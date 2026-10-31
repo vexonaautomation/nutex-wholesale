@@ -115,11 +115,14 @@ export const adminOrderItemsSchema = z.object({
   client_final_payable: z.number().nonnegative().nullable().optional(),
   note: z.string().trim().max(300).optional().default(''),
   less_packing: z.boolean().optional(),
+  // take today's product MRP for every item (a wrong MRP was corrected)
+  reprice: z.boolean().optional().default(false),
 });
 
 export const recalculateSchema = z.object({
   items: z.array(z.object({ variant_id: id, qty: z.coerce.number().int().min(0).max(100000) })).max(300).optional(),
   less_packing: z.boolean().optional(),
+  reprice: z.boolean().optional(),
 });
 
 export const verifyStartSchema = z.object({ mobile });
