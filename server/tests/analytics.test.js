@@ -67,11 +67,16 @@ test('ordered vs supplied: changes after the order went to packing are counted; 
   const { a, b, adminCtx, variant } = await setup();
   const black32 = variant('Black', '32').variant_id;
   const white34 = variant('White', '34').variant_id;
+  // steps a few ms apart, like real clicks (the time decides before / after packing)
+  const tick = () => new Promise((r) => { setTimeout(r, 5); });
   // before packing: the team changes order b - not a shortage
   await updateOrderItemsAdmin(b.order_number, adminOrderItemsSchema.parse({ items: [{ variant_id: white34, qty: 8 }] }), adminCtx);
+  await tick();
   // order a goes to packing, then only 18 of 24 Black 32 can be given and the box is dropped
   await updateOrderStatusAdmin(a.order_number, { status: 'PROCESSING' }, adminCtx);
+  await tick();
   await updateOrderItemsAdmin(a.order_number, adminOrderItemsSchema.parse({ items: [{ variant_id: black32, qty: 18 }] }), adminCtx);
+  await tick();
   await updateOrderStatusAdmin(b.order_number, { status: 'PROCESSING' }, adminCtx);
 
   const res = await salesAnalytics({});

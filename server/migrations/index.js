@@ -340,4 +340,28 @@ export const MIGRATIONS = [
       logger.info(`Migration v28: MODE filled on ${filled} GBNutex row(s)`);
     },
   },
+  {
+    // Orders.total_pcs / total_boxes (pieces as on the packing slip; a box
+    // counts its pieces) for every order already in the sheet (blank only).
+    version: 29,
+    description: 'Orders: total pieces and boxes',
+    async up({ sheets, logger }) {
+      const { pcsColumns } = await import('../utils/itemPcs.js');
+      const data = await sheets.readMany(['Orders', 'Order_Items'], { fresh: true });
+      const ops = [];
+      for (const o of data.Orders) {
+        if (o.total_pcs !== null && o.total_pcs !== '' && o.total_pcs !== undefined) continue;
+        const items = data.Order_Items.filter((i) => i.order_id === o.order_id && (i.status || 'ACTIVE') === 'ACTIVE');
+        ops.push({
+          op: 'update', sheet: 'Orders', id: o.order_id,
+          patch: {
+            total_pcs: items.reduce((s, i) => s + pcsColumns(i).qty_pcs, 0),
+            total_boxes: items.reduce((s, i) => s + (pcsColumns(i).boxes || 0), 0),
+          },
+        });
+      }
+      for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
+      logger.info(`Migration v29: pieces / boxes filled for ${ops.length} order(s)`);
+    },
+  },
 ];
