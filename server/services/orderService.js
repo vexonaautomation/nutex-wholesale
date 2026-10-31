@@ -917,27 +917,30 @@ const orderCustomerRules = (order) => (order.customer_type_snapshot === CUSTOMER
   : null);
 
 // what the order already has per variant: qty, rate (MRP per unit) and packed pieces
-function keptLines(items) {
+// reprice: the items take today's product MRP (e.g. a wrong MRP was corrected)
+function keptLines(items, { reprice = false } = {}) {
   const keep = {};
   for (const i of items) {
-    keep[i.variant_id] ||= { qty: 0, unit_mrp: Number(i.mrp_unit_snapshot) || 0, components: componentsOf(i) };
+    keep[i.variant_id] ||= { qty: 0, unit_mrp: reprice ? null : Number(i.mrp_unit_snapshot) || 0, components: componentsOf(i) };
     keep[i.variant_id].qty += Number(i.qty) || 0;
   }
   return keep;
 }
 
-const adminEditQuote = ({ order, current, items, catalog }) => buildQuote({
-  items, catalog, heldByOrder: qtyMap(current), customer: orderCustomerRules(order), keep: keptLines(current),
+const adminEditQuote = ({
+  order, current, items, catalog, reprice = false,
+}) => buildQuote({
+  items, catalog, heldByOrder: qtyMap(current), customer: orderCustomerRules(order), keep: keptLines(current, { reprice }),
 });
 
 /** Admin item edit preview (no writes; cached catalog - the save checks again). */
-export async function previewOrderItemsAdmin(id, { items, less_packing: lessPacking } = {}) {
+export async function previewOrderItemsAdmin(id, { items, less_packing: lessPacking, reprice = false } = {}) {
   const [bundle, catalog] = await Promise.all([loadOrderBundle(id, { byId: true }), getCatalog()]);
   const { order } = bundle;
   assertAdminCanEditItems(order);
   const current = activeItems(bundle.items, order.order_id);
   const quote = adminEditQuote({
-    order, current, catalog, items: items ?? current.map((i) => ({ variant_id: i.variant_id, qty: i.qty })),
+    order, current, catalog, reprice, items: items ?? current.map((i) => ({ variant_id: i.variant_id, qty: i.qty })),
   });
   const packing = packingFor(order, quote, lessPacking);
   const deduction = packing.deduction;
@@ -978,7 +981,7 @@ export async function orderProductOptionsAdmin(id, { q } = {}) {
 }
 
 export async function updateOrderItemsAdmin(id, {
-  items, client_final_payable: clientFinal, note, less_packing: lessPacking,
+  items, client_final_payable: clientFinal, note, less_packing: lessPacking, reprice = false,
 }, { admin, ip }) {
   return withLock(COMMERCE_LOCK, async () => {
     const data = await sheetsService.readMany([...CATALOG_SHEETS, ...ORDER_SHEETS], { fresh: true });
@@ -987,7 +990,9 @@ export async function updateOrderItemsAdmin(id, {
     assertAdminCanEditItems(order);
     const current = activeItems(data.Order_Items, order.order_id);
     const catalog = buildCatalog(data);
-    const quote = adminEditQuote({ order, current, items, catalog });
+    const quote = adminEditQuote({
+      order, current, items, catalog, reprice,
+    });
     if (!quote.lines.length) throw badRequest('An order needs at least one item. To remove everything, cancel the order.');
     if (quote.has_issues) {
       throw conflict('STOCK_CHANGED', MESSAGES.STOCK_CHANGED, {
@@ -1021,7 +1026,7 @@ export async function updateOrderItemsAdmin(id, {
         admin, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_ADMIN, entity_type: 'Order', entity_id: order.order_id,
         old_value: { revision: order.revision, final_payable: order.final_payable, items: current.length },
         new_value: { revision, final_payable: totals.final_payable, items: quote.lines.length },
-        notes: `Items changed by admin${note ? ` - ${note}` : ''}`,
+        notes: `${reprice ? 'Prices updated from products' : 'Items changed by admin'}${note ? ` - ${note}` : ''}`,
       }),
     ]);
     logger.info(`Order ${order.order_number} items changed by admin (${formatINR(order.final_payable)} -> ${formatINR(totals.final_payable)})`);

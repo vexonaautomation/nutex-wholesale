@@ -10,6 +10,7 @@ import {
 import { withLock, COMMERCE_LOCK } from '../utils/lockManager.js';
 import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso } from '../utils/dates.js';
+import { round2 } from '../utils/money.js';
 import { slugify, uniqueSlug } from '../utils/slug.js';
 import { badRequest, notFound, conflict } from '../utils/errors.js';
 import { availableOf, autoBoxInfo, EXTRA_COLOUR_AUTO } from '../utils/stockValidator.js';
@@ -177,6 +178,17 @@ export async function saveProduct(input, { admin, ip, productId = null, extraAud
     const sizeIds = [...new Set(input.size_ids)];
     const colorIds = [...new Set(input.color_ids)];
     for (const s of sizeIds) if (!catalog.sizesById.has(s)) throw badRequest(`Unknown size ${s}`);
+    // MRP corrected: a size-wise MRP left as it was (e.g. 42-44 = old MRP + 6)
+    // moves with it by the same amount, so bigger sizes keep their difference.
+    // A size price changed in the same save is kept as typed.
+    const mrpDelta = existing ? Number(input.mrp) - Number(existing.mrp) : 0;
+    if (mrpDelta) {
+      const before = sizeMrpsOf(catalog.variantsByProduct.get(productId) || []);
+      input = {
+        ...input,
+        size_mrps: (input.size_mrps || []).map((m) => (Number(before[m.size_id]) === Number(m.mrp) ? { ...m, mrp: round2(Number(m.mrp) + mrpDelta) } : m)),
+      };
+    }
     // size-wise MRP: only for selected sizes and only when it differs from the product MRP
     const sizeMrp = new Map((input.size_mrps || [])
       .filter((m) => sizeIds.includes(m.size_id) && Number(m.mrp) > 0 && Number(m.mrp) !== Number(input.mrp))

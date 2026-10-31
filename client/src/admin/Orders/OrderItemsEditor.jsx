@@ -178,6 +178,8 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
   const [tick, setTick] = useState(0);
   // "less packing charges" can be ticked / unticked while editing too
   const [lessPacking, setLessPacking] = useState(order.less_packing === true);
+  // "Update prices from products": today's product MRP for every item
+  const [reprice, setReprice] = useState(false);
   const debounced = useDebounce(lines, 350);
 
   useEffect(() => {
@@ -185,15 +187,15 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
     const body = debounced.filter((l) => l.qty > 0);
     if (!body.length) { setPreview(null); return undefined; }
     setPreviewing(true);
-    adminApi.post(`/orders/${encodeURIComponent(order.order_id)}/items/preview`, { items: body, less_packing: lessPacking })
+    adminApi.post(`/orders/${encodeURIComponent(order.order_id)}/items/preview`, { items: body, less_packing: lessPacking, reprice })
       .then((res) => { if (live) setPreview(res); })
       .catch((err) => { if (live) toast.error(err.message); })
       .finally(() => { if (live) setPreviewing(false); });
     return () => { live = false; };
-  }, [debounced, order.order_id, toast, tick, lessPacking]);
+  }, [debounced, order.order_id, toast, tick, lessPacking, reprice]);
 
   const byVariant = useMemo(() => new Map((preview?.quote.lines || []).map((l) => [l.variant_id, l])), [preview]);
-  const changed = !sameLines(lines, initial) || lessPacking !== (order.less_packing === true);
+  const changed = !sameLines(lines, initial) || lessPacking !== (order.less_packing === true) || reprice;
   const stale = debounced !== lines || previewing;
   const quote = preview?.quote;
   const newTotal = preview?.new_final_payable ?? null;
@@ -218,7 +220,7 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
     setSaving(true);
     try {
       const res = await adminApi.put(`/orders/${encodeURIComponent(order.order_id)}/items`, {
-        items: lines.filter((l) => l.qty > 0), client_final_payable: quote.final_payable, note, less_packing: lessPacking,
+        items: lines.filter((l) => l.qty > 0), client_final_payable: quote.final_payable, note, less_packing: lessPacking, reprice,
       });
       toast.success(`Order ${order.order_number} updated · new total ${formatINR(res.totals.final_payable)}`);
       onSaved(res);
@@ -258,7 +260,12 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
                     <QuantitySelector size="sm" min={1} value={l.qty} onChange={(v) => setQty(l.variant_id, v)} label={`${d.product_name || 'Item'} quantity`} />
                     <div className="cell-sub">{units ? `${l.qty} ${l.qty === 1 ? 'box' : 'boxes'} · ${l.qty * units} pcs` : `${l.qty} pcs`}</div>
                   </td>
-                  <td className="right num small">{p?.unit_price != null ? <>{formatINR(p.unit_price)}<div className="cell-sub">{pct(p.discount_percent)} off</div></> : '—'}</td>
+                  <td className="right num small">
+                    {p?.unit_price != null ? <>{formatINR(p.unit_price)}<div className="cell-sub">{pct(p.discount_percent)} off</div></> : '—'}
+                    {reprice && info[l.variant_id]?.mrp_unit != null && p?.unit_mrp != null && Number(info[l.variant_id].mrp_unit) !== Number(p.unit_mrp) && (
+                      <div className="cell-sub" style={{ color: 'var(--warning-700)' }}>MRP {formatINR(info[l.variant_id].mrp_unit)} → {formatINR(p.unit_mrp)}</div>
+                    )}
+                  </td>
                   <td className="right num"><strong>{p?.line_total != null ? formatINR(p.line_total) : '—'}</strong></td>
                   <td className="right"><button type="button" className="btn btn-sm btn-ghost" onClick={() => remove(l.variant_id)} aria-label={`Remove ${d.product_name || 'item'}`}><Trash2 /></button></td>
                 </tr>
@@ -270,6 +277,14 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
       </div>
 
       <AddItems orderId={order.order_id} onAdd={add} />
+
+      <label className={`packing-choice${reprice ? ' is-on' : ''}`}>
+        <input type="checkbox" checked={reprice} onChange={(e) => setReprice(e.target.checked)} />
+        <span>
+          <strong>Update prices from products</strong>
+          <span className="small">Every item takes the product&apos;s MRP of today (size-wise) - use it when a wrong MRP was corrected. Check the new rates, then save.</span>
+        </span>
+      </label>
 
       {quote?.packing_choice && (
         <label className={`packing-choice${lessPacking ? ' is-on' : ''}`}>

@@ -112,7 +112,8 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
       variant,
       available: keptAll ? Math.max(availability.available, kept.qty) : availability.available,
       issue,
-      unit_mrp: kept ? kept.unit_mrp : product && variant ? unitMrpForVariant(product, variant) : 0,
+      // kept line: its own MRP, unless the admin re-prices the order (unit_mrp null)
+      unit_mrp: kept && kept.unit_mrp !== null ? kept.unit_mrp : product && variant ? unitMrpForVariant(product, variant) : 0,
       override_percent: product ? productOverridePercent(product) : null,
       units_per_item: isBoxVariant(variant) ? Number(variant?.units_per_box) || 1 : 1,
       // pieces taken from each inventory row per unit (auto boxes use the colours' loose stock)
