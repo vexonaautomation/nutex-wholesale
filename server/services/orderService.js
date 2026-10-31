@@ -25,7 +25,7 @@ import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
 import { orderSheetColumns } from './orderSheetColumns.js';
-import { summaryAppendOp } from './itemSummaryService.js';
+import { summaryAppendOp, summaryRemoveOps } from './itemSummaryService.js';
 import { gbNutexRows, GB_SHEET } from './gbNutexService.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
 import {
@@ -675,6 +675,8 @@ export async function getOrderAdmin(idOrNumber) {
       can_reopen: canReopen(order).ok,
       can_cancel: canCancel(order).ok,
       can_edit_items: canAdminEditItems(order),
+      // owner / admin: also after dispatch and hand-over
+      can_edit_items_manager: canAdminEditItems(order, { manager: true }),
     },
   };
 }
@@ -899,15 +901,21 @@ export async function reopenOrderAdmin(id, { reason }, { admin, ip }) {
 // order's customer: existing customers always, new customers only where the
 // article is opened for them. The minimum order value is not checked.
 const ADMIN_EDIT_CLOSED = [ORDER_STATUS.CANCELLED, ORDER_STATUS.DISPATCHED, ORDER_STATUS.COMPLETED];
+// the main admin (owner / admin) may also correct dispatched and handed-over orders
+const MANAGER_EDIT_CLOSED = [ORDER_STATUS.CANCELLED];
+const isManagerAdmin = (admin) => ['OWNER', 'ADMIN'].includes(admin?.role);
 
-export function canAdminEditItems(order) {
-  return Boolean(order) && !ADMIN_EDIT_CLOSED.includes(order.order_status)
+export function canAdminEditItems(order, { manager = false } = {}) {
+  return Boolean(order) && !(manager ? MANAGER_EDIT_CLOSED : ADMIN_EDIT_CLOSED).includes(order.order_status)
     && [STOCK_STATE.RESERVED, STOCK_STATE.DEDUCTED].includes(order.stock_state);
 }
 
-function assertAdminCanEditItems(order) {
-  if (!canAdminEditItems(order)) {
-    throw conflict('ORDER_LOCKED', `Items cannot be changed on a ${STATE_LABELS[order.order_status] || order.order_status} order.`);
+function assertAdminCanEditItems(order, admin) {
+  if (!canAdminEditItems(order, { manager: isManagerAdmin(admin) })) {
+    const after = [ORDER_STATUS.DISPATCHED, ORDER_STATUS.COMPLETED].includes(order.order_status);
+    throw conflict('ORDER_LOCKED', after
+      ? `Only the main admin can change the items of a ${STATE_LABELS[order.order_status] || order.order_status} order.`
+      : `Items cannot be changed on a ${STATE_LABELS[order.order_status] || order.order_status} order.`);
   }
 }
 
@@ -934,10 +942,10 @@ const adminEditQuote = ({
 });
 
 /** Admin item edit preview (no writes; cached catalog - the save checks again). */
-export async function previewOrderItemsAdmin(id, { items, less_packing: lessPacking, reprice = false } = {}) {
+export async function previewOrderItemsAdmin(id, { items, less_packing: lessPacking, reprice = false } = {}, { admin } = {}) {
   const [bundle, catalog] = await Promise.all([loadOrderBundle(id, { byId: true }), getCatalog()]);
   const { order } = bundle;
-  assertAdminCanEditItems(order);
+  assertAdminCanEditItems(order, admin);
   const current = activeItems(bundle.items, order.order_id);
   const quote = adminEditQuote({
     order, current, catalog, reprice, items: items ?? current.map((i) => ({ variant_id: i.variant_id, qty: i.qty })),
@@ -987,7 +995,7 @@ export async function updateOrderItemsAdmin(id, {
     const data = await sheetsService.readMany([...CATALOG_SHEETS, ...ORDER_SHEETS], { fresh: true });
     const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
     if (!order) throw notFound('Order not found.');
-    assertAdminCanEditItems(order);
+    assertAdminCanEditItems(order, admin);
     const current = activeItems(data.Order_Items, order.order_id);
     const catalog = buildCatalog(data);
     const quote = adminEditQuote({
@@ -1017,10 +1025,15 @@ export async function updateOrderItemsAdmin(id, {
     const inventory = inventoryDeltaOps(data.Inventory, deltas, { by: admin.admin_id });
     const packing = packingFor(order, quote, lessPacking);
     const totals = totalsFields(quote, packing.deduction);
+    const newRows = itemRows(order, revision, quote, now);
+    // handed over already: its Order_Items_Summary rows follow the new items
+    const handedOver = order.order_status === ORDER_STATUS.COMPLETED;
     await sheetsService.commit([
       ...inventory.ops,
       ...replaceItemOps(current),
-      ...itemOps(order, revision, quote, now),
+      { op: 'append', sheet: 'Order_Items', rows: newRows },
+      ...(handedOver ? summaryRemoveOps(current) : []),
+      handedOver ? summaryAppendOp({ ...order, ...totals, ...packing.patch }, newRows) : null,
       { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totals, ...packing.patch, revision, updated_at: now } },
       auditOp({
         admin, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_ADMIN, entity_type: 'Order', entity_id: order.order_id,
@@ -1030,6 +1043,12 @@ export async function updateOrderItemsAdmin(id, {
       }),
     ]);
     logger.info(`Order ${order.order_number} items changed by admin (${formatINR(order.final_payable)} -> ${formatINR(totals.final_payable)})`);
+    if (handedOver) {
+      // GBNutex: the order's rows get the new quantities and amounts (team columns kept)
+      const { syncGbNutex } = await import('./gbNutexService.js');
+      await syncGbNutex({ ...order, ...totals, ...packing.patch }, current, newRows)
+        .catch((err) => logger.error('GBNutex not updated after the order was edited', err));
+    }
     return getOrderAdmin(order.order_id);
   });
 }

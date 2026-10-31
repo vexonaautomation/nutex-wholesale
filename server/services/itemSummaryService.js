@@ -48,3 +48,9 @@ export function summaryRow(order, item) {
 export const summaryAppendOp = (order, items) => (items.length
   ? { op: 'append', sheet: SUMMARY_SHEET, rows: items.map((i) => summaryRow(order, i)) }
   : null);
+
+// a handed-over order edited by the main admin: its old rows leave
+// (optional: an item without a summary row is simply skipped)
+export const summaryRemoveOps = (items) => items.map((i) => ({
+  op: 'remove', sheet: SUMMARY_SHEET, id: i.order_item_id, optional: true,
+}));

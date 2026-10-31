@@ -519,6 +519,32 @@ export class SheetsService {
     return requests.length;
   }
 
+  /**
+   * Change cells of rows given by their row number (rows read just before -
+   * `_row` of read()). For sheets whose rows have no unique ID (GBNutex).
+   * Only the listed columns change; formulas / other columns are untouched.
+   */
+  async patchRows(name, patches) {
+    this.#requireTransport();
+    if (!patches.length) return 0;
+    await this.#ensureMeta([name]);
+    const [head] = await this.transport.readRanges([`${quoteSheet(name)}!1:1`]);
+    const headers = (head[0] || []).map((h) => String(h ?? '').trim());
+    const sheetId = this.meta.get(name).sheetId;
+    const requests = [];
+    for (const { row, patch } of patches) {
+      for (const [k, v] of Object.entries(patch)) {
+        const col = headers.indexOf(k);
+        if (col < 0) throw new Error(`Column "${k}" missing in sheet ${name}; run migrations`);
+        const cell = cellFor(name, k, v);
+        requests.push({ updateCells: { start: { sheetId, rowIndex: row - 1, columnIndex: col }, rows: [{ values: [cell] }], fields: cell.userEnteredFormat ? APPEND_FIELDS : 'userEnteredValue' } });
+      }
+    }
+    for (let i = 0; i < requests.length; i += 300) await this.transport.batchUpdate(requests.slice(i, i + 300));
+    this.invalidate([name]);
+    return patches.length;
+  }
+
   /** READ-ONLY schema check (used by scripts/validateProduction.js). Writes nothing. */
   async schemaStatus() {
     this.#requireTransport();
