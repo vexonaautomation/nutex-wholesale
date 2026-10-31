@@ -10,6 +10,7 @@
 import { pcsColumns } from '../utils/itemPcs.js';
 import { packingRateOf } from '../utils/packing.js';
 import { round2 } from '../utils/money.js';
+import { sheetsService } from './sheetsService.js';
 
 export const GB_SHEET = 'GBNutex';
 export const GB_PLATFORMS = Object.freeze(['Meesho NAL', 'Meesho NKF', 'Flipkart NAL', 'Flipkart NKF', 'Myntra NAL', 'Myntra NKF', 'Snapdeal', 'Amazon', 'Website']);
@@ -68,4 +69,47 @@ export function gbNutexRows(order, items, { products, categories }) {
       'ONLINE PACKING': round2(deduction * share),
     };
   });
+}
+
+// columns the website writes (the team's MODE, PLATFORM, PACKING COST and the
+// formula columns are never touched by a sync)
+const SYSTEM_COLUMNS = ['QTY', 'PRICE', 'REVENUE', 'COST', 'ONLINE PACKING'];
+
+/**
+ * A handed-over order was edited by the main admin: its GBNutex rows follow.
+ * The rows were written in the order of the old items; an item still in the
+ * order keeps its row (new numbers), a new item gets a new row, an item taken
+ * out keeps its row with 0 (rows of this register are never deleted).
+ */
+export async function syncGbNutex(order, oldItems, newItems) {
+  const [cat, rows] = await Promise.all([
+    sheetsService.readMany(['Products', 'Categories']),
+    sheetsService.read(GB_SHEET, { fresh: true }),
+  ]);
+  const ctx = {
+    products: new Map(cat.Products.map((p) => [p.product_id, p])),
+    categories: new Map(cat.Categories.map((x) => [x.category_id, x])),
+  };
+  const mine = rows.filter((r) => String(r.BILL) === String(order.order_number));
+  const used = new Set();
+  const rowOf = new Map(); // variant_id -> sheet row number
+  oldItems.forEach((item, k) => {
+    let r = mine[k] && !used.has(mine[k]._row) && mine[k].PRODUCT === item.product_name_snapshot ? mine[k] : null;
+    if (!r) r = mine.find((x) => !used.has(x._row) && x.PRODUCT === item.product_name_snapshot) || null;
+    if (r) { used.add(r._row); rowOf.set(item.variant_id, r._row); }
+  });
+  const fresh = gbNutexRows(order, newItems, ctx);
+  const patches = [];
+  const append = [];
+  newItems.forEach((item, k) => {
+    const row = rowOf.get(item.variant_id);
+    if (row) {
+      patches.push({ row, patch: Object.fromEntries(SYSTEM_COLUMNS.map((c) => [c, fresh[k][c]])) });
+      rowOf.delete(item.variant_id);
+    } else append.push(fresh[k]);
+  });
+  for (const row of rowOf.values()) patches.push({ row, patch: { QTY: 0, REVENUE: 0, COST: 0, 'ONLINE PACKING': 0 } });
+  await sheetsService.patchRows(GB_SHEET, patches);
+  if (append.length) await sheetsService.commit([{ op: 'append', sheet: GB_SHEET, rows: append }]);
+  return { updated: patches.length, added: append.length };
 }

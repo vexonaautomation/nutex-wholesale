@@ -14,7 +14,7 @@ import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { waLink } from '../../utils/whatsapp.js';
 import OrderItemsEditor from './OrderItemsEditor.jsx';
 import { PackerFields, PackingCard, sendToPacker } from './PackerPicker.jsx';
-import { useCan } from '../AdminApp.jsx';
+import { useCan, useAdmin, isManager } from '../AdminApp.jsx';
 
 export function ProofModal({ payment, onClose }) {
   const [failed, setFailed] = useState(false);
@@ -111,6 +111,7 @@ function PackingCharges({ order, totals, onSaved }) {
 export default function OrderDetail() {
   const { id } = useParams();
   const toast = useToast();
+  const { admin } = useAdmin();
   const { data, loading, error, reload, setData } = useAsync(() => adminApi.get(`/orders/${encodeURIComponent(id)}`), [id]);
   const [proof, setProof] = useState(null);
   const [dialog, setDialog] = useState(null);
@@ -192,7 +193,7 @@ export default function OrderDetail() {
           <section className="card card-pad">
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 className="card-title">{editing ? 'Edit items' : 'Order items (snapshot)'}</h3>
-              {!editing && data.actions.can_edit_items && <button type="button" className="btn btn-sm" onClick={() => setEditing(true)}><Pencil /> Edit items</button>}
+              {!editing && (isManager(admin) ? data.actions.can_edit_items_manager : data.actions.can_edit_items) && <button type="button" className="btn btn-sm" onClick={() => setEditing(true)}><Pencil /> Edit items</button>}
             </div>
             {editing ? (
               <OrderItemsEditor

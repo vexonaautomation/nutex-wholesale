@@ -235,7 +235,13 @@ export default function OrderItemsEditor({ order, items, paidVerified, onSaved, 
   const canSave = changed && lines.length > 0 && quote && !stale && !quote.has_issues && !saving;
   return (
     <div className="stack" style={{ gap: 12 }}>
-      {order.locked && (
+      {['DISPATCHED', 'COMPLETED'].includes(order.order_status) && (
+        <Alert type="warning">
+          This order is already {order.order_status === 'COMPLETED' ? 'handed over' : 'dispatched'}. Saving changes the items, stock and bill
+          {order.order_status === 'COMPLETED' ? ', and updates its rows in Order_Items_Summary and GBNutex (your MODE / PLATFORM / PACKING COST stay).' : '.'}
+        </Alert>
+      )}
+      {order.locked && !['DISPATCHED', 'COMPLETED'].includes(order.order_status) && (
         <Alert type="warning">
           This order is {paidVerified > 0 ? 'paid' : 'locked'}. Saving changes the items, stock and bill straight away
           {paidVerified > 0 ? ' - collect or refund the difference outside the website.' : '.'}

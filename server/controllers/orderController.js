@@ -132,5 +132,5 @@ export const adminCancel = async (req, res) => res.json(await cancelOrderAdmin(r
 
 export const adminPackingDeduction = async (req, res) => res.json(await setPackingDeduction(req.params.id, req.body, ctx(req)));
 export const adminProductOptions = async (req, res) => res.json(await orderProductOptionsAdmin(req.params.id, { q: req.query.q }));
-export const adminPreviewItems = async (req, res) => res.json(await previewOrderItemsAdmin(req.params.id, req.body));
+export const adminPreviewItems = async (req, res) => res.json(await previewOrderItemsAdmin(req.params.id, req.body, ctx(req)));
 export const adminUpdateItems = async (req, res) => res.json(await updateOrderItemsAdmin(req.params.id, req.body, ctx(req)));
