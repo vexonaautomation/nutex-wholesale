@@ -9,7 +9,7 @@ import { createDraftOrder, getCustomerOrder, cancelOrderAdmin } from '../service
 import { submitPayment } from '../services/paymentService.js';
 import { updateSettings, getSettings } from '../services/settingsService.js';
 import {
-  sizeColumn, buildBill, formatDzn, formatPcs, formatBoxes, customerBill, adminBill,
+  sizeColumn, buildBill, formatDzn, formatPcs, formatBoxes, customerBill, adminBill, renderBillPdf, itemWidth,
 } from '../services/billService.js';
 import { productSchema, draftOrderSchema, paymentSubmitSchema } from '../utils/validation.js';
 
@@ -84,6 +84,22 @@ test('sizes outside the letter sizes (48, 85) get their own column and their pie
   assert.equal(pink.sizes[col48.key], 6, '6 loose pieces in size 48');
   assert.equal(mix.sizes[col48.key], 6, 'box of 6 in size 48');
   assert.equal(pink.sizes[col85.key], 2);
+});
+
+test('many sizes: the page turns landscape so the item name, colour and SKU stay readable', async () => {
+  const sizes = ['28', '30', '32', '34', '36', '38', '42', '46', 'Free Size'];
+  const items = sizes.map((size, n) => ({
+    product_id: `P${n}`, product_name_snapshot: 'First Night Lingerie Set', sku_snapshot: `2057-BOX6-${size}`, inventory_mode_snapshot: 'BOX_WISE',
+    units_per_box_snapshot: 6, qty: 1, mrp_unit_snapshot: 1710, discount_percent_snapshot: 60, color_snapshot: '', size_snapshot: size, line_total: 684, status: 'ACTIVE',
+  }));
+  const bill = buildBill({ order: { order_number: '202610310001', created_at: new Date().toISOString() }, items, settings: {} });
+  assert.equal(bill.columns.length, 9, 'XXS, XS, S, M, L, XL, 3XL, 5XL, FreeSize');
+  assert.ok(itemWidth(bill, 595.28) < 120, 'portrait would squeeze the item column');
+  assert.ok(itemWidth(bill, 841.89) >= 120, 'landscape keeps it readable');
+  const pdf = (await renderBillPdf(bill)).toString('latin1');
+  assert.match(pdf, /\/MediaBox \[0 0 841\.89 595\.28\]/, 'landscape page');
+  const few = buildBill({ order: { order_number: '1', created_at: new Date().toISOString() }, items: items.slice(2, 5), settings: {} });
+  assert.match((await renderBillPdf(few)).toString('latin1'), /\/MediaBox \[0 0 595\.28 841\.89\]/, 'few sizes stay portrait');
 });
 
 test('bill rows follow the estimate: boxes as "Mix" with pieces per size, loose pieces per colour', async () => {

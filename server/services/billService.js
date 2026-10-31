@@ -171,9 +171,37 @@ const BLUE = '#3b82f6';
 const RED = '#e11d48';
 const NAVY = '#1e3fae';
 
+// ---- table widths (points). The item column must stay readable: with many
+// sizes the page turns landscape, and if that is still not enough the size
+// columns get narrower (never below MIN_SIZE_W).
+const A4_PORTRAIT_W = 595.28;
+const PAGE_MARGIN = 44;
+const MIN_ITEM_W = 120;
+const MIN_SIZE_W = 20;
+
+function tableWidths(bill, tableW) {
+  const fixed = bill.slip === true ? { qty: 72 } : { qty: 56, rate: 46, disc: 34, amount: 66 };
+  const freeW = 44;
+  const fixedW = Object.values(fixed).reduce((s, w) => s + w, 0);
+  const plain = bill.columns.filter((c) => c.key !== 'FREE').length;
+  const freeTotal = bill.columns.length - plain ? freeW : 0;
+  const room = tableW - fixedW - freeTotal - MIN_ITEM_W;
+  const sizeW = plain && plain * 30 > room ? Math.max(MIN_SIZE_W, Math.floor(room / plain)) : 30;
+  return { fixed, sizeW, freeW };
+}
+
+/** Item column width on a page of this width (used to choose portrait / landscape). */
+export function itemWidth(bill, pageW) {
+  const tableW = pageW - 2 * PAGE_MARGIN;
+  const { fixed, freeW } = tableWidths(bill, Infinity);
+  const sizes = bill.columns.reduce((s, c) => s + (c.key === 'FREE' ? freeW : 30), 0);
+  return tableW - sizes - Object.values(fixed).reduce((s, w) => s + w, 0);
+}
+
 export function renderBillPdf(bill) {
-  // landscape only when an order uses many different sizes
-  const landscape = bill.columns.length > 9;
+  // landscape when the size columns leave the item column (name, colour,
+  // SKU) less than MIN_ITEM_W on a portrait page
+  const landscape = itemWidth(bill, A4_PORTRAIT_W) < MIN_ITEM_W;
   const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 0, info: { Title: `${bill.title} ${bill.number}`, Author: bill.company.name } });
   doc.registerFont('R', font('latin', 400));
   doc.registerFont('B', font('latin', 700));
@@ -227,9 +255,7 @@ export function renderBillPdf(bill) {
 
   // ---- table geometry (a packing slip has no rate / discount / amount)
   const slip = bill.slip === true;
-  const fixed = slip ? { qty: 72 } : { qty: 56, rate: 46, disc: 34, amount: 66 };
-  const sizeW = 30;
-  const freeW = 44;
+  const { fixed, sizeW, freeW } = tableWidths(bill, R - L);
   const sizeCols = bill.columns.map((c) => ({ ...c, w: c.key === 'FREE' ? freeW : sizeW }));
   const itemW = R - L - sizeCols.reduce((s, c) => s + c.w, 0) - Object.values(fixed).reduce((s, w) => s + w, 0);
   const cols = [{ key: 'item', w: itemW }, ...sizeCols.map((c) => ({ key: `s:${c.key}`, w: c.w, c })), ...Object.entries(fixed).map(([key, w]) => ({ key, w }))];
