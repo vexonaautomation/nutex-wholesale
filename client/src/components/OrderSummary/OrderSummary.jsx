@@ -31,7 +31,14 @@ export function OrderTotals({ totals }) {
       <div className="summary-row"><span>MRP subtotal</span><strong>{formatINR(totals.mrp_subtotal)}</strong></div>
       <div className="summary-row"><span>Discount</span><strong>{pct(totals.effective_discount_percent || totals.discount_percent)}</strong></div>
       <div className="summary-row"><span>Discount amount</span><strong style={{ color: 'var(--success-700)' }}>− {formatINR(totals.discount_amount)}</strong></div>
-      <div className="summary-row"><span>Total quantity</span><strong>{totals.total_qty}</strong></div>
+      <div className="summary-row">
+        <span>Total quantity</span>
+        <strong>
+          {totals.total_pcs != null && totals.total_pcs !== ''
+            ? `${totals.total_pcs} pcs (${Number((totals.total_pcs / 12).toFixed(2))} Dzn)${Number(totals.total_boxes) ? ` · ${totals.total_boxes} ${Number(totals.total_boxes) === 1 ? 'box' : 'boxes'}` : ''}`
+            : totals.total_qty}
+        </strong>
+      </div>
       <div className="summary-row">
         <span>Minimum order (at time of order)</span>
         <strong>{totals.customer_type === 'EXISTING' && !Number(totals.minimum_order_value) ? 'Not applicable (existing customer)' : formatINR(totals.minimum_order_value)}</strong>

@@ -34,7 +34,7 @@ export default function TrackOrder() {
               <dl className="kv mb-2">
                 <dt>Placed on</dt><dd>{formatDate(order.created_at)}</dd>
                 <dt>Final payable</dt><dd>{formatINR(order.totals.final_payable)}</dd>
-                <dt>Items</dt><dd>{order.items.length} lines · {order.totals.total_qty} units</dd>
+                <dt>Items</dt><dd>{order.items.length} lines · {order.totals.total_pcs ?? order.totals.total_qty} pcs</dd>
                 {order.dispatch?.courier_name && <><dt>Courier</dt><dd>{order.dispatch.courier_name} {order.dispatch.tracking_number}</dd></>}
               </dl>
               <OrderTimeline timeline={order.timeline} />

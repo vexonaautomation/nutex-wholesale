@@ -26,6 +26,7 @@ import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
 import { orderSheetColumns } from './orderSheetColumns.js';
 import { summaryAppendOp, summaryRemoveOps } from './itemSummaryService.js';
+import { pcsColumns } from '../utils/itemPcs.js';
 import { gbNutexRows, GB_SHEET } from './gbNutexService.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
 import {
@@ -111,6 +112,8 @@ function totalsFields(quote, deduction = 0) {
     discount_amount: quote.discount_amount,
     final_payable: roundRupee(Math.max(0, quote.final_payable - (Number(deduction) || 0))),
     total_qty: quote.total_qty,
+    total_pcs: quote.total_pieces,
+    total_boxes: quote.lines.reduce((s, l) => s + (l.units_per_box ? Number(l.qty) || 0 : 0), 0),
     minimum_order_value_snapshot: quote.minimum_order_value,
     minimum_order_met: quote.minimum_order_met,
     customer_type_snapshot: quote.customer_type,
@@ -221,6 +224,14 @@ const itemView = (i) => ({
   status: i.status,
 });
 
+/** Pieces and boxes of the order's active items (as on the packing slip). */
+function pieceTotals(items) {
+  return {
+    total_pcs: items.reduce((s, i) => s + pcsColumns(i).qty_pcs, 0),
+    total_boxes: items.reduce((s, i) => s + (pcsColumns(i).boxes || 0), 0),
+  };
+}
+
 // final payable before rounding = MRP subtotal - discount - packing charges
 function roundOffOf(o) {
   const exact = round2((Number(o.mrp_subtotal) || 0) - (Number(o.discount_amount) || 0) - (Number(o.packing_deduction) || 0));
@@ -242,6 +253,8 @@ const totalsView = (o, settings = {}) => ({
   discount_amount: o.discount_amount,
   final_payable: o.final_payable,
   total_qty: o.total_qty,
+  total_pcs: o.total_pcs,
+  total_boxes: o.total_boxes,
   minimum_order_value: o.minimum_order_value_snapshot,
   minimum_order_met: o.minimum_order_met,
   customer_type: o.customer_type_snapshot || CUSTOMER_TYPE.NEW,
@@ -290,7 +303,7 @@ export function customerOrderView({ order, items, payments, history }, settings 
     },
     order_notes: order.order_notes,
     items: activeItems(items, order.order_id).map(itemView),
-    totals: totalsView(order, settings),
+    totals: { ...totalsView(order, settings), ...pieceTotals(activeItems(items, order.order_id)) },
     payments: payments.map((p) => ({
       payment_id: p.payment_id,
       amount: p.amount,
@@ -665,7 +678,7 @@ export async function getOrderAdmin(idOrNumber) {
     status_label: STATE_LABELS[order.order_status] || order.order_status,
     items: activeItems(items, order.order_id).map(itemView),
     item_revisions: revisions,
-    totals: totalsView(order, settings),
+    totals: { ...totalsView(order, settings), ...pieceTotals(activeItems(items, order.order_id)) },
     ...totals,
     payments: payments.map((p) => ({ ...p, idempotency_key: undefined, proof_view_url: p.proof_file_id ? `/api/admin/payments/${p.payment_id}/proof` : '' })),
     history: data.Order_Status_History.filter((h) => h.order_id === order.order_id).sort((a, b) => (a.created_at > b.created_at ? 1 : -1)),

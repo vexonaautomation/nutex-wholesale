@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 28;
+export const SCHEMA_VERSION = 29;
 
 const n = 'number';
 const b = 'boolean';
@@ -168,11 +168,14 @@ export const SCHEMA = {
       // customers, Mayank for inbound - Settings), bill PDF link, packing
       // person, Existing Customer / Inbound Customer
       'doer', 'bill_link', 'packing_person', 'customer_type',
+      // v29: pieces of the order (a box counts its pieces) and boxes - what
+      // the packing slip shows; total_qty counts boxes and pieces as units
+      'total_pcs', 'total_boxes',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,
       final_payable: n, total_qty: n, minimum_order_value_snapshot: n, minimum_order_met: b,
-      locked: b, revision: n, packing_deduction: n, less_packing: b,
+      locked: b, revision: n, packing_deduction: n, less_packing: b, total_pcs: n, total_boxes: n,
     },
   },
   // v24: cancelled orders are MOVED here from Orders (same columns), so the
