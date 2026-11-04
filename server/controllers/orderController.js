@@ -4,7 +4,7 @@ import { customerFromToken } from '../services/existingCustomerService.js';
 import {
   createDraftOrder, cancelOrderCustomer, getCustomerOrder, trackOrder, activeOrderSummaries, updateOrderItems, recalculateOrder, lockOrder,
   listOrdersAdmin, getOrderAdmin, updateOrderStatusAdmin, reopenOrderAdmin, cancelOrderAdmin, setPackingDeduction,
-  previewOrderItemsAdmin, orderProductOptionsAdmin, updateOrderItemsAdmin,
+  previewOrderItemsAdmin, orderProductOptionsAdmin, updateOrderItemsAdmin, updateOrderCustomerAdmin,
 } from '../services/orderService.js';
 import { customerBill, adminBill, packingSlip } from '../services/billService.js';
 import { adminBillByToken } from '../services/orderAlertService.js';
@@ -134,3 +134,4 @@ export const adminPackingDeduction = async (req, res) => res.json(await setPacki
 export const adminProductOptions = async (req, res) => res.json(await orderProductOptionsAdmin(req.params.id, { q: req.query.q }));
 export const adminPreviewItems = async (req, res) => res.json(await previewOrderItemsAdmin(req.params.id, req.body, ctx(req)));
 export const adminUpdateItems = async (req, res) => res.json(await updateOrderItemsAdmin(req.params.id, req.body, ctx(req)));
+export const adminUpdateCustomer = async (req, res) => res.json(await updateOrderCustomerAdmin(req.params.id, req.body, ctx(req)));

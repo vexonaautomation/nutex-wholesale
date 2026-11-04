@@ -8,7 +8,7 @@ import {
 import {
   quoteSchema, draftOrderSchema, trackOrderSchema, activeOrdersSchema, updateOrderSchema, recalculateSchema,
   orderStatusSchema, reopenSchema, cancelSchema, customerCancelSchema, packingDeductionSchema, adminOrderItemsSchema,
-  packerSchema, assignPackerSchema,
+  packerSchema, assignPackerSchema, adminOrderCustomerSchema,
 } from '../utils/validation.js';
 import { requireRole } from '../middleware/adminAuth.js';
 
@@ -47,3 +47,4 @@ adminRouter.post('/orders/:id/packing-deduction', validate(packingDeductionSchem
 adminRouter.get('/orders/:id/product-options', c.adminProductOptions);
 adminRouter.post('/orders/:id/items/preview', validate(recalculateSchema), c.adminPreviewItems);
 adminRouter.put('/orders/:id/items', validate(adminOrderItemsSchema), c.adminUpdateItems);
+adminRouter.put('/orders/:id/customer', validate(adminOrderCustomerSchema), c.adminUpdateCustomer);

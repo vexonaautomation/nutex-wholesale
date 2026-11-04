@@ -108,6 +108,58 @@ function PackingCharges({ order, totals, onSaved }) {
   );
 }
 
+// Customer card in edit mode: name, business, address, GSTIN of this order
+function CustomerEdit({ order, onSaved, onCancel }) {
+  const toast = useToast();
+  const [form, setForm] = useState({
+    customer_name: order.customer_name_snapshot || '',
+    business_name: order.business_name_snapshot || '',
+    email: order.email_snapshot || '',
+    gstin: order.gstin_snapshot || '',
+    billing_address: order.billing_address_snapshot || '',
+    shipping_address: order.shipping_address_snapshot === order.billing_address_snapshot ? '' : (order.shipping_address_snapshot || ''),
+    city: order.city_snapshot || '',
+    state: order.state_snapshot || '',
+    pincode: order.pincode_snapshot || '',
+    note: '',
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const res = await adminApi.put(`/orders/${encodeURIComponent(order.order_id)}/customer`, form);
+      onSaved(res);
+      toast.success('Customer details updated.');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form className="stack" style={{ gap: 10 }} onSubmit={save}>
+      <Field label="Name" required><input className="input" value={form.customer_name} onChange={set('customer_name')} maxLength={100} required /></Field>
+      <Field label="Business" required><input className="input" value={form.business_name} onChange={set('business_name')} maxLength={150} required /></Field>
+      <Field label="Email"><input className="input" type="email" value={form.email} onChange={set('email')} maxLength={150} /></Field>
+      <Field label="GSTIN"><input className="input" value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} maxLength={15} /></Field>
+      <Field label="Billing address" required><textarea className="textarea" rows={3} value={form.billing_address} onChange={set('billing_address')} maxLength={500} required /></Field>
+      <Field label="Shipping address" hint="Blank = same as billing"><textarea className="textarea" rows={3} value={form.shipping_address} onChange={set('shipping_address')} maxLength={500} /></Field>
+      <div className="row wrap" style={{ gap: 8, alignItems: 'flex-start' }}>
+        <Field label="City" required className="grow"><input className="input" value={form.city} onChange={set('city')} maxLength={80} required /></Field>
+        <Field label="State" required className="grow"><input className="input" value={form.state} onChange={set('state')} maxLength={80} required /></Field>
+        <Field label="Pincode" required><input className="input" style={{ maxWidth: 120 }} inputMode="numeric" value={form.pincode} onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))} required /></Field>
+      </div>
+      <Field label="Note (optional)"><input className="input" value={form.note} onChange={set('note')} maxLength={200} placeholder="Why it changed" /></Field>
+      <div className="row" style={{ gap: 8 }}>
+        <button type="submit" className="btn btn-sm btn-primary" disabled={busy}>{busy && <Spinner small />} Save</button>
+        <button type="button" className="btn btn-sm btn-ghost" disabled={busy} onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 export default function OrderDetail() {
   const { id } = useParams();
   const toast = useToast();
@@ -118,6 +170,7 @@ export default function OrderDetail() {
   const [statusForm, setStatusForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(false);
 
   if (loading && !data) return <PageLoader />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
@@ -288,7 +341,11 @@ export default function OrderDetail() {
             <p className="tiny soft mt-1 mb-0">Discount mode {order.discount_mode_snapshot}{order.discount_mode_snapshot === 'SLAB' ? ` · basis ${order.discount_basis_snapshot} ${formatINR(order.discount_basis_amount)}` : ''}</p>
           </section>
           <section className="card card-pad">
-            <h3 className="card-title">Customer</h3>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="card-title">{editingCustomer ? 'Edit customer' : 'Customer'}</h3>
+              {!editingCustomer && (isManager(admin) ? data.actions.can_edit_customer_manager : data.actions.can_edit_customer) && <button type="button" className="btn btn-sm" onClick={() => setEditingCustomer(true)}><Pencil /> Edit</button>}
+            </div>
+            {editingCustomer ? <CustomerEdit order={order} onSaved={(res) => { setData(res); setEditingCustomer(false); }} onCancel={() => setEditingCustomer(false)} /> : (
             <dl className="kv">
               <dt>Name</dt><dd>{order.customer_name_snapshot}</dd>
               <dt>Business</dt><dd>{order.business_name_snapshot}</dd>
@@ -304,6 +361,7 @@ export default function OrderDetail() {
               <dt>City / State</dt><dd>{order.city_snapshot}, {order.state_snapshot} - {order.pincode_snapshot}</dd>
               {order.order_notes && <><dt>Notes</dt><dd>{order.order_notes}</dd></>}
             </dl>
+            )}
           </section>
           {(order.courier_name || order.tracking_number || order.cancel_reason) && (
             <section className="card card-pad">

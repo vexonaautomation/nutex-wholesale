@@ -119,6 +119,20 @@ export const adminOrderItemsSchema = z.object({
   reprice: z.boolean().optional().default(false),
 });
 
+// admin corrects the customer details (name, address, GSTIN) of an order
+export const adminOrderCustomerSchema = z.object({
+  customer_name: text(100, 2),
+  business_name: text(150, 2),
+  email: optionalEmail,
+  billing_address: text(500, 5),
+  shipping_address: z.string().trim().max(500).optional().default(''),
+  city: text(80, 2),
+  state: text(80, 2),
+  pincode: z.string().trim().refine((v) => PINCODE_RE.test(v), { message: 'Enter a valid 6-digit pincode' }),
+  gstin: optionalGstin,
+  note: z.string().trim().max(300).optional().default(''),
+}).transform((c) => ({ ...c, shipping_address: c.shipping_address || c.billing_address }));
+
 export const recalculateSchema = z.object({
   items: z.array(z.object({ variant_id: id, qty: z.coerce.number().int().min(0).max(100000) })).max(300).optional(),
   less_packing: z.boolean().optional(),
