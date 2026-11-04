@@ -25,7 +25,7 @@ import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
 import { orderSheetColumns } from './orderSheetColumns.js';
-import { summaryAppendOp, summaryRemoveOps } from './itemSummaryService.js';
+import { summaryAppendOp, summaryRemoveOps, SUMMARY_SHEET } from './itemSummaryService.js';
 import { pcsColumns } from '../utils/itemPcs.js';
 import { gbNutexRows, GB_SHEET } from './gbNutexService.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
@@ -690,6 +690,8 @@ export async function getOrderAdmin(idOrNumber) {
       can_edit_items: canAdminEditItems(order),
       // owner / admin: also after dispatch and hand-over
       can_edit_items_manager: canAdminEditItems(order, { manager: true }),
+      can_edit_customer: canAdminEditCustomer(order),
+      can_edit_customer_manager: canAdminEditCustomer(order, { manager: true }),
     },
   };
 }
@@ -932,6 +934,21 @@ function assertAdminCanEditItems(order, admin) {
   }
 }
 
+// customer details (name, address, GSTIN) follow the same rule as the items
+export function canAdminEditCustomer(order, { manager = false } = {}) {
+  return Boolean(order) && !(manager ? MANAGER_EDIT_CLOSED : ADMIN_EDIT_CLOSED).includes(order.order_status);
+}
+
+function assertAdminCanEditCustomer(order, admin) {
+  if (!canAdminEditCustomer(order, { manager: isManagerAdmin(admin) })) {
+    const after = [ORDER_STATUS.DISPATCHED, ORDER_STATUS.COMPLETED].includes(order.order_status);
+    const label = STATE_LABELS[order.order_status] || order.order_status;
+    throw conflict('ORDER_LOCKED', after
+      ? `Only the main admin can change the customer details of a ${label} order.`
+      : `Customer details cannot be changed on a ${label} order.`);
+  }
+}
+
 // the order's own customer rules (as placed), not today's Existing Customers list
 const orderCustomerRules = (order) => (order.customer_type_snapshot === CUSTOMER_TYPE.EXISTING
   ? { existing: true, minimum_order_value: Number(order.minimum_order_value_snapshot) || 0 }
@@ -1061,6 +1078,67 @@ export async function updateOrderItemsAdmin(id, {
       const { syncGbNutex } = await import('./gbNutexService.js');
       await syncGbNutex({ ...order, ...totals, ...packing.patch }, current, newRows)
         .catch((err) => logger.error('GBNutex not updated after the order was edited', err));
+    }
+    return getOrderAdmin(order.order_id);
+  });
+}
+
+// admin corrects the customer details of an order (bill, slip and sheets follow)
+const CUSTOMER_FIELDS = {
+  customer_name: 'customer_name_snapshot',
+  business_name: 'business_name_snapshot',
+  email: 'email_snapshot',
+  billing_address: 'billing_address_snapshot',
+  shipping_address: 'shipping_address_snapshot',
+  city: 'city_snapshot',
+  state: 'state_snapshot',
+  pincode: 'pincode_snapshot',
+  gstin: 'gstin_snapshot',
+};
+
+export async function updateOrderCustomerAdmin(id, body, { admin, ip }) {
+  return withLock(COMMERCE_LOCK, async () => {
+    const data = await sheetsService.readMany(['Orders'], { fresh: true });
+    const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
+    if (!order) throw notFound('Order not found.');
+    assertAdminCanEditCustomer(order, admin);
+    const oldValue = {};
+    const patch = {};
+    for (const [field, column] of Object.entries(CUSTOMER_FIELDS)) {
+      const next = String(body[field] ?? '').trim();
+      if (next !== String(order[column] ?? '').trim()) {
+        oldValue[column] = order[column] ?? '';
+        patch[column] = next;
+      }
+    }
+    if (!Object.keys(patch).length) return getOrderAdmin(order.order_id);
+    patch.updated_at = nowIso();
+    await sheetsService.commit([
+      { op: 'update', sheet: 'Orders', id: order.order_id, patch },
+      auditOp({
+        admin, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_ADMIN, entity_type: 'Order', entity_id: order.order_id,
+        old_value: oldValue, new_value: patch,
+        notes: `Customer details changed by admin${body.note ? ` - ${body.note}` : ''}`,
+      }),
+    ]);
+    logger.info(`Order ${order.order_number} customer details changed by admin`);
+    if (order.order_status === ORDER_STATUS.COMPLETED) {
+      // handed over already: the party name / city in the sheets follow
+      const updated = { ...order, ...patch };
+      const party = updated.business_name_snapshot || updated.customer_name_snapshot;
+      try {
+        const summary = (await sheetsService.read(SUMMARY_SHEET, { fresh: true })).filter((r) => r.order_id === order.order_id);
+        if (summary.length) {
+          await sheetsService.patchRows(SUMMARY_SHEET, summary.map((r) => ({
+            row: r._row, patch: { party_name: party, customer_name: updated.customer_name_snapshot, city: updated.city_snapshot },
+          })));
+        }
+        const gb = (await sheetsService.read(GB_SHEET, { fresh: true })).filter((r) => String(r.BILL) === String(order.order_number));
+        if (gb.length) await sheetsService.patchRows(GB_SHEET, gb.map((r) => ({ row: r._row, patch: { 'CLIENT NAME': party } })));
+      } catch (err) {
+        logger.error('Sheets not updated after the customer details were changed', err);
+      }
+      sheetsService.invalidate();
     }
     return getOrderAdmin(order.order_id);
   });
