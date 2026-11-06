@@ -3,10 +3,11 @@
 //  - sold in pieces: the colour and the number of pieces
 //  - sold in boxes:  "Mix Color", pieces = boxes x pieces per box (+ boxes,
 //                    pieces per box)
-// MRP and rate are per piece. An order's ACTIVE items are written once, when
-// the order is marked HANDED OVER (COMPLETED): it can no longer be edited,
-// cancelled or reopened then. Written in the same atomic batch as the status.
-// Order_Items keeps the full history.
+// MRP and rate are per piece. Every order is here from the moment it is
+// placed: edits replace its rows, HANDED OVER fills handover_date, and a
+// CANCELLED order's rows leave (a cancelled order cannot be reopened). Always
+// written in the same atomic batch as the order. Order_Items keeps the full
+// history.
 import { pcsColumns } from '../utils/itemPcs.js';
 import { round2 } from '../utils/money.js';
 
@@ -49,8 +50,19 @@ export const summaryAppendOp = (order, items) => (items.length
   ? { op: 'append', sheet: SUMMARY_SHEET, rows: items.map((i) => summaryRow(order, i)) }
   : null);
 
-// a handed-over order edited by the main admin: its old rows leave
+// an order edited or cancelled: its rows leave
 // (optional: an item without a summary row is simply skipped)
 export const summaryRemoveOps = (items) => items.map((i) => ({
   op: 'remove', sheet: SUMMARY_SHEET, id: i.order_item_id, optional: true,
 }));
+
+// handed over: the order's rows get the date; a row missing from the sheet is added
+export function summaryHandoverOps(order, items, sheetRows) {
+  const have = new Set(sheetRows.map((r) => r.order_item_id));
+  return [
+    ...items.filter((i) => have.has(i.order_item_id)).map((i) => ({
+      op: 'update', sheet: SUMMARY_SHEET, id: i.order_item_id, patch: { handover_date: order.completed_at },
+    })),
+    summaryAppendOp(order, items.filter((i) => !have.has(i.order_item_id))),
+  ].filter(Boolean);
+}

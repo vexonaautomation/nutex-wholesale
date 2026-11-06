@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 const n = 'number';
 const b = 'boolean';
@@ -206,9 +206,9 @@ export const SCHEMA = {
   // v25: order items in pieces, like the IMS, with bill number and party
   // (boxes = "Mix Color", pieces = boxes x pieces per box). One row per
   // active Order_Items row (same order_item_id).
-  // v26: an order's rows are written only when it is marked HANDED OVER
-  // (COMPLETED) - it can no longer change then. DERIVED: rows may be
-  // removed; everything stays in Order_Items, so nothing is lost.
+  // v30: every order is here from the moment it is placed; a CANCELLED
+  // order's rows leave. DERIVED: rows may be removed; everything stays in
+  // Order_Items, so nothing is lost.
   Order_Items_Summary: {
     idField: 'order_item_id',
     derived: true,

@@ -25,7 +25,9 @@ import { newId, ID_PREFIX } from '../utils/idGenerator.js';
 import { nowIso, istDate, hoursSince } from '../utils/dates.js';
 import { nextOrderNumber, normalizeOrderNumber } from '../utils/orderNumber.js';
 import { orderSheetColumns } from './orderSheetColumns.js';
-import { summaryAppendOp, summaryRemoveOps, SUMMARY_SHEET } from './itemSummaryService.js';
+import {
+  summaryAppendOp, summaryRemoveOps, summaryHandoverOps, SUMMARY_SHEET,
+} from './itemSummaryService.js';
 import { pcsColumns } from '../utils/itemPcs.js';
 import { gbNutexRows, GB_SHEET } from './gbNutexService.js';
 import { orderAccessToken, verifyOrderAccessToken, normalizeMobile } from '../utils/orderToken.js';
@@ -89,9 +91,10 @@ function itemRows(order, revision, quote, now) {
   }));
 }
 
-/** New item rows of an order. */
+/** New item rows of an order, in Order_Items and Order_Items_Summary. */
 function itemOps(order, revision, quote, now) {
-  return [{ op: 'append', sheet: 'Order_Items', rows: itemRows(order, revision, quote, now) }];
+  const rows = itemRows(order, revision, quote, now);
+  return [{ op: 'append', sheet: 'Order_Items', rows }, summaryAppendOp(order, rows)];
 }
 
 /** The order's current items are replaced by an edit. */
@@ -549,6 +552,7 @@ export async function updateOrderItems(orderNumber, token, { items, client_final
     const ops = [
       ...inventory.ops,
       ...replaceItemOps(current),
+      ...summaryRemoveOps(current),
       ...itemOps(order, revision, quote, now),
       { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totalsFields(quote, packing.deduction), ...packing.patch, revision, stock_state: STOCK_STATE.RESERVED, updated_at: now } },
       auditOp({
@@ -752,10 +756,13 @@ export async function updateOrderStatusAdmin(id, body, { admin, ip }) {
       });
       if (rows.length) stockOps.push({ op: 'append', sheet: GB_SHEET, rows });
     }
+    // handed over: the order's rows in Order_Items_Summary get the handover date
+    const handover = body.status === ORDER_STATUS.COMPLETED
+      ? summaryHandoverOps({ ...order, ...patch }, activeItems(data.Order_Items, order.order_id), await sheetsService.read(SUMMARY_SHEET, { fresh: true }))
+      : [];
     await sheetsService.commit([
       ...stockOps,
-      // handed over: the order's items go to Order_Items_Summary (pieces, for the IMS)
-      body.status === ORDER_STATUS.COMPLETED ? summaryAppendOp({ ...order, ...patch }, activeItems(data.Order_Items, order.order_id)) : null,
+      ...handover,
       { op: 'update', sheet: 'Orders', id: order.order_id, patch },
       historyOp(order, order.order_status, body.status, ACTOR.ADMIN, admin.admin_id, body.note),
       auditOp({
@@ -795,6 +802,7 @@ export async function cancelOrderAdmin(id, { reason }, { admin, ip, actorType = 
     };
     await sheetsService.commit([
       ...inventory.ops,
+      ...summaryRemoveOps(items),
       { op: 'update', sheet: 'Orders', id: order.order_id, patch },
       historyOp(order, order.order_status, ORDER_STATUS.CANCELLED, actorType, admin?.admin_id, reason),
       auditOp({
@@ -1056,14 +1064,14 @@ export async function updateOrderItemsAdmin(id, {
     const packing = packingFor(order, quote, lessPacking);
     const totals = totalsFields(quote, packing.deduction);
     const newRows = itemRows(order, revision, quote, now);
-    // handed over already: its Order_Items_Summary rows follow the new items
     const handedOver = order.order_status === ORDER_STATUS.COMPLETED;
     await sheetsService.commit([
       ...inventory.ops,
       ...replaceItemOps(current),
       { op: 'append', sheet: 'Order_Items', rows: newRows },
-      ...(handedOver ? summaryRemoveOps(current) : []),
-      handedOver ? summaryAppendOp({ ...order, ...totals, ...packing.patch }, newRows) : null,
+      // its Order_Items_Summary rows follow the new items
+      ...summaryRemoveOps(current),
+      summaryAppendOp({ ...order, ...totals, ...packing.patch }, newRows),
       { op: 'update', sheet: 'Orders', id: order.order_id, patch: { ...totals, ...packing.patch, revision, updated_at: now } },
       auditOp({
         admin, ip, action: AUDIT_ACTION.ORDER_UPDATED_BY_ADMIN, entity_type: 'Order', entity_id: order.order_id,
@@ -1122,24 +1130,24 @@ export async function updateOrderCustomerAdmin(id, body, { admin, ip }) {
       }),
     ]);
     logger.info(`Order ${order.order_number} customer details changed by admin`);
-    if (order.order_status === ORDER_STATUS.COMPLETED) {
-      // handed over already: the party name / city in the sheets follow
-      const updated = { ...order, ...patch };
-      const party = updated.business_name_snapshot || updated.customer_name_snapshot;
-      try {
-        const summary = (await sheetsService.read(SUMMARY_SHEET, { fresh: true })).filter((r) => r.order_id === order.order_id);
-        if (summary.length) {
-          await sheetsService.patchRows(SUMMARY_SHEET, summary.map((r) => ({
-            row: r._row, patch: { party_name: party, customer_name: updated.customer_name_snapshot, city: updated.city_snapshot },
-          })));
-        }
+    // the party name / mobile / city in the sheets follow (GBNutex: handed-over orders only)
+    const updated = { ...order, ...patch };
+    const party = updated.business_name_snapshot || updated.customer_name_snapshot;
+    try {
+      const summary = (await sheetsService.read(SUMMARY_SHEET, { fresh: true })).filter((r) => r.order_id === order.order_id);
+      if (summary.length) {
+        await sheetsService.patchRows(SUMMARY_SHEET, summary.map((r) => ({
+          row: r._row, patch: { party_name: party, customer_name: updated.customer_name_snapshot, city: updated.city_snapshot },
+        })));
+      }
+      if (order.order_status === ORDER_STATUS.COMPLETED) {
         const gb = (await sheetsService.read(GB_SHEET, { fresh: true })).filter((r) => String(r.BILL) === String(order.order_number));
         if (gb.length) await sheetsService.patchRows(GB_SHEET, gb.map((r) => ({ row: r._row, patch: { 'CLIENT NAME': party } })));
-      } catch (err) {
-        logger.error('Sheets not updated after the customer details were changed', err);
       }
-      sheetsService.invalidate();
+    } catch (err) {
+      logger.error('Sheets not updated after the customer details were changed', err);
     }
+    sheetsService.invalidate();
     return getOrderAdmin(order.order_id);
   });
 }
@@ -1165,6 +1173,7 @@ export async function expireUnpaidOrders() {
     const now = nowIso();
     const reason = `Payment not received within ${hours} hours - reserved stock released.`;
     for (const order of candidates) {
+      ops.push(...summaryRemoveOps(activeItems(data.Order_Items, order.order_id)));
       for (const [v, d] of releaseDeltas(order, activeItems(data.Order_Items, order.order_id))) {
         const prev = deltas.get(v) || { stock: 0, reserved: 0 };
         prev.reserved += d.reserved;
