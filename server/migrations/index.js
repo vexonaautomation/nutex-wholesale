@@ -364,4 +364,25 @@ export const MIGRATIONS = [
       logger.info(`Migration v29: pieces / boxes filled for ${ops.length} order(s)`);
     },
   },
+  {
+    // Order_Items_Summary holds every order again, not only handed-over ones:
+    // active items of all orders not cancelled are added, rows of cancelled
+    // orders and of replaced items leave. Order_Items is not touched.
+    version: 30,
+    description: 'Order_Items_Summary: all orders; cancelled orders leave',
+    async up({ sheets, logger }) {
+      const { summaryRow, SUMMARY_SHEET } = await import('../services/itemSummaryService.js');
+      const data = await sheets.readMany(['Orders', 'Order_Items', SUMMARY_SHEET], { fresh: true });
+      const orders = new Map(data.Orders.map((o) => [o.order_id, o]));
+      const belongs = (i) => (i.status || 'ACTIVE') === 'ACTIVE' && orders.has(i.order_id) && orders.get(i.order_id).order_status !== 'CANCELLED';
+      const wanted = new Map(data.Order_Items.filter(belongs).map((i) => [i.order_item_id, i]));
+      const have = new Set(data[SUMMARY_SHEET].map((r) => r.order_item_id));
+      const ops = data[SUMMARY_SHEET].filter((r) => !wanted.has(r.order_item_id))
+        .map((r) => ({ op: 'remove', sheet: SUMMARY_SHEET, id: r.order_item_id, optional: true }));
+      const rows = [...wanted.values()].filter((i) => !have.has(i.order_item_id)).map((i) => summaryRow(orders.get(i.order_id), i));
+      for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
+      for (let i = 0; i < rows.length; i += 500) await sheets.commit([{ op: 'append', sheet: SUMMARY_SHEET, rows: rows.slice(i, i + 500) }]);
+      logger.info(`Migration v30: ${rows.length} row(s) added to ${SUMMARY_SHEET}, ${ops.length} removed`);
+    },
+  },
 ];
