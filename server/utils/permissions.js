@@ -2,8 +2,8 @@ import { ADMIN_ROLE } from '../config/constants.js';
 
 // Sub admins (role SUB_ADMIN) see only what the owner allows.
 //  * always: the Orders tab (full access - list, details, edit items,
-//    status, bill, cancel / reopen) and a small dashboard (pending orders +
-//    sale value)
+//    status, bill, cancel / reopen), sales returns and a small dashboard
+//    (pending orders + sale value)
 //  * optional, ticked per sub admin by the owner: the keys below
 //  * never: settings, admin users, audit log, catalogue import, CSV export
 // Owners / admins / staff keep full access (unchanged).
@@ -46,6 +46,7 @@ const ALWAYS = [
   ['GET', /^\/payments\/[^/]+\/proof$/],
   // pick a packer when marking an order "Processing"
   ['GET', /^\/packers$/],
+  [ANY, /^\/sales-returns(\/.*)?$/],
 ];
 const BY_PERMISSION = {
   payments: [['GET', /^\/payments$/], ['PUT', /^\/payments\/[^/]+\/(verify|reject)$/]],

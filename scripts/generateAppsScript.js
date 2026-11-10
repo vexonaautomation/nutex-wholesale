@@ -22,6 +22,8 @@ const DROPDOWNS = {
   Products: { status: ['ACTIVE', 'INACTIVE', 'ARCHIVED'], inventory_mode: ['COLOR_WISE', 'BOX_WISE'], discount_mode: ['GLOBAL', 'CUSTOM'] },
   Inventory: { status: ['ACTIVE', 'OUT_OF_STOCK'] },
   Packers: { status: ['ACTIVE', 'INACTIVE'] },
+  Sales_Returns: { status: ['ACTIVE', 'CANCELLED'] },
+  Sales_Return_Items: { status: ['ACTIVE', 'CANCELLED'], condition: ['GOOD', 'DAMAGED'] },
   GBNutex: SCHEMA.GBNutex.dropdowns,
 };
 

@@ -12,6 +12,9 @@ import { customerBillByToken } from '../services/customerOrderMessageService.js'
 import {
   listPackers, createPacker, updatePacker, assignPacker, packingSlipByToken,
 } from '../services/packingService.js';
+import {
+  orderReturns, createSalesReturn, listSalesReturns, cancelSalesReturn, creditNote,
+} from '../services/salesReturnService.js';
 import { config } from '../config/env.js';
 import { ctx, noStore } from './helpers.js';
 
@@ -135,3 +138,12 @@ export const adminProductOptions = async (req, res) => res.json(await orderProdu
 export const adminPreviewItems = async (req, res) => res.json(await previewOrderItemsAdmin(req.params.id, req.body, ctx(req)));
 export const adminUpdateItems = async (req, res) => res.json(await updateOrderItemsAdmin(req.params.id, req.body, ctx(req)));
 export const adminUpdateCustomer = async (req, res) => res.json(await updateOrderCustomerAdmin(req.params.id, req.body, ctx(req)));
+
+// ------------------------------------------------------------ sales returns
+export const adminOrderReturns = async (req, res) => res.json(await orderReturns(req.params.id));
+export const adminCreateReturn = async (req, res) => res.status(201).json(await createSalesReturn(req.params.id, req.body, ctx(req)));
+export const adminSalesReturns = async (req, res) => res.json(await listSalesReturns(req.query));
+export const adminCancelReturn = async (req, res) => res.json(await cancelSalesReturn(req.params.id, req.body, ctx(req)));
+export async function adminCreditNote(req, res) {
+  sendPdf(res, await creditNote(req.params.id));
+}

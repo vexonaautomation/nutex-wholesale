@@ -255,6 +255,29 @@ export const SCHEMA = {
     ],
     types: {},
   },
+  // v31: goods coming back from handed-over orders, one row per return (its
+  // credit note PDF is built from these rows) and one per item and condition
+  Sales_Returns: {
+    idField: 'return_id',
+    columns: [
+      'return_id', 'return_number', 'order_id', 'order_number', 'party_name', 'customer_name', 'mobile', 'city',
+      'reason', 'total_pcs', 'good_pcs', 'damaged_pcs', 'subtotal', 'packing_less', 'credit_amount', 'status',
+      'made_by_id', 'made_by_name', 'created_at', 'cancelled_at', 'cancelled_by', 'cancel_reason',
+    ],
+    types: {
+      total_pcs: n, good_pcs: n, damaged_pcs: n, subtotal: n, packing_less: n, credit_amount: n,
+    },
+  },
+  Sales_Return_Items: {
+    idField: 'return_item_id',
+    columns: [
+      'return_item_id', 'return_id', 'return_number', 'order_item_id', 'order_id', 'bill_no', 'sku', 'product_name',
+      'size', 'item_colour', 'sold_in', 'qty', 'qty_pcs', 'rate_per_pc', 'amount', 'condition', 'status', 'created_at',
+    ],
+    types: {
+      qty: n, qty_pcs: n, rate_per_pc: n, amount: n,
+    },
+  },
   // v20: people who pack orders; the packing slip (no amounts) goes to their WhatsApp
   Packers: {
     idField: 'packer_id',
@@ -344,6 +367,8 @@ export const TEXT_COLUMNS = {
   Order_Status_History: ['order_number'],
   Settings: ['setting_value'],
   Packers: ['mobile'],
+  Sales_Returns: ['return_number', 'order_number', 'mobile'],
+  Sales_Return_Items: ['return_number', 'bill_no'],
 };
 
 export const SHEET_NAMES = Object.keys(SCHEMA);

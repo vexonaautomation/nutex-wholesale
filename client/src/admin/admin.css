@@ -331,3 +331,6 @@ label.choice { cursor: pointer; }
 .an-bar-fill { width: 70%; max-width: 38px; background: var(--brand-500, #8b1d4f); border-radius: 4px 4px 0 0; }
 .an-bar-value { font-size: 10px; color: var(--text-soft); white-space: nowrap; margin-bottom: 2px; }
 .an-bar-label { font-size: 11px; color: var(--text-soft); margin-top: 4px; white-space: nowrap; }
+
+/* sales return: quantity boxes in the item table */
+.return-qty { width: 60px; margin-left: auto; text-align: right; }

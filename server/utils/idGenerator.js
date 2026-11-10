@@ -20,6 +20,8 @@ export const ID_PREFIX = Object.freeze({
   admin: 'ADM',
   audit: 'AUD',
   packer: 'PKR',
+  salesReturn: 'SRN',
+  salesReturnItem: 'SRI',
 });
 
 export function newId(prefix) {
