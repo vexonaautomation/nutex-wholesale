@@ -40,7 +40,7 @@ test('deploy (migration v19): size-wise MRP by kind of article; own size prices 
   let catalog = await getCatalog({ fresh: true });
   const typeOf = (p) => ruleTypeOf(p, catalog.categoriesById.get(p.category_id));
   const bra = catalog.products.find((p) => typeOf(p) === 'BRA' && sizesOf(catalog, p).has('42') && sizesOf(catalog, p).has('40') && new Set(Object.values(pieceMrps(catalog, p))).size === 1);
-  const panty = catalog.products.find((p) => typeOf(p) === 'PANTY' && sizesOf(catalog, p).has('40') && sizesOf(catalog, p).has('42'));
+  const panty = catalog.products.find((p) => typeOf(p) === 'PANTY' && sizesOf(catalog, p).has('40') && sizesOf(catalog, p).has('42') && new Set(Object.values(pieceMrps(catalog, p))).size === 1);
   const trunk = catalog.products.find((p) => p.sku === 'CELLO');
   const parker = catalog.products.find((p) => p.sku === 'RAMBO-PARKER');
   const set = catalog.products.find((p) => catalog.categoriesById.get(p.category_id)?.slug === 'lingerie-set' && sizesOf(catalog, p).has('42') && new Set(Object.values(pieceMrps(catalog, p))).size === 1);

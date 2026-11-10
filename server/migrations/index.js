@@ -385,4 +385,66 @@ export const MIGRATIONS = [
       logger.info(`Migration v30: ${rows.length} row(s) added to ${SUMMARY_SHEET}, ${ops.length} removed`);
     },
   },
+  {
+    // The owner's catalogues of 10-11-2026 (online + all products), checked
+    // page by page against the site. Additive:
+    //  * the 5 articles missing on the site are created from catalog-import/
+    //    catalog.json (image, sizes, colours, size-wise MRP, box, starting
+    //    stock); existing SKUs are skipped, as in every catalogue import
+    //  * Valentine Set (7110V) joins the Online Collection
+    //  * new MRP of Madhu 8006 (124), Sunita 8004 (109), Rupali 5144 (109) -
+    //    only while the article still has the old MRP; the size extras (+6
+    //    for 42-44) move with it, box prices follow
+    version: 32,
+    description: 'Catalogue 10-11-2026: 5 new articles, Valentine Set online, 3 new MRPs',
+    async up({ sheets, logger }) {
+      const { startCatalogImport } = await import('../services/catalogImportService.js');
+      const { collectionsOf, joinCollections } = await import('../utils/collections.js');
+      const { auditOp } = await import('../services/auditService.js');
+      const system = { admin_id: 'SYSTEM', name: 'System' };
+      // a new, empty site gets the whole catalogue from Admin > Catalogue Import
+      if (!(await sheets.read('Products', { fresh: true })).length) return;
+      try {
+        const job = await startCatalogImport({ admin: system, skus: CATALOGUE_2026_11.new_skus, wait: true });
+        logger.info(`Migration v32: ${job.created} article(s) created, ${job.skipped} already there${job.errors.length ? `; problems: ${job.errors.join('; ')}` : ''}`);
+      } catch (err) {
+        // the rest still runs; Admin > Catalogue Import adds what is missing
+        logger.error(`Migration v32: new articles not imported (${err.message})`);
+      }
+
+      const data = await sheets.readMany(['Products', 'Product_Variants'], { fresh: true });
+      const now = new Date().toISOString();
+      const ops = [];
+      const done = [];
+      for (const p of data.Products) {
+        const sku = String(p.sku || '').trim().toUpperCase();
+        if (CATALOGUE_2026_11.online.includes(sku) && !collectionsOf(p).includes('online')) {
+          ops.push({ op: 'update', sheet: 'Products', id: p.product_id, patch: { collections: joinCollections([...collectionsOf(p), 'online']), updated_at: now, updated_by: 'SYSTEM' } });
+          done.push(`${sku} online`);
+        }
+        const price = CATALOGUE_2026_11.mrp[sku];
+        if (price && Number(p.mrp) === price.old) {
+          const delta = price.new - price.old;
+          ops.push({ op: 'update', sheet: 'Products', id: p.product_id, patch: { mrp: price.new, updated_at: now, updated_by: 'SYSTEM' } });
+          for (const v of data.Product_Variants.filter((x) => x.product_id === p.product_id && Number(x.variant_mrp) > 0)) {
+            ops.push({ op: 'update', sheet: 'Product_Variants', id: v.variant_id, patch: { variant_mrp: Number(v.variant_mrp) + delta, updated_at: now } });
+          }
+          done.push(`${sku} MRP ${price.old} -> ${price.new}`);
+        }
+      }
+      if (!ops.length) return;
+      ops.push(auditOp({
+        admin: system, ip: '', action: 'PRODUCT_UPDATED', entity_type: 'Product', entity_id: 'catalogue-2026-11', new_value: { changes: done },
+      }));
+      await sheets.commit(ops);
+      logger.info(`Migration v32: ${done.join(', ')}`);
+    },
+  },
 ];
+
+// what migration v32 changes (exported for its test)
+export const CATALOGUE_2026_11 = Object.freeze({
+  new_skus: ['8029', '9013', '7192-AASHIMA', '1130', '7630'],
+  online: ['7110V'],
+  mrp: { 8006: { old: 110, new: 124 }, 8004: { old: 95, new: 109 }, 5144: { old: 95, new: 109 } },
+});

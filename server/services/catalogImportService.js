@@ -239,10 +239,16 @@ function note(msg) {
  */
 export async function startCatalogImport({
   admin = null, ip = '', stockPerVariant = 0, selling = {}, activate = true, wait = false, dir = CATALOG_DIR, throttleMs = null, onProgress = null,
+  skus = null,
 } = {}) {
   if (job.status === 'running') throw conflict('IMPORT_RUNNING', 'A catalogue import is already running. Please wait for it to finish.');
   const stock = Math.max(0, Math.min(100000, Math.floor(Number(stockPerVariant) || 0)));
   const { catalog } = await loadCatalogFile(dir);
+  // only these articles (a one-time migration adding a few new ones)
+  if (skus) {
+    const wanted = new Set(skus.map((s) => String(s).toUpperCase()));
+    catalog.products = catalog.products.filter((p) => wanted.has(p.sku));
+  }
   for (const [slug, s] of Object.entries(selling || {})) {
     if (s.sell_mode && s.sell_mode !== SELL_MODE.PCS && !(Number(s.units_per_box) >= 1)) {
       const name = catalog.categories.find((c) => c.slug === slug)?.name || slug;

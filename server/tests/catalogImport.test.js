@@ -11,10 +11,14 @@ import { buildQuote } from '../services/quoteService.js';
 import { getSettings } from '../services/settingsService.js';
 import { sheetsService } from '../services/sheetsService.js';
 import { productSchema } from '../utils/validation.js';
+import { MIGRATIONS, CATALOGUE_2026_11 } from '../migrations/index.js';
+import { logger } from '../utils/logger.js';
 
 // main catalogue (150) + the 8 new articles of the ONLINE COLLECTION pdf
-const TOTAL = 158;
+// + the 5 new articles of the catalogues of 10-11-2026
+const TOTAL = 163;
 const NEW_SKUS = ['1019', '7140', '1020', '2024', '1021', '1110-CLARA-SET', '7109V', '7109'];
+const NOV_SKUS = CATALOGUE_2026_11.new_skus;
 
 test('catalog.json is valid: one product per catalogue page, unique SKUs, known colours', async () => {
   const { catalog } = await loadCatalogFile();
@@ -58,13 +62,18 @@ test('catalogue import: creates everything once, re-run is additive and never ov
 
   const data = await sheetsService.readMany(['Products', 'Product_Variants', 'Inventory', 'Product_Images', 'Categories', 'Sizes'], { fresh: true });
   assert.equal(data.Products.length, TOTAL);
-  assert.equal(data.Product_Variants.length, catalogSummary(catalog).variants);
+  // pieces + one box per size for the articles that carry their own box
+  const boxes = catalog.products.filter((p) => p.units_per_box).reduce((s, p) => s + p.sizes.length, 0);
+  assert.equal(data.Product_Variants.length, catalogSummary(catalog).variants + boxes);
   // starting stock: 7 (import screen) - the new articles have their own per size
   const skuOf = new Map(data.Products.map((p) => [p.product_id, p.sku]));
   const sizeOf = new Map(data.Sizes.map((s) => [s.size_id, s.size_name]));
   const variantSize = new Map(data.Product_Variants.map((v) => [v.variant_id, sizeOf.get(v.size_id)]));
+  const boxVariants = new Set(data.Product_Variants.filter((v) => v.box_id).map((v) => v.variant_id));
   for (const i of data.Inventory) {
-    const expected = NEW_SKUS.includes(skuOf.get(i.product_id)) ? (Number(variantSize.get(i.variant_id)) <= 40 ? 100 : 0) : 7;
+    const own = NEW_SKUS.includes(skuOf.get(i.product_id)) || NOV_SKUS.includes(skuOf.get(i.product_id));
+    // a box holds no stock of its own: it is packed from the pieces
+    const expected = boxVariants.has(i.variant_id) ? 0 : own ? (Number(variantSize.get(i.variant_id)) <= 40 ? 100 : 0) : 7;
     assert.equal(i.stock_qty, expected, `${skuOf.get(i.product_id)} size ${variantSize.get(i.variant_id)}`);
     assert.equal(i.available_qty, expected);
   }
@@ -133,4 +142,49 @@ test('size-wise MRP in the product wizard: saved per variant, blank = product MR
   assert.deepEqual(saved.product.size_mrps, [{ size_id: m.size('38').size_id, mrp: 140 }]);
   // the admin "get" shape round-trips through the save schema
   assert.deepEqual(productSchema.parse({ ...saved.product, stock: [], boxes: [], images: [] }).size_mrps, [{ size_id: m.size('38').size_id, mrp: 140 }]);
+});
+
+test('migration v32 (catalogue 10-11-2026): adds the 5 missing articles, Valentine Set online, new MRPs once', async () => {
+  const { adminCtx } = await freshStore();
+  const { catalog } = await loadCatalogFile();
+  // the site as it is today: everything but the 5 new articles, and a Valentine Set not online
+  await startCatalogImport({ ...adminCtx, stockPerVariant: 7, wait: true, skus: catalog.products.map((p) => p.sku).filter((s) => !NOV_SKUS.includes(s)) });
+  const madhu = (await sheetsService.read('Products', { fresh: true })).find((p) => p.sku === '8006');
+  const big = (await sheetsService.read('Sizes', { fresh: true })).find((s) => s.size_name === '40');
+  const vars = (await sheetsService.read('Product_Variants', { fresh: true })).filter((v) => v.product_id === madhu.product_id);
+  await sheetsService.commit([
+    { op: 'update', sheet: 'Products', id: madhu.product_id, patch: { mrp: 110 } },
+    ...vars.filter((v) => v.size_id === big.size_id).map((v) => ({ op: 'update', sheet: 'Product_Variants', id: v.variant_id, patch: { variant_mrp: 116 } })),
+    { op: 'append', sheet: 'Products', rows: [{ product_id: 'PRD-VALENTINE', sku: '7110V', product_name: 'Valentine set', collections: '', status: 'ACTIVE', mrp: 325 }] },
+  ]);
+
+  const up = MIGRATIONS.find((m) => m.version === 32).up;
+  await up({ sheets: sheetsService, logger });
+  await up({ sheets: sheetsService, logger });
+
+  const data = await sheetsService.readMany(['Products', 'Product_Variants', 'Product_Images', 'Inventory', 'Sizes'], { fresh: true });
+  const bySku = new Map(data.Products.map((p) => [p.sku, p]));
+  for (const sku of NOV_SKUS) {
+    const p = bySku.get(sku);
+    assert.ok(p, `${sku} created`);
+    assert.equal(p.status, 'ACTIVE');
+    assert.ok(data.Product_Images.some((i) => i.product_id === p.product_id), `${sku} has its image`);
+    assert.equal(p.sell_mode, 'BOTH');
+  }
+  assert.equal(data.Products.filter((p) => p.sku === '8029').length, 1, 'run twice: created once');
+  assert.deepEqual(['8029', '9013'].map((s) => bySku.get(s).collections), ['online', 'online']);
+  assert.equal(bySku.get('1130').units_per_box, 6);
+  assert.equal(bySku.get('7630').units_per_box, 12);
+  const size = new Map(data.Sizes.map((s) => [s.size_id, s.size_name]));
+  const kajra42 = data.Product_Variants.find((v) => v.product_id === bySku.get('1130').product_id && size.get(v.size_id) === '42' && !v.box_id);
+  assert.equal(kajra42.variant_mrp, 305, 'bras 42-44: +6');
+  const honey40 = data.Product_Variants.find((v) => v.product_id === bySku.get('7630').product_id && size.get(v.size_id) === '40' && !v.box_id);
+  assert.equal(honey40.variant_mrp, 121, 'panties 40: +12');
+
+  assert.equal(bySku.get('7110V').collections, 'online');
+  assert.equal(bySku.get('8006').mrp, 124, 'Madhu: new MRP, once (not 138 after the second run)');
+  const madhu40 = data.Product_Variants.filter((v) => v.product_id === madhu.product_id && v.size_id === big.size_id);
+  assert.ok(madhu40.length && madhu40.every((v) => v.variant_mrp === 130), 'size extra moves with the MRP');
+  assert.equal(bySku.get('8004').mrp, 109);
+  assert.equal(bySku.get('5144').mrp, 109);
 });

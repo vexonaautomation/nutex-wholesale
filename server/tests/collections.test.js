@@ -21,13 +21,13 @@ test('catalogue: every article of the ONLINE COLLECTION pdf is tagged; import ta
   const { adminCtx } = await freshStore();
   const { catalog } = await loadCatalogFile();
   const online = catalog.products.filter((p) => p.collections.includes('online'));
-  assert.equal(online.length, 61);
+  assert.equal(online.length, 63);
   assert.ok(online.some((p) => p.sku === '2042') && online.some((p) => p.sku === '1019'), 'old and new articles');
 
   await startCatalogImport({ ...adminCtx, stockPerVariant: 5, wait: true });
   let catalogView = await getCatalog({ fresh: true });
   const res = queryProducts(catalogView, { collection: 'online', limit: 100 });
-  assert.equal(res.total, 61, 'shown on the Online page');
+  assert.equal(res.total, 63, 'shown on the Online page');
   assert.ok(res.items.every((p) => p.collections.includes('online')));
   assert.equal(queryProducts(catalogView, { category: 'lingerie-set', limit: 100 }).items.filter((p) => p.collections.includes('online')).length, 16, 'still in their own category');
 
@@ -44,7 +44,7 @@ test('catalogue: every article of the ONLINE COLLECTION pdf is tagged; import ta
   assert.equal(after.collections, 'online');
   assert.equal(after.mrp, 777, 'nothing else changed');
   catalogView = await getCatalog({ fresh: true });
-  assert.equal(queryProducts(catalogView, { collection: 'online', limit: 100 }).total, 61);
+  assert.equal(queryProducts(catalogView, { collection: 'online', limit: 100 }).total, 63);
 });
 
 test('admin: add / remove articles to the Online Collection; the product form keeps the tag', async () => {
