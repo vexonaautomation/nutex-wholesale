@@ -50,6 +50,8 @@ var NUTEX_SCHEMA = {
   "GBNutex": ["DATE","BILL","S NO","MODE","PLATFORM","CLIENT NAME","PRODUCT","PRODUCT UNIT","Unit","QTY","PRICE","REVENUE","COST","ONLINE PACKING","PACKING COST","FINAL REVENUE","FINAL COST","GROSS PROFIT","GP PERCENTAGE"],
   "Payments": ["payment_id","order_id","order_number","amount","expected_amount","payment_method","utr","proof_file_id","proof_url","status","idempotency_key","customer_note","submitted_at","verified_at","verified_by","remarks"],
   "Order_Status_History": ["history_id","order_id","order_number","from_status","to_status","actor_type","actor_id","note","created_at"],
+  "Sales_Returns": ["return_id","return_number","order_id","order_number","party_name","customer_name","mobile","city","reason","total_pcs","good_pcs","damaged_pcs","subtotal","packing_less","credit_amount","status","made_by_id","made_by_name","created_at","cancelled_at","cancelled_by","cancel_reason"],
+  "Sales_Return_Items": ["return_item_id","return_id","return_number","order_item_id","order_id","bill_no","sku","product_name","size","item_colour","sold_in","qty","qty_pcs","rate_per_pc","amount","condition","status","created_at"],
   "Packers": ["packer_id","name","mobile","status","notes","created_at","updated_at"],
   "Admin_Users": ["admin_id","email","name","password_hash","role","status","session_version","last_login_at","created_at","updated_at","mobile","permissions"],
   "Audit_Log": ["audit_id","timestamp","admin_id","actor_type","action","entity_type","entity_id","old_value","new_value","reason","notes","ip"],
@@ -66,7 +68,9 @@ var NUTEX_TEXT_COLUMNS = {
   "Payments": ["utr","order_number"],
   "Order_Status_History": ["order_number"],
   "Settings": ["setting_value"],
-  "Packers": ["mobile"]
+  "Packers": ["mobile"],
+  "Sales_Returns": ["return_number","order_number","mobile"],
+  "Sales_Return_Items": ["return_number","bill_no"]
 };
 
 /** *_at columns and Audit_Log.timestamp hold real date-times (India time). */
@@ -83,6 +87,8 @@ var NUTEX_DROPDOWNS = {
   "Products": {"status":["ACTIVE","INACTIVE","ARCHIVED"],"inventory_mode":["COLOR_WISE","BOX_WISE"],"discount_mode":["GLOBAL","CUSTOM"]},
   "Inventory": {"status":["ACTIVE","OUT_OF_STOCK"]},
   "Packers": {"status":["ACTIVE","INACTIVE"]},
+  "Sales_Returns": {"status":["ACTIVE","CANCELLED"]},
+  "Sales_Return_Items": {"status":["ACTIVE","CANCELLED"],"condition":["GOOD","DAMAGED"]},
   "GBNutex": {"MODE":["Online","Offline","Ecom Client"],"PLATFORM":["Meesho NAL","Meesho NKF","Flipkart NAL","Flipkart NKF","Myntra NAL","Myntra NKF","Snapdeal","Amazon","Website"]}
 };
 
@@ -171,6 +177,7 @@ var NUTEX_MIGRATIONS = [
   [28,"GBNutex: MODE Online (less packing) / Offline (with boxes)"],
   [29,"Orders: total pieces and boxes"],
   [30,"Order_Items_Summary: all orders; cancelled orders leave"],
+  [31,"Sales returns with credit notes"],
   [32,"Catalogue 10-11-2026: 5 new articles, Valentine Set online, 3 new MRPs"]
 ];
 

@@ -50,7 +50,7 @@ const columnFor = (key) => {
 export const formatDzn = (pcs) => `${Number((pcs / 12).toFixed(2))} Dzn`;
 export const formatPcs = (pcs) => `${pcs} pcs`;
 export const formatBoxes = (boxes) => `${boxes} ${boxes === 1 ? 'Box' : 'Boxes'}`;
-const istDate = (iso) => {
+export const istDate = (iso) => {
   const d = new Date(new Date(iso || Date.now()).getTime() + 5.5 * 3600 * 1000);
   return `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${d.getUTCFullYear()}`;
 };
@@ -333,6 +333,7 @@ export function renderBillPdf(bill) {
   hline(y, INK, 1.4);
   text(`S.No: ${bill.number}`, L, y + 8, { f: 'B', size: 9 });
   if (slip && bill.packer_name) text(`Packing by: ${bill.packer_name}`, L, y + 8, { f: 'B', size: 9, width: R - L, align: 'center' });
+  if (bill.against) text(`Against Bill: ${bill.against}`, L, y + 8, { f: 'B', size: 9, width: R - L, align: 'center' });
   text(`Date: ${bill.date}`, L, y + 8, { f: 'B', size: 9, width: R - L, align: 'right' });
   y += 26;
   hline(y, INK, 1.4);
@@ -412,7 +413,7 @@ export function renderBillPdf(bill) {
   y += 24;
   const tx = L + (R - L) * 0.52;
   const termsW = tx - L - 20;
-  text('Terms & Conditions:', L, y + 4, { f: 'B', size: 8.5 });
+  text(bill.terms_label || 'Terms & Conditions:', L, y + 4, { f: 'B', size: 8.5 });
   let ty = y + 18;
   for (const t of bill.terms) {
     text(t, L, ty, { size: 8, width: termsW });
@@ -433,7 +434,7 @@ export function renderBillPdf(bill) {
   if (bill.packing_deduction > 0) next('Less: Packing charges:', bill.packing_deduction, { minus: true });
   if (bill.round_off) next('Round off:', Math.abs(bill.round_off), { minus: bill.round_off < 0, plus: bill.round_off > 0 });
   doc.save().lineWidth(0.8).strokeColor('#9ca3af').moveTo(tx, ly - 6).lineTo(R, ly - 6).stroke().restore();
-  text('GRAND TOTAL:', tx, ly + 10, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
+  text(bill.total_label || 'GRAND TOTAL:', tx, ly + 10, { f: 'B', size: 14, width: (R - tx) * 0.58, align: 'right', color: NAVY });
   money(bill.grand_total, R, ly + 8, { size: 16, color: NAVY });
   if (bill.gst_percent > 0) text(`${bill.gst_percent}% GST included`, tx, ly + 32, { size: 9, width: R - tx, align: 'right', color: SOFT });
 

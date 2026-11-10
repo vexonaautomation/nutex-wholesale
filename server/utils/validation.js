@@ -133,6 +133,17 @@ export const adminOrderCustomerSchema = z.object({
   note: z.string().trim().max(300).optional().default(''),
 }).transform((c) => ({ ...c, shipping_address: c.shipping_address || c.billing_address }));
 
+export const salesReturnSchema = z.object({
+  reason: text(300, 3),
+  items: z.array(z.object({
+    order_item_id: id,
+    qty: z.coerce.number().int().min(1).max(100000),
+    condition: z.enum(['GOOD', 'DAMAGED']),
+  })).min(1).max(600),
+});
+
+export const cancelSalesReturnSchema = z.object({ reason: text(300, 3) });
+
 export const recalculateSchema = z.object({
   items: z.array(z.object({ variant_id: id, qty: z.coerce.number().int().min(0).max(100000) })).max(300).optional(),
   less_packing: z.boolean().optional(),

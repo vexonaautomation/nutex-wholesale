@@ -386,6 +386,11 @@ export const MIGRATIONS = [
     },
   },
   {
+    // Additive only: new Sales_Returns and Sales_Return_Items sheets.
+    version: 31,
+    description: 'Sales returns with credit notes',
+  },
+  {
     // The owner's catalogues of 10-11-2026 (online + all products), checked
     // page by page against the site. Additive:
     //  * the 5 articles missing on the site are created from catalog-import/

@@ -16,6 +16,7 @@ import Inventory from './Inventory/Inventory.jsx';
 import DiscountSlabs from './DiscountSlabs/DiscountSlabs.jsx';
 import OrderList from './Orders/OrderList.jsx';
 import OrderDetail from './Orders/OrderDetail.jsx';
+import SalesReturns from './SalesReturns/SalesReturns.jsx';
 import Payments from './Payments/Payments.jsx';
 import Customers from './Customers/Customers.jsx';
 import ExistingCustomers from './ExistingCustomers/ExistingCustomers.jsx';
@@ -34,10 +35,11 @@ export const useAdmin = () => useContext(AuthContext);
 // Sub admins see the Orders tab + small dashboard + what the owner ticked.
 export const isSubAdmin = (admin) => admin?.role === 'SUB_ADMIN';
 export const isManager = (admin) => ['OWNER', 'ADMIN'].includes(admin?.role);
-/** permission: a sub admin key ("products"...), "full" (not for sub admins) or "manager" (owner / admin). */
+/** permission: a sub admin key ("products"...), "full" (not for sub admins), "manager" (owner / admin) or "returns" (everyone but staff). */
 export function allowed(admin, permission) {
   if (!permission) return true;
   if (permission === 'manager') return isManager(admin);
+  if (permission === 'returns') return admin?.role !== 'STAFF';
   if (permission === 'full') return !isSubAdmin(admin);
   return !isSubAdmin(admin) || (admin.permissions || []).includes(permission);
 }
@@ -119,6 +121,7 @@ export default function AdminApp() {
           <Route path="discount-slabs" element={<Need permission="pricing"><DiscountSlabs /></Need>} />
           <Route path="orders" element={<OrderList />} />
           <Route path="orders/:id" element={<OrderDetail />} />
+          <Route path="sales-returns" element={<Need permission="returns"><SalesReturns /></Need>} />
           <Route path="analytics" element={<Need permission="manager"><Analytics /></Need>} />
           <Route path="payments" element={<Need permission="payments"><Payments /></Need>} />
           <Route path="customers" element={<Need permission="customers"><Customers /></Need>} />

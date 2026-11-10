@@ -1034,6 +1034,13 @@ export async function updateOrderItemsAdmin(id, {
     const order = data.Orders.find((o) => o.order_id === id || normalizeOrderNumber(o.order_number) === normalizeOrderNumber(id));
     if (!order) throw notFound('Order not found.');
     assertAdminCanEditItems(order, admin);
+    // a return points at these item rows and its stock has moved
+    if (order.order_status === ORDER_STATUS.COMPLETED) {
+      const returns = await sheetsService.read('Sales_Returns', { fresh: true });
+      if (returns.some((r) => r.order_id === order.order_id && r.status === 'ACTIVE')) {
+        throw conflict('HAS_SALES_RETURN', 'This order has a sales return. Cancel the return before editing the items.');
+      }
+    }
     const current = activeItems(data.Order_Items, order.order_id);
     const catalog = buildCatalog(data);
     const quote = adminEditQuote({
@@ -1143,6 +1150,12 @@ export async function updateOrderCustomerAdmin(id, body, { admin, ip }) {
       if (order.order_status === ORDER_STATUS.COMPLETED) {
         const gb = (await sheetsService.read(GB_SHEET, { fresh: true })).filter((r) => String(r.BILL) === String(order.order_number));
         if (gb.length) await sheetsService.patchRows(GB_SHEET, gb.map((r) => ({ row: r._row, patch: { 'CLIENT NAME': party } })));
+        const returns = (await sheetsService.read('Sales_Returns', { fresh: true })).filter((r) => r.order_id === order.order_id);
+        if (returns.length) {
+          await sheetsService.patchRows('Sales_Returns', returns.map((r) => ({
+            row: r._row, patch: { party_name: party, customer_name: updated.customer_name_snapshot, city: updated.city_snapshot },
+          })));
+        }
       }
     } catch (err) {
       logger.error('Sheets not updated after the customer details were changed', err);

@@ -13,8 +13,9 @@ import { ORDER_STATUS } from '../../constants/index.js';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { waLink } from '../../utils/whatsapp.js';
 import OrderItemsEditor from './OrderItemsEditor.jsx';
+import SalesReturnCard from './SalesReturn.jsx';
 import { PackerFields, PackingCard, sendToPacker } from './PackerPicker.jsx';
-import { useCan, useAdmin, isManager } from '../AdminApp.jsx';
+import { useCan, useAdmin, isManager, allowed } from '../AdminApp.jsx';
 
 export function ProofModal({ payment, onClose }) {
   const [failed, setFailed] = useState(false);
@@ -287,6 +288,8 @@ export default function OrderDetail() {
               </details>
             )}
           </section>
+
+          {order.order_status === 'COMPLETED' && allowed(admin, 'returns') && <SalesReturnCard orderId={order.order_id} onChanged={reload} />}
 
           <section className="card card-pad">
             <h3 className="card-title">Payments</h3>
