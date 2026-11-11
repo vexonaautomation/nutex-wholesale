@@ -82,14 +82,18 @@ export function variantOptions(catalog, product, heldByOrder, customer) {
  * @param {object} [p.keep]              admin edit: variant_id -> { qty, unit_mrp, components } the
  *                                       order already has. Up to that qty a line keeps the order's rate and
  *                                       packed pieces, even if the article / box was stopped since.
+ * @param {boolean} [p.noDiscount]       owner / main admin order without discount: every item at MRP
  */
-export function buildQuote({ items, catalog, heldByOrder = {}, today, customer = null, keep = {} }) {
+export function buildQuote({
+  items, catalog, heldByOrder = {}, today, customer = null, keep = {}, noDiscount = false,
+}) {
   const existing = customer?.existing === true;
   const pcsAllowed = pcsAllowedFor(customer, catalog.settings);
   // Existing customers get their own (usually zero) minimum. Discounts are unchanged.
-  const settings = existing
+  let settings = existing
     ? { ...catalog.settings, minimum_order_value: Number(customer.minimum_order_value) || 0 }
     : catalog.settings;
+  if (noDiscount) settings = { ...settings, discount_mode: 'FIXED', default_discount_percent: 0 };
   const merged = mergeItems(items);
   const resolved = [];
   for (const [variantId, qty] of merged) {
@@ -146,7 +150,11 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
 
   const valid = resolved.filter((l) => !l.issue);
   const pricing = calculatePricing({
-    lines: valid.map(({ key, qty, unit_mrp, override_percent, units_per_item }) => ({ key, qty, unit_mrp, override_percent, units_per_item })),
+    lines: valid.map(({
+      key, qty, unit_mrp, override_percent, units_per_item,
+    }) => ({
+      key, qty, unit_mrp, override_percent: noDiscount ? 0 : override_percent, units_per_item,
+    })),
     settings,
     slabs: catalog.slabs,
     today,
@@ -212,6 +220,9 @@ export function buildQuote({ items, catalog, heldByOrder = {}, today, customer =
     customer_type: existing ? 'EXISTING' : 'NEW',
     pcs_allowed: pcsAllowed,
     minimum_order_waived: waived,
+    // owner / main admin: may tick "Give discount" (unticked = MRP)
+    discount_choice: customer?.main_admin === true,
+    no_discount: noDiscount === true,
     standard_minimum_order_value: Number(catalog.settings.minimum_order_value) || 0,
     has_issues: hasIssues,
     can_checkout: valid.length > 0 && !hasIssues && pricing.minimum_order_met,

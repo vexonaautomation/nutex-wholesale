@@ -43,7 +43,7 @@ export function CartProvider({ children }) {
       const items = current.items.map(({ variant_id, qty }) => ({ variant_id, qty }));
       const q = current.editing
         ? (await orderApi.recalculate(current.editing.order_number, items)).quote
-        : await orderApi.quote(items);
+        : await orderApi.quote(items, undefined, current.apply_discount === true);
       if (id === reqId.current) {
         setQuote(q);
         setQuoteError(null);
@@ -115,6 +115,8 @@ export function CartProvider({ children }) {
   }, []);
 
   const clear = useCallback(() => setCart({ items: [], editing: null }), []);
+  // owner / main admin only (the server ignores it for everyone else)
+  const setApplyDiscount = useCallback((on) => setCart((c) => ({ ...c, apply_discount: on === true })), []);
 
   const startEditOrder = useCallback((order) => {
     setCart({
@@ -128,6 +130,8 @@ export function CartProvider({ children }) {
   const value = useMemo(() => ({
     items: cart.items,
     editing: cart.editing,
+    applyDiscount: cart.apply_discount === true,
+    setApplyDiscount,
     count: cart.items.reduce((s, i) => s + i.qty, 0),
     lines: cart.items.length,
     quote,
@@ -142,7 +146,7 @@ export function CartProvider({ children }) {
     clear,
     startEditOrder,
     stopEditing,
-  }), [cart, quote, quoting, quoteError, refreshQuote, addItems, setQty, setLineQty, removeItem, changeVariant, clear, startEditOrder, stopEditing]);
+  }), [cart, quote, quoting, quoteError, refreshQuote, addItems, setQty, setLineQty, removeItem, changeVariant, clear, setApplyDiscount, startEditOrder, stopEditing]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

@@ -53,7 +53,7 @@ export function listSavedOrders() {
 const tokenHeader = (orderNumber) => ({ 'X-Order-Token': getOrderToken(orderNumber) });
 
 export const orderApi = {
-  quote: (items, opts) => api.post('/api/cart/quote', { items }, { ...opts, headers: customerHeader() }),
+  quote: (items, opts, applyDiscount = false) => api.post('/api/cart/quote', { items, apply_discount: applyDiscount }, { ...opts, headers: customerHeader() }),
   createDraft: (payload) => api.post('/api/orders/draft', payload, { headers: customerHeader() }),
   active: (orders) => api.post('/api/orders/active', { orders: orders.map(({ order_number, token }) => ({ order_number, token })) }),
   track: (order_number, mobile) => api.post('/api/orders/track', { order_number, mobile }),

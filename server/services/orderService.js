@@ -144,9 +144,13 @@ export function packingFor(order, quote, wanted) {
 function existingCustomerForOrder(catalog, order) {
   if (order.customer_type_snapshot !== CUSTOMER_TYPE.EXISTING) return null;
   const status = resolveExistingCustomer(catalog.existingCustomers, catalog.settings, order.mobile_snapshot);
-  if (status.existing) return status;
   // placed by an admin number for a customer: kept while it is still an admin number
-  const admin = order.placed_by_mobile ? resolveExistingCustomer(catalog.existingCustomers, catalog.settings, order.placed_by_mobile) : null;
+  const admin = order.placed_by_mobile
+    ? resolveExistingCustomer(catalog.existingCustomers, catalog.settings, order.placed_by_mobile, { subAdmins: catalog.subAdminMobiles })
+    : null;
+  // the owner / main admin's order keeps "no minimum" while it is edited
+  if (admin?.main_admin) return admin;
+  if (status.existing) return status;
   return admin?.admin ? admin : null;
 }
 
@@ -356,7 +360,11 @@ export async function createDraftOrder(input, { ip, customerToken, baseUrl } = {
     // any of the customer's registered numbers (main or alternate) may be used on the order;
     // an admin number orders for customers: existing-customer rules on the customer's number
     const sameNumber = verified.existing && (verified.admin || (verified.numbers || [verified.mobile]).includes(input.customer.mobile));
-    const quote = buildQuote({ items: input.items, catalog, customer: sameNumber ? verified : null });
+    // owner / main admin: every item at MRP unless "Give discount" is ticked
+    const noDiscount = verified.main_admin === true && input.apply_discount !== true;
+    const quote = buildQuote({
+      items: input.items, catalog, customer: sameNumber ? verified : null, noDiscount,
+    });
     if (verified.existing && !sameNumber && !quote.minimum_order_met) {
       throw unprocessable('MIN_ORDER_NOT_MET', `The minimum order exemption applies only to your verified number ${maskMobile(verified.mobile)}. Use that mobile number to order without the minimum.`);
     }
@@ -399,6 +407,7 @@ export async function createDraftOrder(input, { ip, customerToken, baseUrl } = {
       payment_mode_snapshot: catalog.settings.online_payment_enabled === false ? PAYMENT_MODE.OFFLINE : PAYMENT_MODE.ONLINE,
       // admin number that placed it for the customer (the bill shows the customer's mobile)
       placed_by_mobile: verified.admin ? verified.mobile : '',
+      no_discount: noDiscount,
       created_at: now,
       updated_at: now,
     };
@@ -535,7 +544,9 @@ export async function updateOrderItems(orderNumber, token, { items, client_final
     const current = activeItems(data.Order_Items, order.order_id);
     const held = order.stock_state === STOCK_STATE.RESERVED ? qtyMap(current) : {};
     const catalog = buildCatalog(data);
-    const quote = buildQuote({ items, catalog, heldByOrder: held, customer: existingCustomerForOrder(catalog, order) });
+    const quote = buildQuote({
+      items, catalog, heldByOrder: held, customer: existingCustomerForOrder(catalog, order), noDiscount: order.no_discount === true,
+    });
     assertQuoteOrderable(quote, clientFinal);
 
     const now = nowIso();
@@ -579,6 +590,7 @@ export async function recalculateOrder(orderNumber, token, { items } = {}) {
     catalog,
     heldByOrder: held,
     customer: existingCustomerForOrder(catalog, bundle.order),
+    noDiscount: bundle.order.no_discount === true,
   });
   return { editable, locked: bundle.order.locked === true, quote };
 }
@@ -976,7 +988,7 @@ function keptLines(items, { reprice = false } = {}) {
 const adminEditQuote = ({
   order, current, items, catalog, reprice = false,
 }) => buildQuote({
-  items, catalog, heldByOrder: qtyMap(current), customer: orderCustomerRules(order), keep: keptLines(current, { reprice }),
+  items, catalog, heldByOrder: qtyMap(current), customer: orderCustomerRules(order), keep: keptLines(current, { reprice }), noDiscount: order.no_discount === true,
 });
 
 /** Admin item edit preview (no writes; cached catalog - the save checks again). */

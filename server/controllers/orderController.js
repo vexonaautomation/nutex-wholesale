@@ -24,7 +24,11 @@ export async function quoteCart(req, res) {
   const catalog = await getCatalog();
   const customer = customerFromToken(catalog, req.customerToken);
   noStore(res);
-  res.json(buildQuote({ items: req.body.items, catalog, customer }));
+  // owner / main admin: no discount unless "Give discount" is ticked
+  const noDiscount = customer.main_admin === true && req.body.apply_discount !== true;
+  res.json(buildQuote({
+    items: req.body.items, catalog, customer, noDiscount,
+  }));
 }
 
 export async function createDraft(req, res) {

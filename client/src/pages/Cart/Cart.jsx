@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Package, ShoppingBag, Trash2, RefreshCw, XCircle } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
+import { DiscountChoice } from '../../components/DiscountChoice/DiscountChoice.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useSeo } from '../../hooks/index.js';
 import { orderApi } from '../../services/order.js';
@@ -175,6 +176,7 @@ export default function Cart() {
               </span>
             </label>
           )}
+          <DiscountChoice quote={quote} />
           <DiscountProgress quote={quote} />
           <MinimumOrderProgress quote={quote} />
           <Messages messages={quote?.messages} />

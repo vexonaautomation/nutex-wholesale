@@ -445,6 +445,11 @@ export const MIGRATIONS = [
       logger.info(`Migration v32: ${done.join(', ')}`);
     },
   },
+  {
+    // Additive only: Orders.no_discount (blank for older orders = normal discount).
+    version: 33,
+    description: 'Owner / main admin orders: discount optional, no minimum order',
+  },
 ];
 
 // what migration v32 changes (exported for its test)

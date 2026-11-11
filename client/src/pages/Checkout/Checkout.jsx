@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Lock, ShieldCheck } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
+import { DiscountChoice } from '../../components/DiscountChoice/DiscountChoice.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useSeo } from '../../hooks/index.js';
 import { orderApi, saveOrderAccess, newIdempotencyKey } from '../../services/order.js';
@@ -170,6 +171,7 @@ export default function Checkout() {
         idempotency_key: idemKey,
         client_final_payable: quote.final_payable,
         less_packing: packingOff > 0,
+        apply_discount: cart.applyDiscount,
       });
       saveOrderAccess(res.order_number, res.access_token, { final_payable: res.order?.totals?.final_payable, business: form.business_name });
       if (!isAdmin) {
@@ -316,6 +318,7 @@ export default function Checkout() {
               </span>
             </label>
           )}
+          <DiscountChoice quote={quote} />
           <MinimumOrderProgress quote={quote} />
           <Messages messages={quote.messages.filter((m) => m.type !== 'success')} />
           {serverError && (
