@@ -39,6 +39,9 @@ export function numbersOf(row) {
 
 const ownerOf = (rows, mobile, exceptKey = null) => rows.find((r) => r.mobile !== exceptKey && numbersOf(r).includes(mobile)) || null;
 
+/** Mobiles of the sub admins (Admin_Users rows): every other admin number is the owner / main admin. */
+export const subAdminMobilesOf = (adminRows) => new Set((adminRows || []).filter((a) => a.role === 'SUB_ADMIN').map((a) => normalizeMobile(a.mobile)).filter(Boolean));
+
 /** Admin / staff numbers (Settings > admin_order_mobiles): they order for customers. */
 export const adminMobilesOf = (settings) => splitMobiles(settings?.admin_order_mobiles);
 
@@ -46,19 +49,24 @@ export const adminMobilesOf = (settings) => splitMobiles(settings?.admin_order_m
  * Is this mobile (primary OR alternate) in the Existing_Customers list?
  * Accepts numbers typed by hand in any common format. An admin number counts
  * as an existing customer (admin: true) and may order for any customer number.
+ * `subAdmins` (Set of sub admin mobiles) known: an admin number that is not a
+ * sub admin's is the owner / main admin (main_admin: true) - no minimum order,
+ * and they choose whether the order gets the discount.
  */
-export function resolveExistingCustomer(rows, settings, mobile) {
+export function resolveExistingCustomer(rows, settings, mobile, { subAdmins = null } = {}) {
   const m = normalizeMobile(mobile);
   if (!MOBILE_RE.test(m)) return { existing: false, mobile: m };
   if (adminMobilesOf(settings).includes(m)) {
+    const main = subAdmins instanceof Set && !subAdmins.has(m);
     return {
       existing: true,
       admin: true,
+      main_admin: main,
       mobile: m,
       key: '',
       primary: m,
       numbers: [m],
-      minimum_order_value: Math.max(0, Number(settings?.existing_customer_minimum_order_value) || 0),
+      minimum_order_value: main ? 0 : Math.max(0, Number(settings?.existing_customer_minimum_order_value) || 0),
     };
   }
   const row = (rows || []).find((r) => isActive(r) && numbersOf(r).includes(m));
@@ -155,7 +163,7 @@ export function readCustomerToken(token, { secret = config.sessionSecret } = {})
 export function customerFromToken(catalog, token) {
   const t = readCustomerToken(token);
   if (!t) return { existing: false, type: CUSTOMER_TYPE.NEW };
-  const status = resolveExistingCustomer(catalog.existingCustomers, catalog.settings, t.mobile);
+  const status = resolveExistingCustomer(catalog.existingCustomers, catalog.settings, t.mobile, { subAdmins: catalog.subAdminMobiles });
   return status.existing ? { ...status, type: CUSTOMER_TYPE.EXISTING } : { existing: false, type: CUSTOMER_TYPE.NEW, mobile: t.mobile };
 }
 

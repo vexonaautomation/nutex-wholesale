@@ -92,6 +92,8 @@ export const cartItemsSchema = z.array(z.object({
 
 export const quoteSchema = z.object({
   items: z.array(z.object({ variant_id: id, qty: z.coerce.number().int().min(0).max(100000) })).max(300).default([]),
+  // owner / main admin: "Give discount" ticked (ignored for everyone else)
+  apply_discount: z.boolean().optional().default(false),
 });
 
 export const draftOrderSchema = z.object({
@@ -101,6 +103,8 @@ export const draftOrderSchema = z.object({
   client_final_payable: z.number().nonnegative().nullable().optional(),
   // "Do you wish to less packing charges?" ticked at checkout
   less_packing: z.boolean().optional().default(false),
+  // owner / main admin: "Give discount" ticked (ignored for everyone else)
+  apply_discount: z.boolean().optional().default(false),
 });
 
 export const updateOrderSchema = z.object({

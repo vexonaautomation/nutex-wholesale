@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 32;
+export const SCHEMA_VERSION = 33;
 
 const n = 'number';
 const b = 'boolean';
@@ -171,11 +171,15 @@ export const SCHEMA = {
       // v29: pieces of the order (a box counts its pieces) and boxes - what
       // the packing slip shows; total_qty counts boxes and pieces as units
       'total_pcs', 'total_boxes',
+      // v33: TRUE = placed by the owner / main admin with "Give discount"
+      // unticked: every item at MRP (edits keep it). Blank = normal discount.
+      'no_discount',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,
       final_payable: n, total_qty: n, minimum_order_value_snapshot: n, minimum_order_met: b,
       locked: b, revision: n, packing_deduction: n, less_packing: b, total_pcs: n, total_boxes: n,
+      no_discount: b,
     },
   },
   // v24: cancelled orders are MOVED here from Orders (same columns), so the
@@ -378,4 +382,6 @@ export const SHEET_NAMES = Object.keys(SCHEMA);
 export const CATALOG_SHEETS = [
   'Settings', 'Categories', 'Colors', 'Sizes', 'Products', 'Product_Images',
   'Product_Variants', 'Inventory', 'Discount_Slabs', 'Existing_Customers',
+  // only the sub admins' mobiles are kept (owner / main admin numbers order without minimum)
+  'Admin_Users',
 ];

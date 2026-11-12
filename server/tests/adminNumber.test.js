@@ -23,8 +23,11 @@ const ADMIN = '9811122233';
 const SHOP = '9123456789'; // a customer who is not an existing customer
 let n = 0;
 const key = () => `admin-number-${Date.now()}-${(n += 1)}`;
+// apply_discount: the owner / main admin ticks "Give discount" (see ownerOrderDiscount.test.js)
 const order = (items, token, customer = CUSTOMER) => createDraftOrder(
-  draftOrderSchema.parse({ customer, items, idempotency_key: key() }),
+  draftOrderSchema.parse({
+    customer, items, idempotency_key: key(), apply_discount: true,
+  }),
   { customerToken: token },
 );
 const code = (c) => (err) => { assert.equal(err.code, c); return true; };

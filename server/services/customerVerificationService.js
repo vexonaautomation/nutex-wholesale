@@ -4,7 +4,7 @@ import { getSettings } from './settingsService.js';
 import { auditOp } from './auditService.js';
 import { sendWhatsAppText } from './whatsappService.js';
 import {
-  resolveExistingCustomer, issueCustomerToken, readCustomerToken, maskMobile, appendAlternateNumber,
+  resolveExistingCustomer, issueCustomerToken, readCustomerToken, maskMobile, appendAlternateNumber, subAdminMobilesOf,
 } from './existingCustomerService.js';
 import { config } from '../config/env.js';
 import { ACTOR, AUDIT_ACTION } from '../config/constants.js';
@@ -54,8 +54,9 @@ function validMobile(mobile) {
 }
 
 async function listed(mobile, { fresh = true } = {}) {
-  const [rows, settings] = await Promise.all([sheetsService.read('Existing_Customers', { fresh }), getSettings()]);
-  return { rows, settings, status: resolveExistingCustomer(rows, settings, mobile) };
+  const [rows, settings, admins] = await Promise.all([sheetsService.read('Existing_Customers', { fresh }), getSettings(), sheetsService.read('Admin_Users', { fresh })]);
+  // owner / main admin number: no minimum order (shown after the OTP)
+  return { rows, settings, status: resolveExistingCustomer(rows, settings, mobile, { subAdmins: subAdminMobilesOf(admins) }) };
 }
 
 function verifiedResponse(mobile, status, { otp = false } = {}) {

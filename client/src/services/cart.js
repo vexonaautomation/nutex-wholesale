@@ -12,6 +12,8 @@ export function loadCart() {
         .filter((i) => i && typeof i.variant_id === 'string' && Number(i.qty) > 0)
         .map((i) => ({ variant_id: i.variant_id, product_id: i.product_id || '', qty: Math.floor(Number(i.qty)) })),
       editing: raw.editing && typeof raw.editing.order_number === 'string' ? raw.editing : null,
+      // owner / main admin: "Give discount" ticked
+      apply_discount: raw.apply_discount === true,
     };
   } catch {
     return { items: [], editing: null };

@@ -10,6 +10,7 @@ import {
 } from '../utils/sellMode.js';
 import { displayDiscountPercent, getActiveSlabs } from './priceCalculator.js';
 import { round2 } from '../utils/money.js';
+import { subAdminMobilesOf } from './existingCustomerService.js';
 import { collectionsOf } from '../utils/collections.js';
 
 const bySort = (nameKey) => (a, b) => (a.sort_order ?? 1e9) - (b.sort_order ?? 1e9) || String(a[nameKey]).localeCompare(String(b[nameKey]));
@@ -66,6 +67,8 @@ export function buildCatalog(data) {
     imagesByProduct,
     slabs: data.Discount_Slabs,
     existingCustomers: data.Existing_Customers || [],
+    // admin numbers that belong to a sub admin (every other admin number = owner / main admin)
+    subAdminMobiles: subAdminMobilesOf(data.Admin_Users),
   };
 }
 
