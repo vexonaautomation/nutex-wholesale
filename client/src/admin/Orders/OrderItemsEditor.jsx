@@ -124,7 +124,7 @@ function AddItems({ orderId, onAdd }) {
           ) : <div className="small muted">This article has no box.</div>)}
 
           {mode === 'PCS' && (
-            <div className="table-wrap">
+            <div className="table-wrap oe-grid-wrap">
               <table className="table oe-grid">
                 <thead><tr><th>Colour</th>{grid.sizes.map((s) => <th key={s.id}>{s.name}</th>)}</tr></thead>
                 <tbody>

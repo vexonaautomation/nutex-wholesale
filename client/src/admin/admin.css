@@ -319,11 +319,17 @@ label.choice { cursor: pointer; }
 .oe-result > span { display: flex; flex-direction: column; }
 .oe-result img, .oe-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: var(--ink-50); flex: 0 0 auto; }
 .oe-grid th:not(:first-child), .oe-grid td:not(:first-child) { text-align: center; }
+.oe-grid th, .oe-grid td { padding: 8px 6px; }
 .oe-grid .swatch-dot { display: inline-block; vertical-align: middle; }
-.oe-pcs { width: 68px; padding: 6px; text-align: center; }
+/* many sizes: the grid scrolls sideways inside its box, the colour name stays in view */
+.oe-grid th:first-child, .oe-grid td:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.oe-grid-wrap { scrollbar-width: auto; }
+.oe-grid-wrap::-webkit-scrollbar { height: 10px; }
+.oe-grid-wrap::-webkit-scrollbar-thumb { background: var(--ink-300, #bbb); border-radius: 6px; }
+.oe-pcs { width: 64px; padding: 6px 4px; text-align: center; }
 .chip svg { width: 16px; height: 16px; }
 .chip:disabled { opacity: 0.5; cursor: not-allowed; }
-.packing-box { margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--radius); display: grid; gap: 8px; background: var(--surface-muted); }
+.packing-box { margin-top: 12px; padding: 12px; border: 1px dashed var(--border); border-radius: var(--radius); display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; background: var(--surface-muted); }
 
 /* ------------------------------------------------------------ analytics */
 .an-bars { display: flex; align-items: flex-end; gap: 6px; height: 180px; overflow-x: auto; padding-top: 18px; }
