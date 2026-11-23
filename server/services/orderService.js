@@ -306,6 +306,7 @@ export function customerOrderView({ order, items, payments, history }, settings 
       city: order.city_snapshot,
       state: order.state_snapshot,
       pincode: order.pincode_snapshot,
+      country: order.country_snapshot || 'India',
       gstin: order.gstin_snapshot,
     },
     order_notes: order.order_notes,
@@ -390,6 +391,8 @@ export async function createDraftOrder(input, { ip, customerToken, baseUrl } = {
       city_snapshot: c.city,
       state_snapshot: c.state,
       pincode_snapshot: c.pincode,
+      // blank = India (as every order before v35)
+      country_snapshot: c.country && c.country !== 'India' ? c.country : '',
       gstin_snapshot: c.gstin,
       aadhaar_last4: c.aadhaar_last4 || '',
       alternate_mobile_snapshot: c.alternate_mobile,
@@ -1120,6 +1123,7 @@ const CUSTOMER_FIELDS = {
   city: 'city_snapshot',
   state: 'state_snapshot',
   pincode: 'pincode_snapshot',
+  country: 'country_snapshot',
   gstin: 'gstin_snapshot',
 };
 
@@ -1132,7 +1136,8 @@ export async function updateOrderCustomerAdmin(id, body, { admin, ip }) {
     const oldValue = {};
     const patch = {};
     for (const [field, column] of Object.entries(CUSTOMER_FIELDS)) {
-      const next = String(body[field] ?? '').trim();
+      let next = String(body[field] ?? '').trim();
+      if (field === 'country' && next === 'India') next = ''; // blank = India
       if (next !== String(order[column] ?? '').trim()) {
         oldValue[column] = order[column] ?? '';
         patch[column] = next;

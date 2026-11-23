@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 34;
+export const SCHEMA_VERSION = 35;
 
 const n = 'number';
 const b = 'boolean';
@@ -126,6 +126,8 @@ export const SCHEMA = {
       'created_at', 'updated_at',
       // v3
       'alternate_mobile',
+      // v35: blank = India
+      'country',
     ],
     types: {},
   },
@@ -174,6 +176,8 @@ export const SCHEMA = {
       // v33: TRUE = placed by the owner / main admin with "Give discount"
       // unticked: every item at MRP (edits keep it). Blank = normal discount.
       'no_discount',
+      // v35: country of the address (orders from abroad). Blank = India.
+      'country_snapshot',
     ],
     types: {
       mrp_subtotal: n, discount_basis_amount: n, discount_percent: n, discount_amount: n,

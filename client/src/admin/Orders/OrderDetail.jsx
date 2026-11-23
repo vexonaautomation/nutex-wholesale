@@ -10,6 +10,8 @@ import { Alert, ErrorState, Field, PageLoader, Spinner, StatusBadge } from '../.
 import { OrderTotals } from '../../components/OrderSummary/OrderSummary.jsx';
 import { formatDateTime, formatINR, pct } from '../../utils/format.js';
 import { ORDER_STATUS } from '../../constants/index.js';
+import { CountryStateFields } from '../../components/CountryStateFields/CountryStateFields.jsx';
+import { INDIA, isIndia } from '../../utils/countries.js';
 import { WhatsAppIcon } from '../../components/common/Icons.jsx';
 import { waLink } from '../../utils/whatsapp.js';
 import OrderItemsEditor from './OrderItemsEditor.jsx';
@@ -121,9 +123,11 @@ function CustomerEdit({ order, onSaved, onCancel }) {
     shipping_address: order.shipping_address_snapshot === order.billing_address_snapshot ? '' : (order.shipping_address_snapshot || ''),
     city: order.city_snapshot || '',
     state: order.state_snapshot || '',
+    country: order.country_snapshot || INDIA,
     pincode: order.pincode_snapshot || '',
     note: '',
   });
+  const india = isIndia(form.country);
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const save = async (e) => {
@@ -144,14 +148,13 @@ function CustomerEdit({ order, onSaved, onCancel }) {
       <Field label="Name" required><input className="input" value={form.customer_name} onChange={set('customer_name')} maxLength={100} required /></Field>
       <Field label="Business" required><input className="input" value={form.business_name} onChange={set('business_name')} maxLength={150} required /></Field>
       <Field label="Email"><input className="input" type="email" value={form.email} onChange={set('email')} maxLength={150} /></Field>
-      <Field label="GSTIN"><input className="input" value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} maxLength={15} /></Field>
+      {india && <Field label="GSTIN"><input className="input" value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} maxLength={15} /></Field>}
       <Field label="Billing address" required><textarea className="textarea" rows={3} value={form.billing_address} onChange={set('billing_address')} maxLength={500} required /></Field>
       <Field label="Shipping address" hint="Blank = same as billing"><textarea className="textarea" rows={3} value={form.shipping_address} onChange={set('shipping_address')} maxLength={500} /></Field>
       <div className="row wrap" style={{ gap: 8, alignItems: 'flex-start' }}>
         <Field label="City" required className="grow"><input className="input" value={form.city} onChange={set('city')} maxLength={80} required /></Field>
-        <Field label="State" required className="grow"><input className="input" value={form.state} onChange={set('state')} maxLength={80} required /></Field>
-        <Field label="Pincode" required><input className="input" style={{ maxWidth: 120 }} inputMode="numeric" value={form.pincode} onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))} required /></Field>
       </div>
+      <CountryStateFields form={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
       <Field label="Note (optional)"><input className="input" value={form.note} onChange={set('note')} maxLength={200} placeholder="Why it changed" /></Field>
       <div className="row" style={{ gap: 8 }}>
         <button type="submit" className="btn btn-sm btn-primary" disabled={busy}>{busy && <Spinner small />} Save</button>
@@ -361,7 +364,8 @@ export default function OrderDetail() {
               {!order.gstin_snapshot && order.aadhaar_last4 && <><dt>Aadhaar</dt><dd>XXXX XXXX {order.aadhaar_last4}</dd></>}
               <dt>Billing</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.billing_address_snapshot}</dd>
               <dt>Shipping</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.shipping_address_snapshot}</dd>
-              <dt>City / State</dt><dd>{order.city_snapshot}, {order.state_snapshot} - {order.pincode_snapshot}</dd>
+              <dt>City / State</dt><dd>{[order.city_snapshot, order.state_snapshot].filter(Boolean).join(', ')}{order.pincode_snapshot ? ` - ${order.pincode_snapshot}` : ''}</dd>
+              {order.country_snapshot && <><dt>Country</dt><dd>{order.country_snapshot}</dd></>}
               {order.order_notes && <><dt>Notes</dt><dd>{order.order_notes}</dd></>}
             </dl>
             )}

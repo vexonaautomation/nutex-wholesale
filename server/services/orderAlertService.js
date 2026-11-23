@@ -55,7 +55,7 @@ export function newOrderMessage({ order, items, link, adminLink, placedBy }) {
     '*Nutex - new order*',
     `Order: ${order.order_number}`,
     `Party: ${party}${order.business_name_snapshot && order.customer_name_snapshot ? ` (${order.customer_name_snapshot})` : ''}`,
-    `City: ${[order.city_snapshot, order.state_snapshot].filter(Boolean).join(', ') || '-'}`,
+    `City: ${[order.city_snapshot, order.state_snapshot, order.country_snapshot].filter(Boolean).join(', ') || '-'}`,
     `Mobile: ${order.mobile_snapshot}`,
     `Customer: ${order.customer_type_snapshot === 'EXISTING' ? 'Existing' : 'New'}`,
     `Items: ${articles} article${articles === 1 ? '' : 's'}, ${pcs} pcs`,

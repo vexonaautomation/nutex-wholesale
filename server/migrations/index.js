@@ -469,6 +469,11 @@ export const MIGRATIONS = [
       logger.info(`Migration v34: ${ops.length} bill link(s) now on ${baseUrl || 'the site domain'}`);
     },
   },
+  {
+    // Additive only: Orders.country_snapshot, Customers.country (blank = India).
+    version: 35,
+    description: 'Orders from abroad: country of the address',
+  },
 ];
 
 // what migration v32 changes (exported for its test)

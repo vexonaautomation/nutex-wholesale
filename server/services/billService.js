@@ -59,12 +59,14 @@ const oneLine = (v) => String(v || '').replace(/\s*\n\s*/g, ', ').replace(/\s+/g
 const same = (a, b) => oneLine(a).toLowerCase() === oneLine(b).toLowerCase();
 
 /** "Street, City, State - 302001" (city / state left out when the street already has them). */
-export function fullAddress(street, city, state, pincode) {
+// country: blank / India is not printed (an order from abroad ends with it)
+export function fullAddress(street, city, state, pincode, country = '') {
   const s = oneLine(street);
   const has = (w) => w && s.toLowerCase().includes(String(w).toLowerCase());
-  const place = [!has(city) && oneLine(city), !has(state) && oneLine(state)].filter(Boolean).join(', ');
+  const place = [!has(city) && oneLine(city), !has(state) && !same(state, city) && oneLine(state)].filter(Boolean).join(', ');
   const tail = [place, pincode && !has(pincode) ? String(pincode).trim() : ''].filter(Boolean).join(' - ');
-  return [s, tail].filter(Boolean).join(', ');
+  const abroad = country && !/^india$/i.test(String(country).trim()) && !has(country) ? oneLine(country) : '';
+  return [s, tail, abroad].filter(Boolean).join(', ');
 }
 
 /** Aadhaar on a bill: only the last 4 digits (XXXX XXXX 1234). */
@@ -127,9 +129,9 @@ export function buildBill({
         ? oneLine(order.customer_name_snapshot) : '',
       phone: order.mobile_snapshot || '',
       city: order.city_snapshot || '',
-      address: fullAddress(order.billing_address_snapshot, order.city_snapshot, order.state_snapshot, order.pincode_snapshot),
+      address: fullAddress(order.billing_address_snapshot, order.city_snapshot, order.state_snapshot, order.pincode_snapshot, order.country_snapshot),
       ship_to: order.shipping_address_snapshot && !same(order.shipping_address_snapshot, order.billing_address_snapshot)
-        ? fullAddress(order.shipping_address_snapshot, order.city_snapshot, order.state_snapshot, order.pincode_snapshot) : '',
+        ? fullAddress(order.shipping_address_snapshot, order.city_snapshot, order.state_snapshot, order.pincode_snapshot, order.country_snapshot) : '',
       // GST number; without GST the Aadhaar number (last 4 digits only)
       gstin: String(order.gstin_snapshot || '').trim().toUpperCase(),
       aadhaar: order.gstin_snapshot ? '' : maskAadhaar(order.aadhaar_last4),
