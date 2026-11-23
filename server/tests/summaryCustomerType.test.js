@@ -26,8 +26,8 @@ async function setup() {
     }));
     return (await sheetsService.read('Orders', { fresh: true })).find((r) => r.order_number === o.order_number);
   };
-  const addExisting = (mobile) => sheetsService.commit([{
-    op: 'append', sheet: 'Existing_Customers', rows: [{ mobile, customer_name: 'Old Party', status: 'ACTIVE' }],
+  const addExisting = (mobile, addedAt = '') => sheetsService.commit([{
+    op: 'append', sheet: 'Existing_Customers', rows: [{ mobile, customer_name: 'Old Party', status: 'ACTIVE', added_at: addedAt }],
   }]);
   return { ...store, place, addExisting };
 }
@@ -57,7 +57,21 @@ test('migration v36 fills the rows already in the sheet from the Existing sheet'
   await addExisting('9844400000');
 
   await MIGRATIONS.find((m) => m.version === 36).up({ sheets: sheetsService, logger });
-  // customer type from today's Existing sheet; doer as in the Orders sheet
+  // in the Existing sheet without a date = from the start; doer as in the Orders sheet
   assert.deepEqual(await typeOf(a.order_id), [`Existing Customer / ${a.doer}`]);
   assert.deepEqual(await typeOf(b.order_id), ['Calling Customer / Mayank']);
+});
+
+test('first order of a new customer stays Calling Customer after they become existing (v37)', async () => {
+  const { place, addExisting } = await setup();
+  const first = await place('9866600000');
+  await new Promise((r) => { setTimeout(r, 5); });
+  // e.g. made an existing customer after the first paid order
+  await addExisting('9866600000', new Date().toISOString());
+  await new Promise((r) => { setTimeout(r, 5); });
+  const second = await place('9866600000');
+
+  await MIGRATIONS.find((m) => m.version === 37).up({ sheets: sheetsService, logger });
+  assert.deepEqual(await typeOf(first.order_id), ['Calling Customer / Mayank']);
+  assert.deepEqual(await typeOf(second.order_id), ['Existing Customer / Ramesh']);
 });

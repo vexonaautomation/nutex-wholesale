@@ -481,28 +481,40 @@ export const MIGRATIONS = [
     // Filled now for every row already there.
     version: 36,
     description: 'Order_Items_Summary: Existing / Calling Customer, doer',
-    async up({ sheets, logger }) {
-      const { SUMMARY_SHEET, SUMMARY_CUSTOMER_TYPE } = await import('../services/itemSummaryService.js');
-      const { isExistingOrder } = await import('../services/orderSheetColumns.js');
-      const data = await sheets.readMany(['Orders', 'Existing_Customers', SUMMARY_SHEET], { fresh: true });
-      const want = new Map(data.Orders.map((o) => [o.order_id, {
-        customer_type: isExistingOrder(o, data.Existing_Customers) ? SUMMARY_CUSTOMER_TYPE.EXISTING : SUMMARY_CUSTOMER_TYPE.CALLING,
-        doer: String(o.doer || '').trim(),
-      }]));
-      const ops = [];
-      for (const r of data[SUMMARY_SHEET]) {
-        const w = want.get(r.order_id);
-        if (!w) continue;
-        const patch = {};
-        if (r.customer_type !== w.customer_type) patch.customer_type = w.customer_type;
-        if (w.doer && r.doer !== w.doer) patch.doer = w.doer;
-        if (Object.keys(patch).length) ops.push({ op: 'update', sheet: SUMMARY_SHEET, id: r.order_item_id, patch });
-      }
-      for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
-      logger.info(`Migration v36: ${ops.length} ${SUMMARY_SHEET} row(s) given Existing / Calling Customer and doer`);
-    },
+    up: (ctx) => fillSummaryCustomerType(ctx, 36),
+  },
+  {
+    // v36 matched every order against TODAY's Existing_Customers list, so a
+    // customer's first order (placed while still new) showed Existing
+    // Customer. Now: Existing only when the customer was in the list when the
+    // order was placed (added_at not after the order), else Calling Customer.
+    version: 37,
+    description: 'Order_Items_Summary: first order of a new customer = Calling Customer',
+    up: (ctx) => fillSummaryCustomerType(ctx, 37),
   },
 ];
+
+// Order_Items_Summary customer_type (as at the time of the order) and doer (as in Orders)
+async function fillSummaryCustomerType({ sheets, logger }, version) {
+  const { SUMMARY_SHEET, SUMMARY_CUSTOMER_TYPE } = await import('../services/itemSummaryService.js');
+  const { existingAtOrder } = await import('../services/orderSheetColumns.js');
+  const data = await sheets.readMany(['Orders', 'Existing_Customers', SUMMARY_SHEET], { fresh: true });
+  const want = new Map(data.Orders.map((o) => [o.order_id, {
+    customer_type: existingAtOrder(o, data.Existing_Customers) ? SUMMARY_CUSTOMER_TYPE.EXISTING : SUMMARY_CUSTOMER_TYPE.CALLING,
+    doer: String(o.doer || '').trim(),
+  }]));
+  const ops = [];
+  for (const r of data[SUMMARY_SHEET]) {
+    const w = want.get(r.order_id);
+    if (!w) continue;
+    const patch = {};
+    if (r.customer_type !== w.customer_type) patch.customer_type = w.customer_type;
+    if (w.doer && r.doer !== w.doer) patch.doer = w.doer;
+    if (Object.keys(patch).length) ops.push({ op: 'update', sheet: SUMMARY_SHEET, id: r.order_item_id, patch });
+  }
+  for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
+  logger.info(`Migration v${version}: ${ops.length} ${SUMMARY_SHEET} row(s) given Existing / Calling Customer and doer`);
+}
 
 // what migration v32 changes (exported for its test)
 export const CATALOGUE_2026_11 = Object.freeze({
