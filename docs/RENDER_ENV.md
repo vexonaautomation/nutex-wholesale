@@ -26,7 +26,7 @@ Saari settings ek hi file mein hain: **`deploy/render.env`**. Ise bharo, check k
 | `CATALOG_CACHE_TTL_SECONDS` | 60 | Product list 60 second tak fast cache |
 | `KEEP_ALIVE` | auto | Website kabhi sleep nahi hogi (data ko nahi chhuta) |
 | `JWT_SECRET`, `SESSION_SECRET` | random (bhar diye) | Login ki security keys. Badalne par sab admin logout ho jayenge |
-| `FRONTEND_URL` | `https://nutex-wholesale.onrender.com` | Website ka address — Render jo address de, wahi rakhna (ya apna domain) |
+| `FRONTEND_URL` | `https://b2b.nutex.in` | Website ka address. Khali ho ya Render wala (`*.onrender.com`) ho, tab bhi saare links b2b.nutex.in par bante hain |
 | `ADMIN_BOOTSTRAP_NAME` | Nutex Owner | Admin ka naam (badal sakte ho) |
 | `WHATSAPP_*` | aapki `.env` se | WhatsApp OTP. **Key abhi test wali hai** — live key mile to `WHATSAPP_API_KEY` badal dena |
 

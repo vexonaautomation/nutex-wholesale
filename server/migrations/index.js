@@ -450,6 +450,25 @@ export const MIGRATIONS = [
     version: 33,
     description: 'Owner / main admin orders: discount optional, no minimum order',
   },
+  {
+    // The site moved to a new Render service, so the bill links in the Orders
+    // sheet (old *.onrender.com address) no longer opened. Every order gets
+    // a fresh bill link on the site's own domain (b2b.nutex.in), signed with
+    // the secret of this service.
+    version: 34,
+    description: 'Orders: bill links on b2b.nutex.in',
+    async up({ sheets, logger, baseUrl }) {
+      const { billLink } = await import('../services/orderSheetColumns.js');
+      const orders = await sheets.read('Orders', { fresh: true });
+      const ops = [];
+      for (const o of orders) {
+        const link = billLink(o.order_id, baseUrl);
+        if (link && link !== o.bill_link) ops.push({ op: 'update', sheet: 'Orders', id: o.order_id, patch: { bill_link: link } });
+      }
+      for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
+      logger.info(`Migration v34: ${ops.length} bill link(s) now on ${baseUrl || 'the site domain'}`);
+    },
+  },
 ];
 
 // what migration v32 changes (exported for its test)

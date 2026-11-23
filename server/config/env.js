@@ -48,6 +48,17 @@ export function parseDuration(raw, fallbackMs = 8 * 3600 * 1000) {
 
 const devSecret = () => crypto.randomBytes(32).toString('hex');
 
+// The site's own domain. Links in WhatsApp messages and the sheets (bill PDF,
+// packing slip, order) always use it: a Render address (*.onrender.com)
+// changes whenever the service is created again, the domain stays.
+export const SITE_DOMAIN_URL = 'https://b2b.nutex.in';
+
+export function publicSiteUrl(raw, { prod = isProd } = {}) {
+  const url = String(raw || '').trim().replace(/\/+$/, '');
+  if (!prod) return url;
+  return url && !/\.onrender\.com(:\d+)?$/i.test(url) ? url : SITE_DOMAIN_URL;
+}
+
 const driveOauthConfigured = Boolean(env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_REFRESH_TOKEN);
 
 export const config = Object.freeze({
@@ -56,7 +67,7 @@ export const config = Object.freeze({
   isTest,
   port: Number(env.PORT) || 4000,
   appVersion: readAppVersion(),
-  frontendUrl: (env.FRONTEND_URL || '').trim().replace(/\/+$/, ''),
+  frontendUrl: publicSiteUrl(env.FRONTEND_URL),
   // Keep-alive self ping so the host never puts the site to sleep (see services/keepAliveService.js)
   keepAlive: {
     mode: (env.KEEP_ALIVE || 'auto').trim().toLowerCase(),

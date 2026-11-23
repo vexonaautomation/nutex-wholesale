@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v33).
+ *  GENERATED from server/config/schema.js (schema v34).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -27,7 +27,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 33;
+var NUTEX_SCHEMA_VERSION = 34;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -179,7 +179,8 @@ var NUTEX_MIGRATIONS = [
   [30,"Order_Items_Summary: all orders; cancelled orders leave"],
   [31,"Sales returns with credit notes"],
   [32,"Catalogue 10-11-2026: 5 new articles, Valentine Set online, 3 new MRPs"],
-  [33,"Owner / main admin orders: discount optional, no minimum order"]
+  [33,"Owner / main admin orders: discount optional, no minimum order"],
+  [34,"Orders: bill links on b2b.nutex.in"]
 ];
 
 var NUTEX_MASTER_DATA = {
