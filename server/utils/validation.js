@@ -2,7 +2,9 @@ import { z } from 'zod';
 import {
   INVENTORY_MODE, PRODUCT_DISCOUNT_MODE, RECORD_STATUS, IMAGE_TYPE, INVENTORY_STATUS, ORDER_STATUS,
 } from '../config/constants.js';
-import { normalizeMobile } from './orderToken.js';
+import {
+  normalizeMobile, isCustomerMobile, INDIAN_MOBILE_RE,
+} from './orderToken.js';
 import { SELL_MODES, deriveSellMode, primaryInventoryMode } from './sellMode.js';
 import { PERMISSION_KEYS, DEFAULT_SUB_ADMIN_PERMISSIONS } from './permissions.js';
 
@@ -26,6 +28,10 @@ const nullableNumber = (schema) => z.preprocess(
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const GSTIN_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 export const PINCODE_RE = /^[1-9][0-9]{5}$/;
+// postal / ZIP code abroad (optional): letters, digits, space, dash
+export const POSTAL_CODE_RE = /^[A-Za-z0-9][A-Za-z0-9 -]{1,11}$/;
+export const INDIA = 'India';
+export const isIndia = (country) => !country || country.trim().toLowerCase() === 'india';
 export const UTR_RE = /^[A-Za-z0-9]{6,30}$/;
 export const HEX_RE = /^#([0-9A-Fa-f]{6})$/;
 
@@ -41,10 +47,25 @@ const optionalGstin = z.string().trim().toUpperCase().max(15).optional().default
 
 export const idempotencyKey = z.string().trim().regex(/^[A-Za-z0-9_-]{8,100}$/, 'Invalid idempotency key');
 
+// Indian address: 6-digit pincode. Abroad: postal / ZIP code is optional.
+function checkPincode(c, ctx) {
+  if (isIndia(c.country)) {
+    if (!PINCODE_RE.test(c.pincode)) ctx.addIssue({ code: 'custom', path: ['pincode'], message: 'Enter a valid 6-digit pincode' });
+  } else if (c.pincode && !POSTAL_CODE_RE.test(c.pincode)) {
+    ctx.addIssue({ code: 'custom', path: ['pincode'], message: 'Enter a valid postal / ZIP code' });
+  }
+}
+
+// India: 10-digit mobile. Abroad: Indian or a number with its country code.
+const mobileOk = (m, country) => (isIndia(country) ? INDIAN_MOBILE_RE.test(m) : isCustomerMobile(m));
+const mobileMessage = (country, what) => (isIndia(country)
+  ? `Enter a valid 10-digit ${what}`
+  : `Enter the ${what} with the country code, e.g. +971 50 123 4567`);
+
 export const customerSchema = z.object({
   customer_name: text(100, 2),
   business_name: text(150, 2),
-  mobile,
+  mobile: z.string().trim().max(24).transform(normalizeMobile),
   whatsapp: z.string().trim().optional().default(''),
   email: optionalEmail,
   billing_address: text(500, 5),
@@ -52,24 +73,32 @@ export const customerSchema = z.object({
   same_as_billing: z.boolean().optional().default(false),
   city: text(80, 2),
   state: text(80, 2),
-  pincode: z.string().trim().refine((v) => PINCODE_RE.test(v), { message: 'Enter a valid 6-digit pincode' }),
+  country: z.string().trim().max(60).optional().default(INDIA).transform((v) => (isIndia(v) ? INDIA : v)),
+  pincode: z.string().trim().max(12).optional().default(''),
   gstin: optionalGstin,
   // customers without GST may give their Aadhaar number: only the last 4 digits are kept
   aadhaar: z.string().trim().max(20).optional().default(''),
   order_notes: optText(1000),
-  alternate_mobile: z.string().trim().max(20).optional().default(''),
+  alternate_mobile: z.string().trim().max(24).optional().default(''),
 }).transform((c, ctx) => {
+  const india = isIndia(c.country);
+  if (!mobileOk(c.mobile, c.country)) {
+    ctx.addIssue({ code: 'custom', path: ['mobile'], message: india ? 'Enter a valid 10-digit Indian mobile number' : mobileMessage(c.country, 'mobile number') });
+  }
+  checkPincode(c, ctx);
+  // GST and Aadhaar are Indian: not kept for an address abroad
+  if (!india) Object.assign(c, { gstin: '', aadhaar: '' });
   const aadhaar = String(c.aadhaar || '').replace(/[\s-]/g, '');
   if (aadhaar && !/^[2-9]\d{11}$/.test(aadhaar)) {
     ctx.addIssue({ code: 'custom', path: ['aadhaar'], message: 'Enter a valid 12-digit Aadhaar number' });
   }
   const whatsapp = c.whatsapp ? normalizeMobile(c.whatsapp) : c.mobile;
-  if (!/^[6-9]\d{9}$/.test(whatsapp)) {
-    ctx.addIssue({ code: 'custom', path: ['whatsapp'], message: 'Enter a valid 10-digit WhatsApp number' });
+  if (!mobileOk(whatsapp, c.country)) {
+    ctx.addIssue({ code: 'custom', path: ['whatsapp'], message: mobileMessage(c.country, 'WhatsApp number') });
   }
   const alternate = c.alternate_mobile ? normalizeMobile(c.alternate_mobile) : '';
-  if (alternate && !/^[6-9]\d{9}$/.test(alternate)) {
-    ctx.addIssue({ code: 'custom', path: ['alternate_mobile'], message: 'Enter a valid 10-digit alternate mobile number' });
+  if (alternate && !mobileOk(alternate, c.country)) {
+    ctx.addIssue({ code: 'custom', path: ['alternate_mobile'], message: mobileMessage(c.country, 'alternate mobile number') });
   }
   if (alternate && alternate === c.mobile) {
     ctx.addIssue({ code: 'custom', path: ['alternate_mobile'], message: 'Alternate number must be different from the main mobile number' });
@@ -132,10 +161,14 @@ export const adminOrderCustomerSchema = z.object({
   shipping_address: z.string().trim().max(500).optional().default(''),
   city: text(80, 2),
   state: text(80, 2),
-  pincode: z.string().trim().refine((v) => PINCODE_RE.test(v), { message: 'Enter a valid 6-digit pincode' }),
+  country: z.string().trim().max(60).optional().default(INDIA).transform((v) => (isIndia(v) ? INDIA : v)),
+  pincode: z.string().trim().max(12).optional().default(''),
   gstin: optionalGstin,
   note: z.string().trim().max(300).optional().default(''),
-}).transform((c) => ({ ...c, shipping_address: c.shipping_address || c.billing_address }));
+}).transform((c, ctx) => {
+  checkPincode(c, ctx);
+  return { ...c, gstin: isIndia(c.country) ? c.gstin : '', shipping_address: c.shipping_address || c.billing_address };
+});
 
 export const salesReturnSchema = z.object({
   reason: text(300, 3),

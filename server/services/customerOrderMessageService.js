@@ -8,7 +8,7 @@ import { sendWhatsAppText } from './whatsappService.js';
 import { getSettings } from './settingsService.js';
 import { orderCounts } from './orderAlertService.js';
 import { siteBaseUrl } from './orderSheetColumns.js';
-import { orderAccessToken, normalizeMobile } from '../utils/orderToken.js';
+import { orderAccessToken, normalizeMobile, isCustomerMobile } from '../utils/orderToken.js';
 import { signedOrderToken, readSignedOrderToken } from '../utils/signedLink.js';
 import { formatINR } from '../utils/money.js';
 import { notFound } from '../utils/errors.js';
@@ -48,7 +48,7 @@ export function customerOrderMessage({ order, items, settings, orderLink, billLi
     'Aapka order mil gaya hai. Dhanyavaad!',
     '',
     `Order No: ${order.order_number}`,
-    `Party: ${order.business_name_snapshot || name}${order.city_snapshot ? `, ${order.city_snapshot}` : ''}`,
+    `Party: ${[order.business_name_snapshot || name, order.city_snapshot, order.country_snapshot].filter(Boolean).join(', ')}`,
     `Items: ${articles} article${articles === 1 ? '' : 's'}, ${pcs} pcs`,
     `Total: ${formatINR(order.final_payable)}${gst > 0 ? ` (${gst}% GST included)` : ''}`,
     '',
@@ -76,7 +76,8 @@ export async function sendCustomerOrderMessage(orderId, { baseUrl } = {}) {
   if (settings.customer_order_message_enabled === false) return { sent: false, skipped: 'off' };
   const order = data.Orders.find((o) => o.order_id === orderId);
   if (!order) return { sent: false, skipped: 'no order' };
-  const to = [order.whatsapp_snapshot, order.mobile_snapshot].map(normalizeMobile).find((m) => MOBILE_RE.test(m));
+  // Indian number, or one from abroad with its country code
+  const to = [order.whatsapp_snapshot, order.mobile_snapshot].map(normalizeMobile).find(isCustomerMobile);
   if (!to) return { sent: false, skipped: 'no number' };
   const base = siteBaseUrl(baseUrl);
   const message = customerOrderMessage({

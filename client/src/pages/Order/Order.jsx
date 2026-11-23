@@ -180,7 +180,7 @@ export default function Order() {
               {order.customer.email && <><dt>Email</dt><dd>{order.customer.email}</dd></>}
               {order.customer.gstin && <><dt>GSTIN</dt><dd>{order.customer.gstin}</dd></>}
               <dt>Billing address</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.customer.billing_address}</dd>
-              <dt>Shipping address</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.customer.shipping_address}<br />{order.customer.city}, {order.customer.state} - {order.customer.pincode}</dd>
+              <dt>Shipping address</dt><dd style={{ whiteSpace: 'pre-line' }}>{order.customer.shipping_address}<br />{[order.customer.city, order.customer.state].filter(Boolean).join(', ')}{order.customer.pincode ? ` - ${order.customer.pincode}` : ''}{order.customer.country && order.customer.country !== 'India' ? `, ${order.customer.country}` : ''}</dd>
               {order.order_notes && <><dt>Order notes</dt><dd>{order.order_notes}</dd></>}
             </dl>
           </section>

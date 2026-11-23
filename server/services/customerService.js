@@ -5,7 +5,9 @@ import { notFound } from '../utils/errors.js';
 import { normalizeMobile } from '../utils/orderToken.js';
 import { ORDER_STATUS } from '../config/constants.js';
 
-const FIELDS = ['customer_name', 'business_name', 'mobile', 'whatsapp', 'email', 'billing_address', 'shipping_address', 'city', 'state', 'pincode', 'gstin', 'alternate_mobile'];
+const FIELDS = ['customer_name', 'business_name', 'mobile', 'whatsapp', 'email', 'billing_address', 'shipping_address', 'city', 'state', 'pincode', 'gstin', 'alternate_mobile', 'country'];
+// Customers.country: blank = India
+const fieldValue = (input, f) => (f === 'country' ? (input.country && input.country !== 'India' ? input.country : '') : input[f] ?? '');
 
 /**
  * Customer master upsert keyed on the mobile number. Returns the operations
@@ -18,7 +20,7 @@ export function customerUpsertOps(customerRows, input) {
   const existing = customerRows.find((c) => normalizeMobile(c.mobile) === mobile)
     || customerRows.find((c) => c.alternate_mobile && normalizeMobile(c.alternate_mobile) === mobile);
   const now = nowIso();
-  const fields = Object.fromEntries(FIELDS.map((f) => [f, f === 'mobile' ? mobile : input[f] ?? '']));
+  const fields = Object.fromEntries(FIELDS.map((f) => [f, f === 'mobile' ? mobile : fieldValue(input, f)]));
   if (existing && !fields.alternate_mobile) {
     // never lose a number the customer gave earlier
     const previousMain = normalizeMobile(existing.mobile);

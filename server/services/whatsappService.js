@@ -16,8 +16,11 @@ export function whatsappConfigured(cfg = config) {
   return Boolean(cfg.whatsapp.provider);
 }
 
-function formatMobile(mobile10, cfg) {
-  return `${cfg.whatsapp.mobilePrefix || ''}${mobile10}`;
+// Indian 10-digit number: the prefix (91) goes in front. A number from abroad
+// (+971501234567) already has its country code.
+export function formatMobile(mobile10, cfg = config) {
+  const m = String(mobile10 || '');
+  return m.startsWith('+') ? m.slice(1) : `${cfg.whatsapp.mobilePrefix || ''}${m}`;
 }
 
 export function interpretProviderResponse(body) {

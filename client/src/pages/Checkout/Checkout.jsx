@@ -11,6 +11,8 @@ import { MinimumOrderProgress } from '../../components/MinimumOrderProgress/Mini
 import { Alert, Field, Messages, PageLoader, Spinner } from '../../components/common/ui.jsx';
 import { formatINR, pct, roundRupee } from '../../utils/format.js';
 import { INDIAN_STATES } from '../../constants/index.js';
+import { CountryStateFields } from '../../components/CountryStateFields/CountryStateFields.jsx';
+import { INDIA, isIndia } from '../../utils/countries.js';
 import { useCustomer } from '../../context/CustomerContext.jsx';
 import { useStore } from '../../context/StoreContext.jsx';
 import { customerApi } from '../../services/customer.js';
@@ -20,7 +22,7 @@ const SAVED_KEY = 'nutex_customer_v1';
 const IDEM_KEY = 'nutex_checkout_key';
 const EMPTY = {
   customer_name: '', business_name: '', mobile: '', whatsapp: '', alternate_mobile: '', email: '', billing_address: '', shipping_address: '',
-  same_as_billing: true, city: '', state: '', pincode: '', gstin: '', aadhaar: '', order_notes: '',
+  same_as_billing: true, city: '', state: '', country: INDIA, pincode: '', gstin: '', aadhaar: '', order_notes: '',
 };
 
 function loadSaved() {
@@ -34,24 +36,36 @@ function loadSaved() {
 const digitsOf = (v) => String(v || '').replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
 const stateOption = (v) => INDIAN_STATES.find((s) => s.toLowerCase() === String(v || '').trim().toLowerCase()) || '';
 
+// India: 10-digit number. Abroad: with the country code (+971 50 123 4567);
+// an Indian number works there too.
+const phoneOf = (v) => {
+  const raw = String(v || '').trim();
+  const digits = raw.replace(/\D/g, '');
+  if (/^(\+|00)/.test(raw) && !/^(00)?91/.test(digits)) return `+${digits.replace(/^00/, '')}`;
+  return digits.replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '');
+};
+const phoneOk = (v, india) => /^[6-9]\d{9}$/.test(phoneOf(v)) || (!india && /^\+[1-9]\d{6,14}$/.test(phoneOf(v)));
+
 function validate(f, { mobileOptional = false } = {}) {
   const e = {};
-  const digits = (v) => String(v || '').replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
+  const india = isIndia(f.country);
+  const what = (name) => (india ? `Enter a valid 10-digit ${name}` : `Enter the ${name} with the country code, e.g. +971 50 123 4567`);
   if (f.customer_name.trim().length < 2) e.customer_name = 'Enter your name';
   if (f.business_name.trim().length < 2) e.business_name = 'Enter your business / shop name';
-  if (!(mobileOptional && !f.mobile.trim()) && !/^[6-9]\d{9}$/.test(digits(f.mobile))) e.mobile = 'Enter a valid 10-digit mobile number';
-  if (f.whatsapp && !/^[6-9]\d{9}$/.test(digits(f.whatsapp))) e.whatsapp = 'Enter a valid 10-digit WhatsApp number';
-  if (f.alternate_mobile && !/^[6-9]\d{9}$/.test(digits(f.alternate_mobile))) e.alternate_mobile = 'Enter a valid 10-digit alternate number';
-  else if (f.alternate_mobile && digits(f.alternate_mobile) === digits(f.mobile)) e.alternate_mobile = 'Must be different from the main mobile number';
+  if (!(mobileOptional && !f.mobile.trim()) && !phoneOk(f.mobile, india)) e.mobile = what('mobile number');
+  if (f.whatsapp && !phoneOk(f.whatsapp, india)) e.whatsapp = what('WhatsApp number');
+  if (f.alternate_mobile && !phoneOk(f.alternate_mobile, india)) e.alternate_mobile = what('alternate number');
+  else if (f.alternate_mobile && phoneOf(f.alternate_mobile) === phoneOf(f.mobile)) e.alternate_mobile = 'Must be different from the main mobile number';
   if (f.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email)) e.email = 'Enter a valid email';
   if (f.billing_address.trim().length < 5) e.billing_address = 'Enter the billing address';
   if (!f.same_as_billing && f.shipping_address.trim().length < 5) e.shipping_address = 'Enter the shipping address';
   if (f.city.trim().length < 2) e.city = 'Enter city';
-  if (!f.state) e.state = 'Select state';
-  if (!/^[1-9]\d{5}$/.test(f.pincode.trim())) e.pincode = 'Enter a valid 6-digit pincode';
-  if (f.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(f.gstin.trim().toUpperCase())) e.gstin = 'Enter a valid 15-character GSTIN';
+  if (f.state.trim().length < 2) e.state = 'Select state';
+  if (india && !/^[1-9]\d{5}$/.test(f.pincode.trim())) e.pincode = 'Enter a valid 6-digit pincode';
+  if (!india && f.pincode.trim() && !/^[A-Za-z0-9][A-Za-z0-9 -]{1,11}$/.test(f.pincode.trim())) e.pincode = 'Enter a valid postal / ZIP code';
+  if (india && f.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(f.gstin.trim().toUpperCase())) e.gstin = 'Enter a valid 15-character GSTIN';
   const aadhaar = String(f.aadhaar || '').replace(/[\s-]/g, '');
-  if (!f.gstin.trim() && aadhaar && !/^[2-9]\d{11}$/.test(aadhaar)) e.aadhaar = 'Enter a valid 12-digit Aadhaar number';
+  if (india && !f.gstin.trim() && aadhaar && !/^[2-9]\d{11}$/.test(aadhaar)) e.aadhaar = 'Enter a valid 12-digit Aadhaar number';
   return e;
 }
 
@@ -99,7 +113,8 @@ export default function Checkout() {
       same_as_billing: same,
       shipping_address: same ? '' : c.shipping_address,
       city: c.city || '',
-      state: stateOption(c.state),
+      country: c.country || INDIA,
+      state: isIndia(c.country) ? stateOption(c.state) : c.state || '',
       pincode: c.pincode || '',
       gstin: c.gstin || '',
     }));
@@ -147,6 +162,12 @@ export default function Checkout() {
     setForm((f) => ({ ...f, [k]: v }));
     if (errors[k]) setErrors((x) => ({ ...x, [k]: undefined }));
   };
+  const setPlace = (patch) => {
+    setForm((f) => ({ ...f, ...patch }));
+    setErrors((x) => ({ ...x, ...Object.fromEntries(Object.keys(patch).map((k) => [k, undefined])) }));
+  };
+  const india = isIndia(form.country);
+  const phoneHint = india ? undefined : 'With the country code, e.g. +971 50 123 4567';
 
   const submit = async (e) => {
     e.preventDefault();
@@ -164,8 +185,9 @@ export default function Checkout() {
         customer: {
           ...form,
           mobile: isAdmin && !form.mobile.trim() ? verifiedMobile : form.mobile,
-          gstin: form.gstin.trim().toUpperCase(),
-          aadhaar: form.gstin.trim() ? '' : String(form.aadhaar || '').replace(/[\s-]/g, ''),
+          // GST and Aadhaar only for an Indian address
+          gstin: india ? form.gstin.trim().toUpperCase() : '',
+          aadhaar: india && !form.gstin.trim() ? String(form.aadhaar || '').replace(/[\s-]/g, '') : '',
         },
         items: cart.items.map(({ variant_id, qty }) => ({ variant_id, qty })),
         idempotency_key: idemKey,
@@ -224,7 +246,7 @@ export default function Checkout() {
                   error={errors.mobile}
                   hint={<>Logged in with admin number +91 {customer.auth.mobile_masked} ✓ · a known customer's details fill in automatically. The order and bill show this number. Blank = your admin number.</>}
                 >
-                  <input className="input" value={form.mobile} onChange={set('mobile')} inputMode="tel" autoComplete="off" placeholder="Customer's 10-digit mobile" aria-invalid={!!errors.mobile} />
+                  <input className="input" value={form.mobile} onChange={set('mobile')} inputMode="tel" autoComplete="off" placeholder={india ? "Customer's 10-digit mobile" : '+971 50 123 4567'} aria-invalid={!!errors.mobile} />
                 </Field>
               ) : (
               <Field
@@ -247,16 +269,16 @@ export default function Checkout() {
                       use a different number
                     </button>
                   </>
-                ) : undefined}
+                ) : phoneHint}
               >
-                <input className="input" value={form.mobile} onChange={set('mobile')} inputMode="tel" autoComplete="tel" placeholder="10-digit mobile" aria-invalid={!!errors.mobile} readOnly={!!verifiedMobile} style={verifiedMobile ? { background: '#f3fbf6' } : undefined} />
+                <input className="input" value={form.mobile} onChange={set('mobile')} inputMode="tel" autoComplete="tel" placeholder={india ? '10-digit mobile' : '+971 50 123 4567'} aria-invalid={!!errors.mobile} readOnly={!!verifiedMobile} style={verifiedMobile ? { background: '#f3fbf6' } : undefined} />
               </Field>
               )}
               <Field label="WhatsApp number" hint="Leave blank if same as mobile" error={errors.whatsapp}><input className="input" value={form.whatsapp} onChange={set('whatsapp')} inputMode="tel" aria-invalid={!!errors.whatsapp} /></Field>
               <Field label="Alternate mobile (optional)" hint="Another number you use - it can also be used later to log in as an existing customer" error={errors.alternate_mobile} className="span-2"><input className="input" value={form.alternate_mobile} onChange={set('alternate_mobile')} inputMode="tel" placeholder="Second mobile / WhatsApp number" aria-invalid={!!errors.alternate_mobile} /></Field>
               <Field label="Email (optional)" error={errors.email} className="span-2"><input className="input" type="email" value={form.email} onChange={set('email')} autoComplete="email" aria-invalid={!!errors.email} /></Field>
-              <Field label="GST number (optional)" hint="For a GST invoice" error={errors.gstin} className="span-2"><input className="input" value={form.gstin} onChange={set('gstin')} style={{ textTransform: 'uppercase' }} maxLength={15} aria-invalid={!!errors.gstin} /></Field>
-              {!form.gstin.trim() && (
+              {india && <Field label="GST number (optional)" hint="For a GST invoice" error={errors.gstin} className="span-2"><input className="input" value={form.gstin} onChange={set('gstin')} style={{ textTransform: 'uppercase' }} maxLength={15} aria-invalid={!!errors.gstin} /></Field>}
+              {india && !form.gstin.trim() && (
                 <Field label="Aadhaar number (if no GST, optional)" hint="Only the last 4 digits are saved and printed on the bill (XXXX XXXX 1234)." error={errors.aadhaar} className="span-2">
                   <input className="input" value={form.aadhaar || ''} onChange={set('aadhaar')} inputMode="numeric" autoComplete="off" maxLength={14} placeholder="12-digit Aadhaar number" aria-invalid={!!errors.aadhaar} />
                 </Field>
@@ -272,13 +294,7 @@ export default function Checkout() {
                 <Field label="Shipping address" required error={errors.shipping_address} className="span-2"><textarea className="textarea" value={form.shipping_address} onChange={set('shipping_address')} aria-invalid={!!errors.shipping_address} /></Field>
               )}
               <Field label="City" required error={errors.city}><input className="input" value={form.city} onChange={set('city')} autoComplete="address-level2" aria-invalid={!!errors.city} /></Field>
-              <Field label="State" required error={errors.state}>
-                <select className="select" value={form.state} onChange={set('state')} aria-invalid={!!errors.state}>
-                  <option value="">Select state</option>
-                  {INDIAN_STATES.map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </Field>
-              <Field label="Pincode" required error={errors.pincode}><input className="input" value={form.pincode} onChange={set('pincode')} inputMode="numeric" maxLength={6} autoComplete="postal-code" aria-invalid={!!errors.pincode} /></Field>
+              <CountryStateFields form={form} onChange={setPlace} errors={errors} />
               <Field label="Order notes (optional)" className="span-2"><textarea className="textarea" value={form.order_notes} onChange={set('order_notes')} maxLength={1000} placeholder="Packing or delivery instructions" /></Field>
             </div>
           </section>
