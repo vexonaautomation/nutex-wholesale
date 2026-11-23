@@ -10,10 +10,18 @@
 // history.
 import { pcsColumns } from '../utils/itemPcs.js';
 import { round2 } from '../utils/money.js';
+import { CUSTOMER_TYPE } from '../config/constants.js';
 
 export const SUMMARY_SHEET = 'Order_Items_Summary';
 
 const perPc = (total, pcs) => (pcs > 0 ? round2((Number(total) || 0) / pcs) : null);
+
+// last column: the customer's mobile is in the Existing_Customers sheet ->
+// Existing Customer, else Calling Customer (as the order's customer type)
+export const SUMMARY_CUSTOMER_TYPE = { EXISTING: 'Existing Customer', CALLING: 'Calling Customer' };
+export const summaryCustomerType = (order) => (
+  order.customer_type === 'Existing Customer' || order.customer_type_snapshot === CUSTOMER_TYPE.EXISTING
+    ? SUMMARY_CUSTOMER_TYPE.EXISTING : SUMMARY_CUSTOMER_TYPE.CALLING);
 
 export function summaryRow(order, item) {
   const pcs = pcsColumns(item);
@@ -43,6 +51,9 @@ export function summaryRow(order, item) {
     revision: item.revision,
     created_at: item.created_at,
     handover_date: order.completed_at || '',
+    customer_type: summaryCustomerType(order),
+    // who handles the order (Orders sheet: Ramesh existing / Mayank inbound)
+    doer: order.doer || '',
   };
 }
 

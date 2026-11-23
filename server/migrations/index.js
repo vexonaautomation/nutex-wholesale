@@ -474,6 +474,34 @@ export const MIGRATIONS = [
     version: 35,
     description: 'Orders from abroad: country of the address',
   },
+  {
+    // New last columns of Order_Items_Summary: Existing Customer when the
+    // order's mobile (or alternate number) is in the Existing_Customers sheet,
+    // else Calling Customer; then the doer of the order (as in Orders).
+    // Filled now for every row already there.
+    version: 36,
+    description: 'Order_Items_Summary: Existing / Calling Customer, doer',
+    async up({ sheets, logger }) {
+      const { SUMMARY_SHEET, SUMMARY_CUSTOMER_TYPE } = await import('../services/itemSummaryService.js');
+      const { isExistingOrder } = await import('../services/orderSheetColumns.js');
+      const data = await sheets.readMany(['Orders', 'Existing_Customers', SUMMARY_SHEET], { fresh: true });
+      const want = new Map(data.Orders.map((o) => [o.order_id, {
+        customer_type: isExistingOrder(o, data.Existing_Customers) ? SUMMARY_CUSTOMER_TYPE.EXISTING : SUMMARY_CUSTOMER_TYPE.CALLING,
+        doer: String(o.doer || '').trim(),
+      }]));
+      const ops = [];
+      for (const r of data[SUMMARY_SHEET]) {
+        const w = want.get(r.order_id);
+        if (!w) continue;
+        const patch = {};
+        if (r.customer_type !== w.customer_type) patch.customer_type = w.customer_type;
+        if (w.doer && r.doer !== w.doer) patch.doer = w.doer;
+        if (Object.keys(patch).length) ops.push({ op: 'update', sheet: SUMMARY_SHEET, id: r.order_item_id, patch });
+      }
+      for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
+      logger.info(`Migration v36: ${ops.length} ${SUMMARY_SHEET} row(s) given Existing / Calling Customer and doer`);
+    },
+  },
 ];
 
 // what migration v32 changes (exported for its test)

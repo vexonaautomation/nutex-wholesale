@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 35;
+export const SCHEMA_VERSION = 36;
 
 const n = 'number';
 const b = 'boolean';
@@ -226,6 +226,9 @@ export const SCHEMA = {
       'mrp_per_pc', 'discount_percent', 'rate_per_pc', 'mrp_total', 'amount', 'revision', 'created_at',
       // v26: when the order was marked Handed over
       'handover_date',
+      // v36: Existing Customer (mobile in Existing_Customers) / Calling Customer,
+      // and who handles the order (as Orders.doer)
+      'customer_type', 'doer',
     ],
     types: {
       qty_pcs: n, boxes: n, pcs_per_box: n, mrp_per_pc: n, discount_percent: n, rate_per_pc: n, mrp_total: n, amount: n, revision: n,
