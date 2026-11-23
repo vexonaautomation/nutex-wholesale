@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v35).
+ *  GENERATED from server/config/schema.js (schema v36).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -27,7 +27,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 35;
+var NUTEX_SCHEMA_VERSION = 36;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -46,7 +46,7 @@ var NUTEX_SCHEMA = {
   "Orders": ["order_id","order_number","customer_id","customer_name_snapshot","business_name_snapshot","mobile_snapshot","whatsapp_snapshot","email_snapshot","billing_address_snapshot","shipping_address_snapshot","city_snapshot","state_snapshot","pincode_snapshot","gstin_snapshot","order_notes","mrp_subtotal","discount_mode_snapshot","discount_basis_snapshot","discount_basis_amount","discount_percent","slab_id_snapshot","discount_amount","final_payable","total_qty","minimum_order_value_snapshot","minimum_order_met","order_status","payment_status","locked","stock_state","revision","idempotency_key","courier_name","tracking_number","dispatch_note","cancel_reason","created_at","updated_at","locked_at","payment_submitted_at","verified_at","dispatched_at","completed_at","cancelled_at","customer_type_snapshot","alternate_mobile_snapshot","payment_mode_snapshot","packing_deduction","placed_by_mobile","less_packing","aadhaar_last4","packer_id","packer_name","packing_assigned_at","packing_slip_sent_at","doer","bill_link","packing_person","customer_type","total_pcs","total_boxes","no_discount","country_snapshot"],
   "Cancelled_Orders": ["order_id","order_number","customer_id","customer_name_snapshot","business_name_snapshot","mobile_snapshot","whatsapp_snapshot","email_snapshot","billing_address_snapshot","shipping_address_snapshot","city_snapshot","state_snapshot","pincode_snapshot","gstin_snapshot","order_notes","mrp_subtotal","discount_mode_snapshot","discount_basis_snapshot","discount_basis_amount","discount_percent","slab_id_snapshot","discount_amount","final_payable","total_qty","minimum_order_value_snapshot","minimum_order_met","order_status","payment_status","locked","stock_state","revision","idempotency_key","courier_name","tracking_number","dispatch_note","cancel_reason","created_at","updated_at","locked_at","payment_submitted_at","verified_at","dispatched_at","completed_at","cancelled_at","customer_type_snapshot","alternate_mobile_snapshot","payment_mode_snapshot","packing_deduction","placed_by_mobile","less_packing","aadhaar_last4","packer_id","packer_name","packing_assigned_at","packing_slip_sent_at","doer","bill_link","packing_person","customer_type","total_pcs","total_boxes","no_discount","country_snapshot"],
   "Order_Items": ["order_item_id","order_id","order_number","revision","product_id","variant_id","sku_snapshot","product_name_snapshot","category_snapshot","inventory_mode_snapshot","size_snapshot","color_snapshot","box_snapshot","units_per_box_snapshot","qty","mrp_unit_snapshot","discount_percent_snapshot","wholesale_unit_snapshot","line_mrp_total","line_total","status","created_at","stock_components"],
-  "Order_Items_Summary": ["order_item_id","order_id","bill_no","order_date","party_name","customer_name","mobile","city","sku","product_name","category","size","item_colour","qty_pcs","sold_in","boxes","pcs_per_box","mrp_per_pc","discount_percent","rate_per_pc","mrp_total","amount","revision","created_at","handover_date"],
+  "Order_Items_Summary": ["order_item_id","order_id","bill_no","order_date","party_name","customer_name","mobile","city","sku","product_name","category","size","item_colour","qty_pcs","sold_in","boxes","pcs_per_box","mrp_per_pc","discount_percent","rate_per_pc","mrp_total","amount","revision","created_at","handover_date","customer_type","doer"],
   "GBNutex": ["DATE","BILL","S NO","MODE","PLATFORM","CLIENT NAME","PRODUCT","PRODUCT UNIT","Unit","QTY","PRICE","REVENUE","COST","ONLINE PACKING","PACKING COST","FINAL REVENUE","FINAL COST","GROSS PROFIT","GP PERCENTAGE"],
   "Payments": ["payment_id","order_id","order_number","amount","expected_amount","payment_method","utr","proof_file_id","proof_url","status","idempotency_key","customer_note","submitted_at","verified_at","verified_by","remarks"],
   "Order_Status_History": ["history_id","order_id","order_number","from_status","to_status","actor_type","actor_id","note","created_at"],
@@ -181,7 +181,8 @@ var NUTEX_MIGRATIONS = [
   [32,"Catalogue 10-11-2026: 5 new articles, Valentine Set online, 3 new MRPs"],
   [33,"Owner / main admin orders: discount optional, no minimum order"],
   [34,"Orders: bill links on b2b.nutex.in"],
-  [35,"Orders from abroad: country of the address"]
+  [35,"Orders from abroad: country of the address"],
+  [36,"Order_Items_Summary: Existing / Calling Customer, doer"]
 ];
 
 var NUTEX_MASTER_DATA = {
