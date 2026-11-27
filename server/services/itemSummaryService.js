@@ -52,7 +52,7 @@ export function summaryRow(order, item) {
     created_at: item.created_at,
     handover_date: order.completed_at || '',
     customer_type: summaryCustomerType(order),
-    // who handles the order (Orders sheet: Ramesh existing / Mayank inbound)
+    // who handles the order (as Orders.doer, from Settings)
     doer: order.doer || '',
   };
 }

@@ -3,7 +3,7 @@
 // the type of customer.
 //  - customer_type: "Existing Customer" when the order's mobile (or its
 //    alternate number) is in the Existing_Customers list, else "Inbound Customer"
-//  - doer: fixed per type - Settings doer_existing_customer (Ramesh) /
+//  - doer: fixed per type - Settings doer_existing_customer (Mayank since v38) /
 //    doer_inbound_customer (Mayank)
 //  - bill_link: bill PDF that opens without a login (signed, does not expire)
 import { config } from '../config/env.js';
@@ -52,7 +52,7 @@ export function orderSheetColumns(order, { existingRows, settings, baseUrl }) {
   const existing = isExistingOrder(order, existingRows);
   return {
     customer_type: existing ? CUSTOMER_TYPE_LABEL.EXISTING : CUSTOMER_TYPE_LABEL.INBOUND,
-    doer: String((existing ? settings?.doer_existing_customer : settings?.doer_inbound_customer) || (existing ? 'Ramesh' : 'Mayank')).trim(),
+    doer: String((existing ? settings?.doer_existing_customer : settings?.doer_inbound_customer) || 'Mayank').trim(),
     bill_link: billLink(order.order_id, baseUrl),
   };
 }

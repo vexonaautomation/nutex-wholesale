@@ -492,6 +492,29 @@ export const MIGRATIONS = [
     description: 'Order_Items_Summary: first order of a new customer = Calling Customer',
     up: (ctx) => fillSummaryCustomerType(ctx, 37),
   },
+  {
+    // The owner's decision (27-11-2026): Mayank handles every order. Settings
+    // doer for existing customers becomes Mayank, and every order with doer
+    // Ramesh (Orders, Cancelled_Orders, Order_Items_Summary) moves to Mayank.
+    // The owner can change the Settings name again any time.
+    version: 38,
+    description: 'Doer: every order to Mayank',
+    async up({ sheets, logger }) {
+      const FROM = 'ramesh';
+      const TO = 'Mayank';
+      const { updateSettings } = await import('../services/settingsService.js');
+      const { SUMMARY_SHEET } = await import('../services/itemSummaryService.js');
+      await updateSettings({ doer_existing_customer: TO }, { admin: { admin_id: 'SYSTEM' }, ip: '' });
+      const data = await sheets.readMany(['Orders', SUMMARY_SHEET], { fresh: true });
+      const isFrom = (r) => String(r.doer || '').trim().toLowerCase() === FROM;
+      const ops = [
+        ...data.Orders.filter(isFrom).map((o) => ({ op: 'update', sheet: 'Orders', id: o.order_id, patch: { doer: TO } })),
+        ...data[SUMMARY_SHEET].filter(isFrom).map((r) => ({ op: 'update', sheet: SUMMARY_SHEET, id: r.order_item_id, patch: { doer: TO } })),
+      ];
+      for (let i = 0; i < ops.length; i += 200) await sheets.commit(ops.slice(i, i + 200));
+      logger.info(`Migration v38: doer Ramesh -> Mayank on ${ops.length} row(s); Settings doer for existing customers = Mayank`);
+    },
+  },
 ];
 
 // Order_Items_Summary customer_type (as at the time of the order) and doer (as in Orders)
