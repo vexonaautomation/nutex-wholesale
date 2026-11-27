@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 39;
+export const SCHEMA_VERSION = 40;
 
 const n = 'number';
 const b = 'boolean';
@@ -27,7 +27,7 @@ export const SCHEMA = {
       'category_id', 'category_name', 'parent_category', 'slug', 'description',
       'image_file_id', 'image_url', 'status', 'sort_order', 'seo_title', 'seo_description',
       'created_at', 'updated_at',
-      // v12: ₹ per piece (per set) taken off when the customer chooses "less
+      // v12: â‚¹ per piece (per set) taken off when the customer chooses "less
       // packing charges". Blank = from the name: Set 4, Bra / Panty 2, else 0.
       'packing_charge',
     ],
