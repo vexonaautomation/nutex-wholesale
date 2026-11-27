@@ -37,7 +37,7 @@ test('new orders: Existing Customer if the mobile is in the Existing sheet, else
   await addExisting('9822200000');
   const existing = await place('9822200000');
   const calling = await place('9833300000');
-  assert.deepEqual(await typeOf(existing.order_id), ['Existing Customer / Ramesh']);
+  assert.deepEqual(await typeOf(existing.order_id), ['Existing Customer / Mayank']);
   assert.deepEqual(await typeOf(calling.order_id), ['Calling Customer / Mayank']);
   const header = (await sheetsService.read('Order_Items_Summary', { fresh: true }))[0];
   assert.deepEqual(Object.keys(header).slice(-2), ['customer_type', 'doer'], 'the last columns');
@@ -73,5 +73,5 @@ test('first order of a new customer stays Calling Customer after they become exi
 
   await MIGRATIONS.find((m) => m.version === 37).up({ sheets: sheetsService, logger });
   assert.deepEqual(await typeOf(first.order_id), ['Calling Customer / Mayank']);
-  assert.deepEqual(await typeOf(second.order_id), ['Existing Customer / Ramesh']);
+  assert.deepEqual(await typeOf(second.order_id), ['Existing Customer / Mayank']);
 });

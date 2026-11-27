@@ -13,7 +13,7 @@ import { SCHEMA } from '../config/schema.js';
 import { draftOrderSchema, packerSchema } from '../utils/validation.js';
 import { logger } from '../utils/logger.js';
 
-// Orders sheet BD..BG: doer (Ramesh existing / Mayank inbound), bill link,
+// Orders sheet BD..BG: doer (Settings, per customer type), bill link,
 // packing person, customer type.
 
 let n = 0;
@@ -42,7 +42,7 @@ test('new orders: doer + customer type by the Existing list, bill link, packing 
   assert.equal(a.customer_type, 'Inbound Customer');
   assert.equal(a.doer, 'Mayank');
   assert.equal(b.customer_type, 'Existing Customer', 'mobile is in Existing Customers (not OTP verified)');
-  assert.equal(b.doer, 'Ramesh');
+  assert.equal(b.doer, 'Mayank', 'every order to Mayank since v38');
   assert.match(a.bill_link, /^https:\/\/b2b\.nutex\.in\/api\/admin-bill\/[\w-]+\.[\w-]+$/);
   const bill = await adminBillByToken(a.bill_link.split('/').pop());
   assert.equal(bill.pdf.subarray(0, 4).toString(), '%PDF');
@@ -54,6 +54,32 @@ test('new orders: doer + customer type by the Existing list, bill link, packing 
   await updateSettings({ doer_inbound_customer: 'Suresh' }, adminCtx);
   const c = await place('9000011111');
   assert.equal((await sheetsService.read('Orders', { fresh: true })).find((o) => o.order_number === c.order_number).doer, 'Suresh', 'name from Settings');
+});
+
+test('migration v38: every Ramesh order moves to Mayank; Settings follow', async () => {
+  const { adminCtx, sheetsTransport } = await freshStore();
+  await updateSettings({ minimum_order_value: 0, doer_existing_customer: 'Ramesh' }, adminCtx);
+  const { variant } = await createColorProduct(adminCtx);
+  await addExistingCustomers([{ mobile: '9123456780' }], adminCtx);
+  const place = (mobile) => createDraftOrder(draftOrderSchema.parse({
+    customer: { ...CUSTOMER, mobile }, items: [{ variant_id: variant('Black', '32').variant_id, qty: 12 }], idempotency_key: key(),
+  }));
+  const ramesh = await place('9123456780');
+  const mayank = await place(CUSTOMER.mobile);
+  // a name typed by hand in the sheet is kept
+  const sheet = sheetsTransport.sheets.get('Orders');
+  sheet.rows[2][sheet.rows[0].indexOf('doer')] = 'Suresh';
+  sheetsService.invalidate();
+  const doers = async (name) => (await sheetsService.read(name, { fresh: true })).map((r) => [r.order_id, r.doer]);
+  assert.ok((await doers('Order_Items_Summary')).some(([, d]) => d === 'Ramesh'));
+
+  await MIGRATIONS.find((m) => m.version === 38).up({ sheets: sheetsService, logger });
+  const orders = await sheetsService.read('Orders', { fresh: true });
+  assert.equal(orders.find((o) => o.order_number === ramesh.order_number).doer, 'Mayank');
+  assert.equal(orders.find((o) => o.order_number === mayank.order_number).doer, 'Suresh');
+  assert.ok((await doers('Order_Items_Summary')).every(([, d]) => d === 'Mayank'));
+  const next = await place('9123456780');
+  assert.equal((await sheetsService.read('Orders', { fresh: true })).find((o) => o.order_number === next.order_number).doer, 'Mayank', 'new orders too');
 });
 
 test('migration v23 fills the columns of orders already in the sheet (blank cells only)', async () => {

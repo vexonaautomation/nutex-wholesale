@@ -234,7 +234,7 @@ export default function Settings() {
       </Field>
       <h4 className="span-2 mb-0 mt-2">Orders sheet - doer</h4>
       <Field label="Doer for existing customers" hint="Written in the Orders sheet (column doer) when the customer's mobile is in Existing Customers.">
-        <input className="input" value={draft.doer_existing_customer ?? ''} onChange={set('doer_existing_customer')} placeholder="Ramesh" />
+        <input className="input" value={draft.doer_existing_customer ?? ''} onChange={set('doer_existing_customer')} placeholder="Mayank" />
       </Field>
       <Field label="Doer for inbound customers" hint="Written for every other (new) customer.">
         <input className="input" value={draft.doer_inbound_customer ?? ''} onChange={set('doer_inbound_customer')} placeholder="Mayank" />

@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v37).
+ *  GENERATED from server/config/schema.js (schema v38).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -27,7 +27,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 37;
+var NUTEX_SCHEMA_VERSION = 38;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -126,7 +126,7 @@ var NUTEX_DEFAULT_SETTINGS = [
   ["customer_order_message_enabled",true,"boolean","WhatsApp the customer when their order is placed: order number, items, total, payment / next step, order link and bill PDF link."],
   ["new_order_alert_enabled",true,"boolean","WhatsApp every admin when a new order is placed on the website: order details + bill PDF link. Admins = admin order numbers, admin users with a mobile, and the extra alert numbers."],
   ["new_order_alert_mobiles","","string","Extra mobile numbers (comma separated) that also get the new-order WhatsApp."],
-  ["doer_existing_customer","Ramesh","string","Orders sheet \"doer\" for orders of existing customers (mobile in the Existing_Customers list)."],
+  ["doer_existing_customer","Mayank","string","Orders sheet \"doer\" for orders of existing customers (mobile in the Existing_Customers list)."],
   ["doer_inbound_customer","Mayank","string","Orders sheet \"doer\" for orders of inbound (new) customers."],
   ["existing_customer_otp_enabled",true,"boolean","Verify existing customers with a WhatsApp OTP (recommended). If off, the mobile number alone is enough."],
   ["pcs_for_existing_customers_only",true,"boolean","TRUE = new customers buy full boxes; loose pieces only where the product allows it (Products > pieces for new customers). FALSE = loose pieces for everyone on every product. Existing customers always choose box or pieces."],
@@ -183,7 +183,8 @@ var NUTEX_MIGRATIONS = [
   [34,"Orders: bill links on b2b.nutex.in"],
   [35,"Orders from abroad: country of the address"],
   [36,"Order_Items_Summary: Existing / Calling Customer, doer"],
-  [37,"Order_Items_Summary: first order of a new customer = Calling Customer"]
+  [37,"Order_Items_Summary: first order of a new customer = Calling Customer"],
+  [38,"Doer: every order to Mayank"]
 ];
 
 var NUTEX_MASTER_DATA = {
