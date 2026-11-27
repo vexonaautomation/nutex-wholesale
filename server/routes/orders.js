@@ -8,7 +8,7 @@ import {
 import {
   quoteSchema, draftOrderSchema, trackOrderSchema, activeOrdersSchema, updateOrderSchema, recalculateSchema,
   orderStatusSchema, reopenSchema, cancelSchema, customerCancelSchema, packingDeductionSchema, adminOrderItemsSchema,
-  packerSchema, assignPackerSchema, adminOrderCustomerSchema, salesReturnSchema, cancelSalesReturnSchema,
+  packerSchema, assignPackerSchema, adminOrderCustomerSchema, salesReturnSchema, cancelSalesReturnSchema, partyReturnSchema,
 } from '../utils/validation.js';
 import { requireRole } from '../middleware/adminAuth.js';
 
@@ -53,5 +53,8 @@ const returnsTeam = requireRole('OWNER', 'ADMIN', 'SUB_ADMIN');
 adminRouter.get('/orders/:id/returns', returnsTeam, c.adminOrderReturns);
 adminRouter.post('/orders/:id/returns', returnsTeam, validate(salesReturnSchema), c.adminCreateReturn);
 adminRouter.get('/sales-returns', returnsTeam, c.adminSalesReturns);
+adminRouter.post('/sales-returns', returnsTeam, validate(partyReturnSchema), c.adminCreatePartyReturn);
+adminRouter.get('/sales-returns/parties', returnsTeam, c.adminReturnParties);
+adminRouter.get('/sales-returns/party-items', returnsTeam, c.adminPartyReturnItems);
 adminRouter.get('/sales-returns/:id/pdf', returnsTeam, c.adminCreditNote);
 adminRouter.post('/sales-returns/:id/cancel', returnsTeam, validate(cancelSalesReturnSchema), c.adminCancelReturn);

@@ -179,6 +179,21 @@ export const salesReturnSchema = z.object({
   })).min(1).max(600),
 });
 
+// item-wise credit note for a party: an item supplied to them (order_item_id),
+// or - owner / main admin only - an item "Not given" to them (variant_id + rate)
+export const partyReturnSchema = z.object({
+  mobile: z.string().trim().min(7).max(24),
+  reason: text(300, 3),
+  items: z.array(z.object({
+    order_item_id: z.string().trim().max(64).optional().default(''),
+    variant_id: z.string().trim().max(64).optional().default(''),
+    qty: z.coerce.number().int().min(1).max(100000),
+    condition: z.enum(['GOOD', 'DAMAGED']),
+    // per unit (box or piece) for a "Not given" item; blank = today's rate
+    unit_rate: nullableNumber(z.coerce.number().min(0).max(10000000)).optional(),
+  }).refine((l) => l.order_item_id || l.variant_id, { message: 'Choose an item' })).min(1).max(600),
+});
+
 export const cancelSalesReturnSchema = z.object({ reason: text(300, 3) });
 
 export const recalculateSchema = z.object({
