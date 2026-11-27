@@ -23,6 +23,21 @@ export function isExistingOrder(order, existingRows) {
   return (existingRows || []).some((r) => isActive(r) && numbersOf(r).some((m) => mine.includes(m)));
 }
 
+// Was the customer in the Existing_Customers list WHEN the order was placed?
+// A customer added later (e.g. after their first paid order) stays a
+// calling / inbound customer on the orders before. A row without a readable
+// added_at counts as in the list from the start.
+export function existingAtOrder(order, existingRows) {
+  if (order.customer_type_snapshot === CUSTOMER_TYPE.EXISTING) return true;
+  const mine = [order.mobile_snapshot, order.alternate_mobile_snapshot].map(normalizeMobile).filter(Boolean);
+  const placed = Date.parse(order.created_at);
+  return (existingRows || []).some((r) => {
+    if (!isActive(r) || !numbersOf(r).some((m) => mine.includes(m))) return false;
+    const added = Date.parse(r.added_at);
+    return !Number.isFinite(added) || !Number.isFinite(placed) || added <= placed;
+  });
+}
+
 export function siteBaseUrl(baseUrl) {
   return String(baseUrl || config.frontendUrl || config.keepAlive.url || '').replace(/\/+$/, '');
 }
