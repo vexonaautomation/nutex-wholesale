@@ -10,7 +10,7 @@
 //    bump SCHEMA_VERSION and add an entry to server/migrations/index.js.
 // =====================================================================
 
-export const SCHEMA_VERSION = 38;
+export const SCHEMA_VERSION = 39;
 
 const n = 'number';
 const b = 'boolean';
@@ -284,9 +284,14 @@ export const SCHEMA = {
     columns: [
       'return_item_id', 'return_id', 'return_number', 'order_item_id', 'order_id', 'bill_no', 'sku', 'product_name',
       'size', 'item_colour', 'sold_in', 'qty', 'qty_pcs', 'rate_per_pc', 'amount', 'condition', 'status', 'created_at',
+      // v39: item-wise credit notes (Admin > Sales Returns > Create CN). What the
+      // returned unit is (stock goes back by it, the credit note prints it), and
+      // not_given = TRUE when the item was never supplied to the party (owner /
+      // main admin overwrote "Not given"); then order_item_id / bill_no are blank.
+      'variant_id', 'product_id', 'stock_components', 'inventory_mode', 'units_per_box', 'mrp_unit', 'discount_percent', 'not_given',
     ],
     types: {
-      qty: n, qty_pcs: n, rate_per_pc: n, amount: n,
+      qty: n, qty_pcs: n, rate_per_pc: n, amount: n, units_per_box: n, mrp_unit: n, discount_percent: n, not_given: b,
     },
   },
   // v20: people who pack orders; the packing slip (no amounts) goes to their WhatsApp

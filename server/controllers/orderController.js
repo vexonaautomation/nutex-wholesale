@@ -14,6 +14,7 @@ import {
 } from '../services/packingService.js';
 import {
   orderReturns, createSalesReturn, listSalesReturns, cancelSalesReturn, creditNote,
+  returnParties, partyReturnItems, createPartyReturn,
 } from '../services/salesReturnService.js';
 import { config } from '../config/env.js';
 import { ctx, noStore } from './helpers.js';
@@ -147,6 +148,10 @@ export const adminUpdateCustomer = async (req, res) => res.json(await updateOrde
 export const adminOrderReturns = async (req, res) => res.json(await orderReturns(req.params.id));
 export const adminCreateReturn = async (req, res) => res.status(201).json(await createSalesReturn(req.params.id, req.body, ctx(req)));
 export const adminSalesReturns = async (req, res) => res.json(await listSalesReturns(req.query));
+// item-wise credit note: party -> item search -> return
+export const adminReturnParties = async (req, res) => res.json(await returnParties({ q: req.query.q }));
+export const adminPartyReturnItems = async (req, res) => res.json(await partyReturnItems({ mobile: req.query.mobile, q: req.query.q }));
+export const adminCreatePartyReturn = async (req, res) => res.status(201).json(await createPartyReturn(req.body, ctx(req)));
 export const adminCancelReturn = async (req, res) => res.json(await cancelSalesReturn(req.params.id, req.body, ctx(req)));
 export async function adminCreditNote(req, res) {
   sendPdf(res, await creditNote(req.params.id));

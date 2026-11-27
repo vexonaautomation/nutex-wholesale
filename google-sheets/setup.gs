@@ -2,7 +2,7 @@
  * =====================================================================
  *  NUTEX WHOLESALE - Google Sheets database setup (Google Apps Script)
  * =====================================================================
- *  GENERATED from server/config/schema.js (schema v38).
+ *  GENERATED from server/config/schema.js (schema v39).
  *  Do not edit by hand - run "npm run gs:generate" after schema changes.
  *
  *  HOW TO USE
@@ -27,7 +27,7 @@
  * =====================================================================
  */
 
-var NUTEX_SCHEMA_VERSION = 38;
+var NUTEX_SCHEMA_VERSION = 39;
 var NUTEX_SPREADSHEET_NAME = 'NUTEX WHOLESALE DATABASE';
 
 /** Sheet name -> header row (column A is always the record's stable ID). */
@@ -51,7 +51,7 @@ var NUTEX_SCHEMA = {
   "Payments": ["payment_id","order_id","order_number","amount","expected_amount","payment_method","utr","proof_file_id","proof_url","status","idempotency_key","customer_note","submitted_at","verified_at","verified_by","remarks"],
   "Order_Status_History": ["history_id","order_id","order_number","from_status","to_status","actor_type","actor_id","note","created_at"],
   "Sales_Returns": ["return_id","return_number","order_id","order_number","party_name","customer_name","mobile","city","reason","total_pcs","good_pcs","damaged_pcs","subtotal","packing_less","credit_amount","status","made_by_id","made_by_name","created_at","cancelled_at","cancelled_by","cancel_reason"],
-  "Sales_Return_Items": ["return_item_id","return_id","return_number","order_item_id","order_id","bill_no","sku","product_name","size","item_colour","sold_in","qty","qty_pcs","rate_per_pc","amount","condition","status","created_at"],
+  "Sales_Return_Items": ["return_item_id","return_id","return_number","order_item_id","order_id","bill_no","sku","product_name","size","item_colour","sold_in","qty","qty_pcs","rate_per_pc","amount","condition","status","created_at","variant_id","product_id","stock_components","inventory_mode","units_per_box","mrp_unit","discount_percent","not_given"],
   "Packers": ["packer_id","name","mobile","status","notes","created_at","updated_at"],
   "Admin_Users": ["admin_id","email","name","password_hash","role","status","session_version","last_login_at","created_at","updated_at","mobile","permissions"],
   "Audit_Log": ["audit_id","timestamp","admin_id","actor_type","action","entity_type","entity_id","old_value","new_value","reason","notes","ip"],
@@ -184,7 +184,8 @@ var NUTEX_MIGRATIONS = [
   [35,"Orders from abroad: country of the address"],
   [36,"Order_Items_Summary: Existing / Calling Customer, doer"],
   [37,"Order_Items_Summary: first order of a new customer = Calling Customer"],
-  [38,"Doer: every order to Mayank"]
+  [38,"Doer: every order to Mayank"],
+  [39,"Item-wise credit notes: party, item search, Not given overwrite"]
 ];
 
 var NUTEX_MASTER_DATA = {

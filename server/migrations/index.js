@@ -515,6 +515,12 @@ export const MIGRATIONS = [
       logger.info(`Migration v38: doer Ramesh -> Mayank on ${ops.length} row(s); Settings doer for existing customers = Mayank`);
     },
   },
+  {
+    // Additive only: Sales_Return_Items.variant_id ... not_given (item-wise
+    // credit notes; blank on older rows, which keep their order item).
+    version: 39,
+    description: 'Item-wise credit notes: party, item search, Not given overwrite',
+  },
 ];
 
 // Order_Items_Summary customer_type (as at the time of the order) and doer (as in Orders)
