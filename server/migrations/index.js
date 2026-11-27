@@ -521,7 +521,72 @@ export const MIGRATIONS = [
     version: 39,
     description: 'Item-wise credit notes: party, item search, Not given overwrite',
   },
+  {
+    // The owner's catalogue of 10-11-2026 prints the new MRPs on the photos
+    // (Rupali 109, Sunita 109, Madhu 124, KC Bra 99 - the MRPs on the site
+    // are already these), and Ford Panty had no photo. Each gets the photo
+    // from catalog-import/images/products; the old main photo is switched off
+    // (its row stays in Product_Images).
+    version: 40,
+    description: 'New photos: Rupali, Sunita, Madhu, KC Bra (new MRP), Ford Panty',
+    up: (ctx) => replaceProductPhotos(ctx, 40, PHOTOS_2026_11_27),
+  },
 ];
+
+export const PHOTOS_2026_11_27 = Object.freeze({
+  5144: 'products/p081.jpg',
+  8004: 'products/p083.jpg',
+  8006: 'products/p086.jpg',
+  '5130-KC-BRA': 'products/p087.jpg',
+  FORD1: 'products/ford-panty-8026.jpg',
+});
+
+// A product's main photo becomes the given catalogue image (by SKU). A photo
+// that cannot be uploaded is logged and left as it was; the rest go on.
+async function replaceProductPhotos({ sheets, logger }, version, photos) {
+  const { driveService } = await import('../services/driveService.js');
+  const { readCatalogImage } = await import('../services/catalogImportService.js');
+  const { DRIVE_FOLDERS, IMAGE_TYPE, RECORD_STATUS } = await import('../config/constants.js');
+  const { newId, ID_PREFIX } = await import('../utils/idGenerator.js');
+  if (!driveService.enabled) {
+    logger.warn(`Migration v${version}: Google Drive is not configured - product photos not changed`);
+    return;
+  }
+  const data = await sheets.readMany(['Products', 'Product_Images'], { fresh: true });
+  const now = new Date().toISOString();
+  const done = [];
+  for (const [sku, rel] of Object.entries(photos)) {
+    const product = data.Products.find((p) => String(p.sku || '').trim().toUpperCase() === String(sku).toUpperCase());
+    if (!product) {
+      logger.warn(`Migration v${version}: article ${sku} not found - photo skipped`);
+      continue;
+    }
+    try {
+      const img = await readCatalogImage(rel);
+      const { file_id: fileId } = await driveService.upload({
+        buffer: img.buffer, mimeType: img.mimeType, filename: `catalog-${sku}-2026-11-27${rel.slice(rel.lastIndexOf('.'))}`, folder: DRIVE_FOLDERS.PRODUCTS,
+      });
+      const old = data.Product_Images.filter((i) => i.product_id === product.product_id
+        && i.image_type === IMAGE_TYPE.MAIN && i.status !== RECORD_STATUS.INACTIVE);
+      await sheets.commit([
+        ...old.map((i) => ({ op: 'update', sheet: 'Product_Images', id: i.image_id, patch: { status: RECORD_STATUS.INACTIVE, updated_at: now } })),
+        {
+          op: 'append',
+          sheet: 'Product_Images',
+          rows: [{
+            image_id: newId(ID_PREFIX.image), product_id: product.product_id, drive_file_id: fileId,
+            file_url: `https://drive.google.com/file/d/${fileId}/view`, image_type: IMAGE_TYPE.MAIN,
+            alt_text: product.product_name, sort_order: 1, status: RECORD_STATUS.ACTIVE, created_at: now, updated_at: now,
+          }],
+        },
+      ]);
+      done.push(sku);
+    } catch (err) {
+      logger.error(`Migration v${version}: photo of ${sku} not changed (${err.message})`);
+    }
+  }
+  logger.info(`Migration v${version}: new photo for ${done.join(', ') || 'no article'}`);
+}
 
 // Order_Items_Summary customer_type (as at the time of the order) and doer (as in Orders)
 async function fillSummaryCustomerType({ sheets, logger }, version) {
